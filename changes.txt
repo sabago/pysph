@@ -1,0 +1,155 @@
+List of changes made
+
+11/04/2009 (01:20:53 PM)
+    - major modification to particle array classes. 
+	Constructor changed to take
+      	a more elaborate specification of partile properties. 
+	extend function added.
+      	add_property function added.
+      	the property_arrays attribute removed.
+	
+	Above changes needed for implementing aspects of the integrator class.
+
+
+Thu Nov  5 09:49:06 IST 2009
+    - tests for odestepper done, seems to be working fine.
+
+
+Fri Nov  6 09:32:48 IST 2009
+    - stepper specification in Integrator changed and documented.
+    - add_property function changed to include stepper for each property.
+    - tests for almost all functions in Integrator written.
+
+Saturday 07 November 2009 (01:57:14 PM)
+    - made the property specification in the particle_array and solver_component
+      modules consistent.
+    - module for dummy components added.
+    - array_copier module added.
+    - add_integration_property to EntityBase
+    - clean mechanism to update property requirements of components.
+    - Integrator, can now also be created without the default velocity and position
+      properites.
+    - Facility to add entity types to specific properties in the integrator.
+    - Integrator.setup_component written - yet to be tested.
+    - identifier and category added as class attributes to components.
+    - Function to setup a given entity with required properties by the component
+      manager.
+
+Sunday 08 November 2009 (04:58:54 AM)
+    - Integrator base class complete with tests.
+    - more tests added for component manager.
+    - tests for functions in Integrator.
+    - partile property access mode changed/corrected in component manager. Two
+      components of the same type can now be added to the component manager. But
+      two different components having conflicting requirements cannot be added.
+    - SPH function for simple density computation added.
+
+Mon Nov  9 18:57:21 IST 2009
+    - function to align LocalReal particles to the begining of the a particle
+      array added.
+
+Tue Nov 10 15:39:51 IST 2009
+    - tests updated to reflect above change in particle alignment.
+    - get functions modified to get both real and all particles.
+    - by default only real particles returned, when properties are accessed 
+      as attributes.
+    - setting of given carray with smaller sized numpy array made possible to
+      incorporate setting values for only real particles.
+    
+Thursday 12 November 2009 (10:01:26 PM)
+    - renamed/refactored add_component function from integrated to
+      add_pre_step_components, add_post_step_component,
+      add_pre_integration_component, add_post_integration_component. Now 
+      functions names are a bit more clear.
+    - convenience function "integrate" added to integraor class.
+    - accessor/modifier functions to set various meta-information for
+      components.
+    - convenience inline function to generate Point class from given arrays.
+    - density component class added - not complete
+    
+11/13/2009 (09:53:46 AM)
+    - default behaviour of add_entity in solver component changed. It now adds
+      all unfiltered entities to the solver component.
+    - AttrDict added to facilitate property access from entity.
+    - some modifications to density components - still not complete.
+    - TaitPressureComponent written.
+    - is_type_included function to EntityBase added.
+    - separate module to hold speed of sound.
+
+Sat Nov 14 03:18:53 IST 2009
+    - SolverBase class created.
+    - More and meaningful parameters added the the SolverComponent constructor.
+    - SPHComponent class added - abstracts a lot of operations for any SPH
+      component.
+    - Basic SPH functions added.
+    - SPH functions for pressure gradient computations added.
+    - Tests for added source yet to be written.
+
+Sat Nov 14 15:47:37 IST 2009
+    - one example problem added.
+    - changes to solver api done - add_entity, create_entity, add_particles etc. 
+
+Mon Nov 16 01:57:01 IST 2009
+    - few classes to represent solids added - geometry, solid
+    - plane class added from old code.
+    - separate file for fluid.
+    - constructor changes to EntityBase, Fluid and Solid.
+    - XSPH integrator components, integrator, stepper added.
+    - Runge Kutta integrator added.
+
+Tue Nov 17 00:11:46 IST 2009
+    - add_arrays_to_bin function for CellManager 
+    - initialized status for CellManager
+    - add_arrays_to_cell_manager in Entities.
+    - Various solver abstractions in SolverBase
+    - FSFSolver updated to reflect changes in SolverBase.
+    - at_tail parameter added to pre/post_step_components.
+    - RK2TimeStepSetter.
+    - Integrator classes and steppers for XSPHRK2 integration.
+
+Tuesday 17 November 2009 (07:02:42 PM)
+    - bug in extend function of particle_Array fixed - align_array not called.
+    - adder_component - to add fixed values to arrays of entities.
+    - array_initializer - to set values to arrays of entities.
+    - PYSPHComponent - to implement SPH components from python.
+    - density and gravity component related changes to fsf_solver.
+    - initialization of integrands in the integrator.
+    - change in order of operations in the _setup_solver function.
+    - utils module.
+
+Friday 20 November 2009 (11:45:59 PM)
+    - brute force nnps added.
+    - group property aded to particle arrays
+    - append_parray function to particle array to add particles from other
+      ParticleArrays. 	   
+    - particle generators added. (line and rectangles).
+    - add_particles added to EntityBase.
+    - file_writer_component base class added.
+    - vtk_writer added
+    - compute speed of sound in fsf solver.
+    - iteration_skip_component to execute components after specific iterations.
+
+Saturday 21 November 2009 (11:11:54 AM)
+    - sph_calc bug discovered and rectified (outputs were being added to arrays
+    rather than just being set)
+    - bug in array copier and test of array copier found and rectified.
+Tue Nov 24 15:54:56 IST 2009
+    - nnps enable_caching function in Cached particle locator changed.
+    - particle arrays are set to dirty if coordinates are set().
+    - bug in rectangle generator in basic generators removed.
+    - boundary force component added.
+    - add_*_property_requirement added to SolverComponent - a neat interface
+      to add different kinds of property requirements to a solver component.
+    - SPH density rate component added.
+    - Some restructuring of the fsf_solver and the solver_base.Solver
+    - Component name check function to check names of componet before adding
+      them to the component manager.
+    - nnps_updater component to update NNPS information every time step.
+    - time step updation components added.
+    - viscoity components. 
+
+Wed Nov 25 00:40:28 IST 2009
+    - changes to carray numpy handling - was passing incorrect type to 
+      PyArray_SimpleNewFromData.
+    - get_nearest_particles call from time_step_component corrected.
+    - zero checks in 2d kernel at correct points. 
