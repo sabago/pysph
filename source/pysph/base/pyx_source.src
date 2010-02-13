@@ -1,0 +1,335 @@
+################################################################################
+# `CLASSNAME` class.
+################################################################################
+cdef class CLASSNAME(BaseArray):
+    #cdef public int length, alloc
+    #cdef ARRAY_TYPE *data
+    #cdef np.ndarray _npy_array
+
+    def __cinit__(self, int n=0, *args, **kwargs):
+        """
+        Constructor.
+        """
+        self.length = n
+        if n == 0:
+            n = 16
+        self.alloc = n
+        self.data = <ARRAY_TYPE*>malloc(n*sizeof(ARRAY_TYPE))
+        
+        self._setup_npy_array()
+	 
+    def __dealloc__(self):
+        """
+        Frees the array.
+        """
+        free(<void*>self.data)
+    
+    def __getitem__(self, int idx):
+        """
+        Get item at position idx.
+        """
+        return self.data[idx]
+
+    def __setitem__(self, int idx, ARRAY_TYPE value):
+        """
+        Set location idx to value.
+        """
+        self.data[idx] = value
+
+    def __reduce__(self):
+        """
+        Implemented to facilitate pickling.
+        """
+        d = {}
+        d['data'] = self.get_npy_array()
+	
+        return (CLASSNAME, (), d)
+
+    def __setstate__(self, d):
+        """
+        Load the carray from the dictionary d.
+        """
+        cdef np.ndarray arr = d['data']
+        self.resize(arr.size)
+        self.set_data(arr)
+
+    cdef _setup_npy_array(self):
+        """
+        Create the numpy array.
+        """
+        cdef int nd = 1
+        cdef np.npy_intp dims = self.length
+
+        self._npy_array = PyArray_SimpleNewFromData(nd, &dims, NUMPY_TYPENAME, self.data)
+
+    cpdef str get_c_type(self):
+        """
+        Return the c data type for this array.
+        """
+        return 'ARRAY_TYPE'
+
+    cdef ARRAY_TYPE* get_data_ptr(self):
+        """
+        Return the internal data pointer.
+        """
+        return self.data
+            
+    cpdef ARRAY_TYPE get(self, int idx):
+        """
+        Gets value stored at position idx.
+        """
+        return self.data[idx]
+
+    cpdef set(self, int idx, ARRAY_TYPE value):
+        """
+        Sets location idx to value.
+        """
+        self.data[idx] = value
+    
+    cpdef append(self, ARRAY_TYPE value):
+        """
+        Appends value to the end of the array.
+        """
+        cdef int l = self.length
+        cdef PyArrayObject* arr = <PyArrayObject*>self._npy_array
+
+        if l >= self.alloc:
+            self.reserve(l*2)
+        self.data[l] = value
+        self.length += 1
+
+        # update the numpy arrays length
+        arr.dimensions[0] = self.length
+
+    cpdef reserve(self, int size):
+        """
+        Resizes the internal data to size*sizeof(ARRAY_TYPE) bytes.
+        """
+        cdef PyArrayObject* arr = <PyArrayObject*>self._npy_array
+        cdef void* data = NULL
+        if size > self.alloc:
+            data = <ARRAY_TYPE*>realloc(self.data, size*sizeof(ARRAY_TYPE))
+
+            if data == NULL:
+                free(<void*>self.data)
+                raise MemoryError
+
+            self.data = <ARRAY_TYPE*>data
+            self.alloc = size
+            arr.data = <char *>self.data
+            
+    cpdef resize(self, int size):
+        """
+ 	Resizes internal data to size*sizeof(ARRAY_TYPE) bytes and sets the
+        length to the new size.
+        
+        """
+        cdef PyArrayObject* arr = <PyArrayObject*>self._npy_array
+
+        # reserve memory
+        self.reserve(size)
+
+        # update the lengths
+        self.length = size
+        arr.dimensions[0] = self.length
+
+    cpdef squeeze(self):
+        """
+        Release any unused memory.
+        """
+        cdef PyArrayObject* arr = <PyArrayObject*>self._npy_array
+        cdef void* data = NULL
+        data = <ARRAY_TYPE*>realloc(self.data, self.length*sizeof(ARRAY_TYPE))
+        
+        if data == NULL:
+            # free original data
+            free(<void*>self.data)
+            raise MemoryError
+        
+        self.data = <ARRAY_TYPE*>data
+        self.alloc = self.length
+        arr.data = <char *>self.data
+        
+    cpdef remove(self, np.ndarray index_list, int input_sorted=0):
+        """
+        Remove the particles with indices in index_list.
+
+        **Parameters**
+
+         - index_list - a list of indices which should be removed.
+         - input_sorted - indicates if the input is sorted in ascending order.
+           if not, the array will be sorted internally.
+
+        **Algorithm**
+         
+         If the input indices are not sorted, sort them in ascending order. 
+         Starting with the last element in the index list, start replacing the 
+         element at the said index with the last element in the data and update 
+         the length of the array.
+
+        """
+        cdef int i
+        cdef int inlength = index_list.size
+        cdef np.ndarray sorted_indices
+        cdef long id
+        cdef PyArrayObject* arr = <PyArrayObject*>self._npy_array
+        
+        if inlength > self.length:
+            return
+
+        if input_sorted != 1:
+            sorted_indices = np.sort(index_list)
+        else:
+            sorted_indices = index_list
+        
+        for i in range(inlength):
+            id = sorted_indices[inlength-(i+1)]
+            if id < self.length:
+                self.data[id] = self.data[self.length-1]
+                self.length = self.length - 1
+                arr.dimensions[0] = self.length
+
+    cpdef extend(self, np.ndarray in_array):
+        """
+        Extend the array with data from in_array.
+        
+        **Parameters**
+         
+         - in_array - a numpy array with data to be added to the current array.
+
+        **Issues**
+         
+         - accessing the in_array using the indexing operation seems to be 
+           costly. Look at the annotated cython html file.
+
+        """
+        cdef int len = in_array.size
+        cdef int i
+        for i in range(len):
+            self.append(in_array[i])
+    
+    cdef void _align_array(self, LongArray new_indices):
+        """
+	Rearrange the contents of the array according to the new indices.
+	"""
+        if new_indices.length != self.length:
+            raise ValueError, 'Unequal array lengths'
+	
+        cdef int i
+        cdef int length = self.length
+        cdef int n_bytes
+        cdef ARRAY_TYPE *temp
+        
+        n_bytes = sizeof(ARRAY_TYPE)*length
+        temp = <ARRAY_TYPE*>malloc(n_bytes)
+
+        memcpy(<void*>temp, <void*>self.data, n_bytes)
+
+        # copy the data from the resized portion to the actual positions.
+        for i from 0 <= i < length:
+            if i != new_indices.data[i]:
+                self.data[i] = temp[new_indices.data[i]]
+        
+        free(<void*>temp)
+
+    cpdef copy_values(self, LongArray indices, BaseArray dest):
+        """
+	Copies values of indices in indices from self to dest.
+
+	No size check if performed, we assume the dest to of proper size
+        i.e. atleast as long as indices.
+        """
+        cdef CLASSNAME dest_array = <CLASSNAME>dest
+        cdef int i, num_values
+        num_values = indices.length
+        
+        for i from 0 <= i < num_values:
+            dest_array.data[i] = self.data[indices.data[i]]
+
+    cpdef copy_subset(self, BaseArray source, long start_index=-1,
+                      long end_index=-1):
+        """
+        Copy a subset of values from src to self.
+
+        **Parameters**
+        
+            - start_index - the first index in dest that corresponds to the 0th
+            index in source.
+            - end_index   - the last index in dest that corresponds to the last
+            index in source.
+
+        """
+        cdef int si, ei, s_length, d_length, i, j
+        cdef CLASSNAME src = <CLASSNAME>source
+        s_length = src.length
+        d_length = self.length
+
+        if end_index < 0:
+            if start_index < 0:
+                if s_length != d_length:
+                    msg = 'Source length should be same as dest length'
+                    logger.error(msg)
+                    raise ValueError, msg
+                si = 0
+                ei = self.length - 1
+            else:
+                # meaning we copy from the specified start index to the end of
+                # self. make sure the sizes are consistent.
+                si = start_index
+                ei = d_length-1
+
+                if start_index > (d_length-1):
+                    msg = 'start_index beyond array length'
+                    logger.error(msg)
+                    raise ValueError, msg
+
+                if (ei - si + 1) > s_length:
+                    msg = 'Not enough values in source'
+                    logger.error(msg)
+                    raise ValueError, msg
+        else:
+            if start_index < 0:
+                msg = 'start_index : %d, end_index : %d'%(start_index,
+                                                          end_index)
+                logger.error(msg)
+                raise ValueError, msg
+            else:
+                if (start_index > (d_length-1) or end_index > (d_length-1) or
+                    start_index > end_index):
+                    msg = 'start_index : %d, end_index : %d'%(start_index,
+                                                              end_index)
+                    logger.error(msg)
+                    raise ValueError, msg
+
+                si = start_index
+                ei = end_index
+
+        # we have valid start and end indices now. can start copying now.
+        j = 0
+        for i from si <= i <= ei:
+            self.data[i] = src.data[j]
+            j += 1
+
+    cpdef update_min_max(self):
+        """
+        Updates the min and max values of the array.
+        """
+        cdef int i = 0
+        cdef ARRAY_TYPE min_val, max_val
+        
+        if self.length == 0:
+            self.minimum = <ARRAY_TYPE>-1e20
+            self.maximum = <ARRAY_TYPE>1e20
+            return
+
+        min_val = self.data[0]
+        max_val = self.data[0]
+
+        for i from 0 <= i < self.length:
+            if min_val > self.data[i]:
+                min_val = self.data[i]
+            if max_val < self.data[i]:
+                max_val = self.data[i]
+        
+        self.minimum = min_val
+        self.maximum = max_val		   

@@ -1,0 +1,10 @@
+syntax: glob
+*.c
+*.pyc
+*.so
+*.o
+docs/build/
+source/build/
+pysph.egg-info/
+dist/
+build/
