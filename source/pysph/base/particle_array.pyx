@@ -176,6 +176,7 @@ cdef class ParticleArray:
         props = d['properties']
         for prop in props:
             self.add_property(props[prop])
+        self.num_real_particles = numpy.sum(props['tag']['data']==LocalReal)
         
     ######################################################################
     # `Public` interface
