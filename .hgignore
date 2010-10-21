@@ -1,0 +1,16 @@
+syntax: glob
+*.c
+*.pyc
+*.so
+*.o
+*~
+*.rej
+*.orig
+docs/build/
+source/build/
+source/PySPH.egg-info/
+dist/
+build/
+
+syntax: regexp
+^source/.*\.html$
