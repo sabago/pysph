@@ -41,12 +41,11 @@ import logging
 logger=logging.getLogger()
 
 # local imports
-from pysph.base.particle_array cimport ParticleArray
+from pysph.base.particle_array cimport ParticleArray, LocalReal
 from pysph.base.point cimport Point
 from pysph.base.carray cimport DoubleArray, LongArray
 from pysph.base.nnps cimport NNPSManager, FixedDestNbrParticleLocator
 from pysph.base.nnps cimport NbrParticleLocatorBase
-from pysph.base.particle_tags cimport *
 
 from pysph.sph.sph_func cimport SPHFunctionParticle
 
