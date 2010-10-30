@@ -12,7 +12,7 @@ from pysph.sph.misc_particle_funcs import *
 from pysph.sph.tests.common_data import *
 from pysph.base.kernels import KernelBase
 from pysph.base.carray import DoubleArray
-from pysph.base.particle_tags import *
+from pysph.base.particle_array import get_dummy_tag
 
 
 def check_array(x, y):
