@@ -8,11 +8,10 @@ logger = logging.getLogger()
 
 # local imports
 from pysph.base.carray cimport DoubleArray, LongArray
-from pysph.base.particle_array cimport ParticleArray
+from pysph.base.particle_array cimport ParticleArray, LocalReal
 from pysph.base.nnps cimport NNPSManager, \
     FixedDestNbrParticleLocator
 from pysph.base.point cimport Point
-from pysph.base.particle_tags cimport *
 
 from pysph.solver.entity_base cimport EntityBase
 from pysph.solver.speed_of_sound cimport SpeedOfSound
