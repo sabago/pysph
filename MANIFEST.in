@@ -1,0 +1,5 @@
+include MANIFEST.in *.py *.txt
+recursive-include examples *.py
+recursive-include docs *.* *
+include source/pysph/base/*.src
+recursive-include source *.pxd
