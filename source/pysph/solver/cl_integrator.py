@@ -29,6 +29,8 @@ class CLIntegrator(Integrator):
 
         self.cl_precision = self.particles.get_cl_precision()
 
+        self.step_props = ['_tmpx', '_tmpy', '_tmpz']
+
     def setup_cl(self, context):
         """ OpenCL setup """
 
@@ -139,15 +141,14 @@ class CLIntegrator(Integrator):
                 update_prop = updates[j]
                 step_prop = self.step_props[j]
 
-                #step_array = pa.get(step_prop)
                 step_prop_buffer = pa.get_cl_buffer(step_prop) 
 
                 if not calc.integrates:
 
                     update_prop_buffer = pa.get_cl_buffer(update_prop)
 
-                    cl.enqueue_copy_buffer(queue, src=step_prop_buffer,
-                                           dest=update_prop_buffer).wait()
+                    cl.enqueue_copy(queue, src=step_prop_buffer,
+                                    dest=update_prop_buffer)
                                        
                     # ensure that all processes have reached this point
 

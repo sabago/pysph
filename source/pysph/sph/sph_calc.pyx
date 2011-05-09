@@ -32,7 +32,7 @@ from pysph.solver.cl_utils import (HAS_CL, get_cl_include,
     get_pysph_root, cl_read)
 if HAS_CL:
     import pyopencl as cl
-    from pyopencl.array import vec
+    #from pyopencl.array import vec
 
 cdef int log_level = logger.level
 
