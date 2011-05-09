@@ -38,13 +38,9 @@ class NBodyForceTestCase(unittest.TestCase):
         y = numpy.array([0, 1, 1, 0], numpy.float64)
         z = numpy.zeros_like(x)
         m = numpy.ones_like(x)
-        tmpx = numpy.zeros_like(x)
-        tmpy = numpy.zeros_like(x)
-        tmpz = numpy.zeros_like(x)
 
         self.pa = pa = base.get_particle_array(name="test", x=x,  y=y, z=z,
-                                               m=m, tmpx=tmpx, tmpy=tmpy,
-                                               tmpz=tmpz,
+                                               m=m, 
                                                cl_precision=self.precision)
 
         self.func = func = sph.NBodyForce.get_func(pa, pa)
@@ -104,9 +100,9 @@ class NBodyForceTestCase(unittest.TestCase):
 
         k = base.CubicSplineKernel()
 
-        tmpx = pa.properties['tmpx']
-        tmpy = pa.properties['tmpy']
-        tmpz = pa.properties['tmpz']        
+        tmpx = pa.properties['_tmpx']
+        tmpy = pa.properties['_tmpy']
+        tmpz = pa.properties['_tmpz']        
 
         func.eval(k, tmpx, tmpy, tmpz)
 
@@ -134,9 +130,9 @@ class NBodyForceTestCase(unittest.TestCase):
             reference_solution = self.get_reference_solution()
 
             for i in range(self.np):
-                self.assertAlmostEqual(reference_solution[i].x, pa.tmpx[i], 6)
-                self.assertAlmostEqual(reference_solution[i].y, pa.tmpy[i], 6)
-                self.assertAlmostEqual(reference_solution[i].z, pa.tmpz[i], 6)
+                self.assertAlmostEqual(reference_solution[i].x, pa._tmpx[i], 6)
+                self.assertAlmostEqual(reference_solution[i].y, pa._tmpy[i], 6)
+                self.assertAlmostEqual(reference_solution[i].z, pa._tmpz[i], 6)
 
 if __name__ == '__main__':
     unittest.main()
