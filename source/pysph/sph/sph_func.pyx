@@ -207,31 +207,15 @@ cdef class SPHFunction:
 
         self.setup_iter_data()
         cdef size_t np = self.dest.get_number_of_particles()
-        
-        if self.num_outputs == 3:
-            for i in range(np):
-                if tag_arr.data[i] == LocalReal:
-                    self.eval_single(i, kernel, result)
-                    output1.data[i] += result[0]
-                    output2.data[i] += result[1]
-                    output3.data[i] += result[2]
-                else:
-                    output1.data[i] = output2.data[i] = output3.data[i] = 0
-        elif self.num_outputs == 2:
-            for i in range(np):
-                if tag_arr.data[i] == LocalReal:
-                    self.eval_single(i, kernel, result)
-                    output1.data[i] += result[0]
-                    output2.data[i] += result[1]
-                else:
-                    output1.data[i] = output2.data[i] = 0
-        elif self.num_outputs == 1:
-            for i in range(np):
-                if tag_arr.data[i] == LocalReal:
-                    self.eval_single(i, kernel, result)
-                    output1.data[i] += result[0]
-                else:
-                    output1.data[i] = 0
+
+        for i in range(np):
+            if tag_arr.data[i] == LocalReal:
+                self.eval_single(i, kernel, result)
+                output1.data[i] += result[0]
+                output2.data[i] += result[1]
+                output3.data[i] += result[2]
+            else:
+                output1.data[i] = output2.data[i] = output3.data[i] = 0
 
     cdef void eval_single(self, size_t dest_pid, KernelBase kernel,
                           double * result):
@@ -330,7 +314,7 @@ cdef class SPHFunction:
         kernel arguments at program creation time.
 
         """
-        pass
+        raise NotImplementedError("SPHFunction set_src_dst_reads called!")
 
 ################################################################################
 # `SPHFunctionParticle` class.
