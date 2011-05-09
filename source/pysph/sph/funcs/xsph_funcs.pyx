@@ -11,7 +11,7 @@ cdef class XSPHCorrection(CSPHFunctionParticle):
     #Defined in the .pxd file
 
     def __init__(self, ParticleArray source, ParticleArray dest, 
-                 bint setup_arrays=True, double eps = 0.5, int dim=3, **kwargs):
+                 bint setup_arrays=True, double eps = 0.5, **kwargs):
 
         CSPHFunctionParticle.__init__(self, source, dest, setup_arrays,
                                      **kwargs)
@@ -22,7 +22,6 @@ cdef class XSPHCorrection(CSPHFunctionParticle):
 
         self.cl_kernel_src_file = "xsph_funcs.cl"
         self.cl_kernel_function_name = "XSPHCorrection"
-        self.num_outputs = dim
 
     def set_src_dst_reads(self):
         self.src_reads = ['x','y','z','h','m','rho','u','v','w']
@@ -82,10 +81,8 @@ cdef class XSPHCorrection(CSPHFunctionParticle):
         temp = mb * w/rhoab
 
         nr[0] += temp*Vba.x*self.eps
-        if self.num_outputs > 1:
-            nr[1] += temp*Vba.y*self.eps
-            if self.num_outputs > 2:
-                nr[2] += temp*Vba.z*self.eps
+        nr[1] += temp*Vba.y*self.eps
+        nr[2] += temp*Vba.z*self.eps
         
 ##########################################################################
 
