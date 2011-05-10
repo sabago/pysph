@@ -45,13 +45,8 @@ class EOSFunctionsTestCase(unittest.TestCase):
         e = numpy.array([1, 2, 1, 2], numpy.float64)
         rho = numpy.array([2, 1, 2, 1], numpy.float64)
         
-        tmpx = numpy.zeros_like(x)
-        tmpy = numpy.zeros_like(x)
-        tmpz = numpy.zeros_like(x)
-
         self.pa = pa = base.get_particle_array(name="test", x=x,  y=y, z=z,
                                                m=m, e=e, rho=rho,
-                                               tmpx=tmpx, tmpy=tmpy, tmpz=tmpz,
                                                cl_precision=self.precision)
 
         ideal = sph.IdealGasEquation.withargs(gamma=1.4)
@@ -122,9 +117,9 @@ class IdealGasEquationTestCase(EOSFunctionsTestCase):
 
         k = base.CubicSplineKernel(dim=2)
 
-        tmpx = pa.properties['tmpx']
-        tmpy = pa.properties['tmpy']
-        tmpz = pa.properties['tmpz']        
+        tmpx = pa.properties['_tmpx']
+        tmpy = pa.properties['_tmpy']
+        tmpz = pa.properties['_tmpz']        
 
         func.eval(k, tmpx, tmpy, tmpz)
 
@@ -152,9 +147,9 @@ class IdealGasEquationTestCase(EOSFunctionsTestCase):
             reference_solution = self.get_reference_solution()
 
             for i in range(self.np):
-                self.assertAlmostEqual(reference_solution[i].x, pa.tmpx[i], 6)
-                self.assertAlmostEqual(reference_solution[i].y, pa.tmpy[i], 6)
-                self.assertAlmostEqual(reference_solution[i].z, pa.tmpz[i], 6)
+                self.assertAlmostEqual(reference_solution[i].x, pa._tmpx[i], 6)
+                self.assertAlmostEqual(reference_solution[i].y, pa._tmpy[i], 6)
+                self.assertAlmostEqual(reference_solution[i].z, pa._tmpz[i], 6)
 
 if __name__ == '__main__':
     unittest.main()

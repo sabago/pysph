@@ -43,17 +43,17 @@ def create_t_func(func_getter):
             da2.set_data(z)
             pa = get_particle_array(x=x, y=y, z=z, h=h, mu=mu, rho=rho, m=m, tmp=z,
                                     tx=z, ty=m, tz=z, nx=m, ny=z, nz=z, u=z, v=z, w=z,
-                                    ubar=z, vbar=z, wbar=z, q=m)
+                                    ubar=z, vbar=z, wbar=z, q=m, div=z, rhop=z)
             pb = get_particle_array(x=x+0.1**0.5, y=y, z=z, h=h, mu=mu, rho=rho, m=m, tmp=z,
                                     tx=m, ty=z, tz=z, nx=z, ny=m, nz=z, u=z, v=z, w=z,
-                                    ubar=z, vbar=z, wbar=z, q=m)
+                                    ubar=z, vbar=z, wbar=z, q=m, div=z, rhop=z)
             particles = Particles(arrays=[pa, pb])
             
             func = func_getter.get_func(pa, pb)
-            calc = SPHCalc(particles, [pa], pb, kernel, [func], ['tmp']*func.num_outputs)
+            calc = SPHCalc(particles, [pa], pb, kernel, [func], ['_tmpx'])
             print cls.__name__
             t = get_time()
-            calc.sph('tmp', 'tmp', 'tmp')
+            calc.sph()
             t = get_time() - t
             
             nam = '%s'%(cls.__name__)
