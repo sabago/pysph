@@ -119,6 +119,10 @@ cdef class XSPHDensityRate(SPHFunctionParticle):
         self.d_vbar = self.dest.get_carray('vbar')
         self.d_wbar = self.dest.get_carray('wbar')
 
+    def set_src_dst_reads(self):
+        self.src_reads = ['x','y','z','h','m','rho','u','v','w']
+        self.dst_reads = ['x','y','z','h','rho','u','v','w']        
+
     cdef void eval_nbr(self, size_t source_pid, size_t dest_pid,
                        KernelBase kernel, double *nr):
         """

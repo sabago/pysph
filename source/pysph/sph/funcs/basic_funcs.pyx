@@ -462,6 +462,9 @@ cdef class BonnetAndLokKernelGradientCorrectionTerms(CSPHFunctionParticle):
         CSPHFunctionParticle.__init__(self, source, dest, setup_arrays = True)
         self.id = 'kgc'
 
+    def set_src_dst_reads(self):
+        pass        
+
     cdef void eval_nbr_csph(self, size_t source_pid, size_t dest_pid, 
                             KernelBase kernel, double *nr, double *dnr):
         cdef cPoint grada, gradb, grad
@@ -535,6 +538,9 @@ cdef class FirstOrderCorrectionMatrix(CSPHFunctionParticle):
         CSPHFunctionParticle.__init__(self, source, dest, setup_arrays = True)
         self.id = 'liu-correction'
 
+    def set_src_dst_reads(self):
+        pass
+
     cdef void eval_nbr_csph(self, size_t source_pid, size_t dest_pid, 
                             KernelBase kernel, double *nr, double *dnr):
 
@@ -587,6 +593,9 @@ cdef class FirstOrderCorrectionTermAlpha(SPHFunctionParticle):
 
         SPHFunctionParticle.__init__(self, source, dest, setup_arrays = True)
         self.id = 'alpha-correction'
+
+    def set_src_dst_reads(self):
+        pass
 
     cpdef setup_arrays(self):
         """ Setup the arrays required to read data from source and dest. """
@@ -668,6 +677,8 @@ cdef class FirstOrderCorrectionMatrixGradient(CSPHFunctionParticle):
     S. Kulasegaram
 
     """
+    def set_src_dst_reads(self):
+        pass
 
     cdef void eval_nbr_csph(self, size_t source_pid, size_t dest_pid,
                             KernelBase kernel, double *nr, double *dnr):
@@ -721,6 +732,9 @@ cdef class FirstOrderCorrectionVectorGradient(CSPHFunctionParticle):
     S. Kulasegaram
 
     """
+
+    def set_src_dst_reads(self):
+        pass
 
     #Defined in the .pxd file
     cdef void eval_nbr_csph(self, size_t source_pid, size_t dest_pid,

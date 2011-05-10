@@ -25,7 +25,8 @@ class TestSPHFunctionParticle(unittest.TestCase):
         """
         parrs = generate_sample_dataset_1()
 
-        f = SPHFunctionParticle(parrs[0], parrs[0], setup_arrays=False)
+        f = SPHFunctionParticle(parrs[0], parrs[0], setup_arrays=False,
+                                setup_reads=False)
         
         self.assertEqual(f.dest, parrs[0])
         self.assertEqual(f.source, parrs[0])
@@ -62,7 +63,8 @@ class TestSPHFunctionParticle(unittest.TestCase):
 
 
         f = SPHFunctionParticle(parrs[0], parrs[0], h='h',
-                                m='m', rho='rho', u='velx')
+                                m='m', rho='rho', u='velx',
+                                setup_reads=False)
         f.u = 'velx'
         f.setup_arrays()
         self.assertEqual(f.dest, parrs[0])
