@@ -1124,14 +1124,34 @@ cdef class ParticleArray:
             self.properties.pop(prop_name)
             self.default_values.pop(prop_name)
 
-    def update_min_max(self):
+    def update_min_max(self, props=None):
         """ Update the min,max values of all properties """
-        for prop_array in self.properties.values():
-            prop_array.update_min_max()
+        if props:
+            for prop in props:
+                array = self.properties[prop]
+                array.update_min_max()
+        else:
+            for array in self.properties.values():
+                array.update_min_max()
 
     ######################################################################
     # OpenCL interface
     ######################################################################
+
+    def set_cl_precision(self, precision):
+        """ Set the OpenCL precision to use
+
+        Parameters:
+        -----------
+
+        precision : str
+                    The OpenCL precision to use {single, double}
+
+        """
+        if precision not in ['single', 'double']:
+            raise RuntimeWarning( "Precision %s not understood"%(precision) )
+
+        self.cl_precision = precision
 
     def setup_cl(self, object context, object queue):
         """ Setup OpenCL objects from the queue
@@ -1190,6 +1210,7 @@ cdef class ParticleArray:
                 devname = queue.device.name
                 msg = "Device %s does not support double precision"%(devname)
                 raise RuntimeError(msg)
+
         
         if not cl_utils.HAS_CL:
             raise RuntimeWarning("PyOpenCL not found!")

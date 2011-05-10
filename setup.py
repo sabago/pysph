@@ -74,6 +74,10 @@ base = [Extension("pysph.base.carray",
 
         Extension("pysph.base.geometry",
                   ["source/pysph/base/geometry.pyx"],),
+
+        Extension("pysph.base.linked_list_functions",
+                  ["source/pysph/base/linked_list_functions.pyx"],),
+        
 	] 
 
 sph = [
