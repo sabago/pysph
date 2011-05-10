@@ -66,7 +66,9 @@ def get_result(dir1, dir2, prefix, props=['x','y','z']):
         pa = f.split('_')[-2]
         pa1[pa] = {}
         d = numpy.load(os.path.join(dir1,f))
-        for prop,val in d.iteritems():
+        for prop in d.files:
+            val = d[prop]
+        
             if numpy.array(val).ndim == 0:
                 continue
             if prop in pa1[pa]:
@@ -81,7 +83,8 @@ def get_result(dir1, dir2, prefix, props=['x','y','z']):
         if pa not in pa2:
             pa2[pa] = {}
         d = numpy.load(os.path.join(dir2,f))
-        for prop,val in d.iteritems():
+        for prop in d.files:
+            val = d[prop]
             if numpy.array(val).ndim == 0:
                 continue
             if prop in pa2[pa]:

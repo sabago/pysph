@@ -21,3 +21,7 @@ from point import Point, IntPoint
 from particle_types import ParticleType
 
 from geometry import MeshPoint, Line, Geometry
+
+# LinkedListManager
+from linked_list import LinkedListManager
+from locator import LinkedListSPHNeighborLocator
