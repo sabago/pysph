@@ -32,7 +32,7 @@ from pysph.solver.cl_utils import (HAS_CL, get_cl_include,
     get_pysph_root, cl_read)
 if HAS_CL:
     import pyopencl as cl
-    from pyopencl.array import vec
+    #from pyopencl.array import vec
 
 cdef int log_level = logger.level
 
@@ -171,11 +171,7 @@ cdef class SPHCalc:
                 msg = 'SPHFunction.source not same as'
                 msg += ' SPHCalc.sources[%d]'%(i)
                 raise ValueError, msg
-            if funcs[i].num_outputs != len(self.updates):
-                raise ValueError, ('Number of updates not same as num_outputs; '
-                                   'required %d, got %d %s for func %s'%(
-                                       funcs[i].num_outputs, len(self.updates),
-                                       self.updates, funcs[i]))
+
             # not valid for SPHFunction
             #if funcs[i].dest != self.dest:
             #    msg = 'SPHFunction.dest not same as'
@@ -224,17 +220,15 @@ cdef class SPHCalc:
               str output_array3=None, bint exclude_self=False): 
         """
         """
+        if output_array1 is None: output_array1 = '_tmpx'
+        if output_array2 is None: output_array2 = '_tmpy'
+        if output_array3 is None: output_array3 = '_tmpz'
+
         cdef DoubleArray output1 = self.dest.get_carray(output_array1)
         cdef DoubleArray output2 = self.dest.get_carray(output_array2)
         cdef DoubleArray output3 = self.dest.get_carray(output_array3)
 
-        if output1 is not None:
-            self.reset_output_array(output1)
-        if output2 is not None:
-            self.reset_output_array(output2)
-        if output3 is not None:
-            self.reset_output_array(output3)
-
+        self.reset_output_arrays(output1, output2, output3)
         self.sph_array(output1, output2, output3, exclude_self)
 
         # call an update on the particles if the destination pa is dirty
@@ -269,11 +263,14 @@ cdef class SPHCalc:
 
             func.eval(self.kernel, output1, output2, output3)
 
-    cdef reset_output_array(self, DoubleArray output):
+    cdef reset_output_arrays(self, DoubleArray output1, DoubleArray output2,
+                             DoubleArray output3):
 
         cdef int i
-        for i in range(output.length):
-            output.data[i] = 0.0
+        for i in range(output1.length):
+            output1.data[i] = 0.0
+            output2.data[i] = 0.0
+            output3.data[i] = 0.0
 
 #############################################################################
 

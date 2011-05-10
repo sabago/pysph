@@ -1,6 +1,6 @@
 """ Tests for the OpenCL functions in cl_common """
 import pyopencl as cl
-from pyopencl.array import vec
+#from pyopencl.array import vec
 
 import numpy
 import pysph.solver.api as solver

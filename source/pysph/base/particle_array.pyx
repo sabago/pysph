@@ -43,8 +43,8 @@ from cython cimport *
 import pysph.solver.cl_utils as cl_utils
 if cl_utils.HAS_CL:
     import pyopencl as cl
-    import pyopencl.array as cl_array
-    from pyopencl.array import vec as cl_vec
+    #import pyopencl.array as cl_array
+    #from pyopencl.array import vec as cl_vec
     
 # Declares various tags for particles, and functions to check them.
 

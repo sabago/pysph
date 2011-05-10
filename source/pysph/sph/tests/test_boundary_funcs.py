@@ -76,7 +76,7 @@ class BoundaryForceTestCase(unittest.TestCase):
                 
                 sph.MonaghanBoundaryForce.withargs(delp=dp),
                 from_types = [Solid], on_types=[Fluid],
-                updates=['u','v','w'], id='boundary')
+                updates=['u','v'], id='boundary')
                                   
                                   )
                              

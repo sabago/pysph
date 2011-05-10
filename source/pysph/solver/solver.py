@@ -141,8 +141,8 @@ class Solver(object):
         id = 'step'
         
         self.add_operation(SPHIntegration(
-                sph.PositionStepping.withargs(dim=self.dim), on_types=types,
-                updates=updates, id=id, kernel=kernel)
+            sph.PositionStepping, on_types=types, updates=updates, id=id,
+            kernel=kernel)
                            )
 
     def add_operation_xsph(self, eps, hks=False):
@@ -176,7 +176,7 @@ class Solver(object):
                            
         self.add_operation(SPHIntegration(
 
-            sph.XSPHCorrection.withargs(eps=eps, hks=hks, dim=self.dim), from_types=types,
+            sph.XSPHCorrection.withargs(eps=eps, hks=hks), from_types=types,
             on_types=types, updates=updates, id=id, kernel=self.default_kernel)
 
                            )        
