@@ -101,7 +101,7 @@ cdef class SPHFunction:
 
     """
     def __init__(self, ParticleArray source, ParticleArray dest=None,
-                 bint setup_arrays=True, *args, **kwargs):
+                 bint setup_arrays=True, setup_reads=True, *args, **kwargs):
         """ dest argument is unused. self.dest is set to source """
         self.name = ""
         self.id = ""
@@ -142,7 +142,8 @@ cdef class SPHFunction:
         self.local_sizes = (1,1,1)
 
         # setup the source and destination reads
-        self.set_src_dst_reads()
+        if setup_reads:
+            self.set_src_dst_reads()
         
         if setup_arrays:
             self.setup_arrays()

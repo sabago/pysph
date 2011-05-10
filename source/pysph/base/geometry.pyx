@@ -301,9 +301,9 @@ cdef class Geometry:
                 lm = lines[i-1]
                 l = lines[i]
                 
-                pos = lm.xb
-                norm = (lm.normal + l.normal) * -0.5
-                tang = (lm.tangent + l.tangent) * -0.5
+                pos = lm.xa
+                norm = (lm.normal + l.normal) * 0.5
+                tang = (lm.tangent + l.tangent) * 0.5
 
                 norm.normalize()
                 tang.normalize()
@@ -313,10 +313,10 @@ cdef class Geometry:
                 
             l = lines[-1]
             lp = lines[0]
-            pos = l.xb
+            pos = l.xa
 
-            norm = (lp.normal + l.normal) * -0.5
-            tang = (lp.tangent + l.tangent) * -0.5
+            norm = (lp.normal + l.normal) * 0.5
+            tang = (lp.tangent + l.tangent) * 0.5
 
             norm.normalize()
             tang.normalize()

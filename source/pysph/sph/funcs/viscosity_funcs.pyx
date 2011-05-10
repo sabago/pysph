@@ -139,15 +139,12 @@ cdef class MorrisViscosity(SPHFunctionParticle):
         Constructor.
         """
 
-        SPHFunctionParticle.__init__(self, source, dest, setup_arrays=True,
-                                     **kwargs)
-
         self.mu = mu
         self.id = "morrisvisc"
         self.tag = "velocity"
 
-        self.src_reads.extend( ['u','v','w'] )
-        self.dst_reads.extend( ['u','v','w','rho'] )
+        SPHFunctionParticle.__init__(self, source, dest, setup_arrays=True,
+                                     **kwargs)
 
         self.cl_kernel_src_file = "viscosity_funcs.cl"
         self.cl_kernel_function_name = "MorrisViscosity"

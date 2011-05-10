@@ -757,34 +757,34 @@ class GeometryMeshTestCase(unittest.TestCase):
             pnt = mpnt.pnt
             norm = mpnt.normal
             tang = mpnt.tangent
-            
+
             if i == 0:
-                self.assertEqual(pnt, Point(0))
-                self.assertAlmostEqual(norm.x, 0.5, 10)
-                self.assertAlmostEqual(norm.y, 0.5, 10)
-                self.assertAlmostEqual(tang.x, 0.5, 10)
-                self.assertAlmostEqual(tang.y, -0.5, 10)
+                self.assertEqual(pnt, Point(0,0))
+                self.assertAlmostEqual(norm.x, -numpy.sqrt(0.5), 6)
+                self.assertAlmostEqual(norm.y, -numpy.sqrt(0.5), 6)
+                self.assertAlmostEqual(tang.x, -numpy.sqrt(0.5), 6)
+                self.assertAlmostEqual(tang.y, +numpy.sqrt(0.5), 6)
                 
             elif i == 1:
                 self.assertEqual(pnt, Point(1))
-                self.assertAlmostEqual(norm.x, -0.5, 10)
-                self.assertAlmostEqual(norm.y, 0.5, 10)
-                self.assertAlmostEqual(tang.x, 0.5, 10)
-                self.assertAlmostEqual(tang.y, 0.5, 10)
+                self.assertAlmostEqual(norm.x, +numpy.sqrt(0.5), 10)
+                self.assertAlmostEqual(norm.y, -numpy.sqrt(0.5), 10)
+                self.assertAlmostEqual(tang.x, -numpy.sqrt(0.5), 10)
+                self.assertAlmostEqual(tang.y, -numpy.sqrt(0.5), 10)
                 
             elif i == 2:
                 self.assertEqual(pnt, Point(1,1))
-                self.assertAlmostEqual(norm.x, -0.5, 10)
-                self.assertAlmostEqual(norm.y, -0.5, 10)
-                self.assertAlmostEqual(tang.x, -0.5, 10)
-                self.assertAlmostEqual(tang.y, 0.5, 10)
+                self.assertAlmostEqual(norm.x, +numpy.sqrt(0.5), 10)
+                self.assertAlmostEqual(norm.y, +numpy.sqrt(0.5), 10)
+                self.assertAlmostEqual(tang.x, +numpy.sqrt(0.5), 10)
+                self.assertAlmostEqual(tang.y, -numpy.sqrt(0.5), 10)
 
             elif i == 3:
                 self.assertEqual(pnt, Point(0,1))
-                self.assertAlmostEqual(norm.x, 0.5, 10)
-                self.assertAlmostEqual(norm.y, -0.5, 10)
-                self.assertAlmostEqual(tang.x, -0.5, 10)
-                self.assertAlmostEqual(tang.y, -0.5, 10)
+                self.assertAlmostEqual(norm.x, -numpy.sqrt(0.5), 10)
+                self.assertAlmostEqual(norm.y, +numpy.sqrt(0.5), 10)
+                self.assertAlmostEqual(tang.x, +numpy.sqrt(0.5), 10)
+                self.assertAlmostEqual(tang.y, +numpy.sqrt(0.5), 10)
 
         #Test for the interior points
         npnts = len(mpnts)

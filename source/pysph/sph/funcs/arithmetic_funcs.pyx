@@ -17,6 +17,9 @@ cdef class PropertyGet(SPHFunction):
         SPHFunction.__init__(self, source, dest, setup_arrays=True)
         self.num_outputs = len(prop_names)
         self.id = 'property_get'
+
+    def set_src_dst_reads(self):
+        pass
     
     cpdef setup_arrays(self):
         #Setup the basic properties like m, x rho etc.
@@ -52,6 +55,9 @@ cdef class PropertyAdd(SPHFunction):
         SPHFunction.__init__(self, source, dest, setup_arrays=True)
         self.num_outputs = 1
         self.id = 'property_add'
+
+    def set_src_dst_reads(self):
+        pass        
     
     cpdef setup_arrays(self):
         #Setup the basic properties like m, x rho etc.
@@ -87,6 +93,9 @@ cdef class PropertyNeg(SPHFunction):
         SPHFunction.__init__(self, source, dest, setup_arrays=True)
         self.num_outputs = len(prop_names)
         self.id = 'property_neg'
+
+    def set_src_dst_reads(self):
+        pass        
     
     cpdef setup_arrays(self):
         #Setup the basic properties like m, x rho etc.
@@ -122,6 +131,9 @@ cdef class PropertyMul(SPHFunction):
         SPHFunction.__init__(self, source, dest, setup_arrays=True)
         self.num_outputs = 1
         self.id = 'property_mul'
+
+    def set_src_dst_reads(self):
+        pass
     
     cpdef setup_arrays(self):
         #Setup the basic properties like m, x rho etc.
@@ -157,6 +169,9 @@ cdef class PropertyInv(SPHFunction):
         SPHFunction.__init__(self, source, dest, setup_arrays=True)
         self.num_outputs = len(prop_names)
         self.id = 'property_inv'
+
+    def set_src_dst_reads(self):
+        pass
     
     cpdef setup_arrays(self):
         #Setup the basic properties like m, x rho etc.
