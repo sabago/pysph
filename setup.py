@@ -79,6 +79,7 @@ extensions = {'base': ['carray.pyx',
                             'adke_funcs.pyx',
                             'arithmetic_funcs.pyx',
                             'stress_funcs.pyx',
+                            'fracture_funcs.pyx'
                             ],
               'solver': ['particle_generator.pyx',
                          ],
