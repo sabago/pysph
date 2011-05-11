@@ -1,9 +1,9 @@
-import pyopencl as cl
-mf = cl.mem_flags
-
 import numpy
 
 from pysph.solver.cl_utils import cl_read, get_real, HAS_CL, get_pysph_root
+if HAS_CL:
+    import pyopencl as cl
+    mf = cl.mem_flags
 
 # Cython functions for neighbor list construction
 from linked_list_functions import cbin
@@ -245,7 +245,7 @@ class LinkedListManager:
         update_status function.
 
         """
-        for i in range(narrays):
+        for i in range(self.narrays):
             parray = self.arrays[i]
             if parray.is_dirty:
                 self.is_dirty = True
@@ -419,24 +419,27 @@ class LinkedListManager:
         cellids, head, next, dix, diy, diz
 
         """
-        for pa in self.arrays:
-            cl.enqueue_copy(self.queue, dest=self.cellids[pa.name],
-                            src=self.dcellids[pa.name])
+
+        if self.with_cl:
         
-            cl.enqueue_copy(self.queue, dest=self.head[pa.name],
-                            src=self.dhead[pa.name])
+            for pa in self.arrays:
+                cl.enqueue_copy(self.queue, dest=self.cellids[pa.name],
+                                src=self.dcellids[pa.name])
         
-            cl.enqueue_copy(self.queue, dest=self.next[pa.name],
-                            src=self.dnext[pa.name])
+                cl.enqueue_copy(self.queue, dest=self.head[pa.name],
+                                src=self.dhead[pa.name])
         
-            cl.enqueue_copy(self.queue, dest=self.ix[pa.name],
-                            src=self.dix[pa.name])
+                cl.enqueue_copy(self.queue, dest=self.next[pa.name],
+                                src=self.dnext[pa.name])
         
-            cl.enqueue_copy(self.queue, dest=self.iy[pa.name],
-                            src=self.diy[pa.name])
+                cl.enqueue_copy(self.queue, dest=self.ix[pa.name],
+                                src=self.dix[pa.name])
         
-            cl.enqueue_copy(self.queue, dest=self.iz[pa.name],
-                            src=self.diz[pa.name])
+                cl.enqueue_copy(self.queue, dest=self.iy[pa.name],
+                                src=self.diy[pa.name])
+        
+                cl.enqueue_copy(self.queue, dest=self.iz[pa.name],
+                                src=self.diz[pa.name])
 
     def update(self):
         """ Update the linked list """
@@ -459,6 +462,8 @@ class LinkedListManager:
             for i in range(self.narrays):
                 pa = self.arrays[i]
                 pa.set_dirty(False)
+
+            self.is_dirty = False
 
     def setup_cl(self):
         """ OpenCL setup for the CLNNPSManager  """

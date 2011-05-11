@@ -40,6 +40,10 @@ class SinglePrecisionLinkedListManagerTestCase(unittest.TestCase):
         self.cy_ll_manager.with_cl = False
 
         self.cl_ll_manager = base.LinkedListManager([pa,])
+
+        # construct the neighbor locator
+        self.loc = base.LinkedListSPHNeighborLocator(manager=self.cy_ll_manager,
+                                                     source=pa, dest=pa)
         
     def test_constructor(self):
 
@@ -121,28 +125,51 @@ class SinglePrecisionLinkedListManagerTestCase(unittest.TestCase):
 
         self.assertEqual(self.pa.is_dirty, False)
 
+    def test_neighbor_locator_construct(self):
+
+        loc = self.loc
+
+        self.assertEqual( loc.cache, False )
+        self.assertEqual( loc.with_cl, False )
+        self.assertAlmostEqual( loc.scale_fac, 2.0, 10 )
+
+        self.assertEqual( loc.particle_cache, [] )
+
+        self.assertEqual( loc.is_dirty, True )
+
     def test_neighbor_locator(self):
 
-        manager = self.cl_ll_manager
+        loc = self.loc
 
-        manager.update()
-        
-        loc = base.LinkedListSPHNeighborLocator(manager, self.pa, self.pa)
+        # perform an update for the locator
+        loc.update_status()
+
+        self.assertEqual( loc.is_dirty, True )
+        self.assertEqual( loc.manager.is_dirty, True)
+
+        loc.update()
+
+        self.assertEqual( loc.manager.is_dirty, False )
+        self.assertEqual( loc.is_dirty, False )
+        self.assertEqual( self.pa.is_dirty, False )
 
         x = self.x.astype(numpy.float32)
         y = self.y.astype(numpy.float32)
         z = self.z.astype(numpy.float32)
         
-        cell_size = numpy.float32(self.cell_size)
+        cell_size = self.cell_size
 
         for i in range(self.np):
+
+            nbrs = base.LongArray()
 
             brute_nbrs = ll.brute_force_neighbors(i,
                                                   self.np,
                                                   cell_size,
                                                   x, y, z)
 
-            loc_nbrs = loc.get_neighbors(i, cell_size)
+            loc.get_nearest_particles(i, nbrs)
+            loc_nbrs = nbrs.get_npy_array()
             loc_nbrs.sort()
 
             nnbrs = len(loc_nbrs)
