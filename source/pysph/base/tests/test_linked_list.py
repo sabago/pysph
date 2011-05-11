@@ -163,7 +163,9 @@ class SinglePrecisionLinkedListManagerTestCase(unittest.TestCase):
 
             nbrs = base.LongArray()
 
-            brute_nbrs = ll.brute_force_neighbors(i,
+            xi, yi, zi = x[i], y[i], z[i]
+
+            brute_nbrs = ll.brute_force_neighbors(xi, yi, zi,
                                                   self.np,
                                                   cell_size,
                                                   x, y, z)
