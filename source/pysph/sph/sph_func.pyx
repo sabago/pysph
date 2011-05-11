@@ -10,8 +10,7 @@ def get_all_funcs():
     funcs = {}
     for funcs_dir in funcs_pkg.__path__:
         search_modules = [os.path.splitext(i) for i in os.listdir(funcs_dir)]
-        pass
-        search_modules = [i[0] for i in search_modules if i[1][:3]=='.py']
+        search_modules = [i[0] for i in search_modules if i[1]=='.pyx' and i[0][0]!='.']
         for mod_name in search_modules:
             mod_name = 'pysph.sph.funcs.'+mod_name
             mod = __import__(mod_name, fromlist=True)
