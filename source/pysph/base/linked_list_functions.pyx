@@ -52,7 +52,7 @@ cpdef inline int get_cellid(int ix, int iy, int iz,
     return iz * (ncx * ncy) + iy * ncx + ix
 
 cpdef numpy.ndarray brute_force_neighbors(
-    int i, int np, float radius,
+    float xi, float yi, float zi, int np, float radius,
     numpy.ndarray[ndim=1, dtype=numpy.float32_t] x,
     numpy.ndarray[ndim=1, dtype=numpy.float32_t] y,
     numpy.ndarray[ndim=1, dtype=numpy.float32_t] z):
@@ -61,8 +61,8 @@ cpdef numpy.ndarray brute_force_neighbors(
     Parameters:
     -----------
 
-    i : int
-        Index of the destination particle
+    xi, yi, zi : float
+        Query point
 
     np : int
         Number of particles to search for
@@ -83,10 +83,6 @@ cpdef numpy.ndarray brute_force_neighbors(
     
     cdef numpy.ndarray[ndim=1, dtype=numpy.int32_t] nbrs
     nbrs = numpy.ones(1, numpy.int32)
-
-    cdef float xi = x[i]
-    cdef float yi = y[i]
-    cdef float zi = z[i]
 
     cdef float xj, yj, zj
     cdef float dist2
