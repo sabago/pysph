@@ -49,6 +49,9 @@ cdef class SPHFunction:
     # OpenCL kernel arguments
     cdef public list cl_args
     cdef public list cl_args_name
+
+    # OpenCL neighbor locator
+    cdef public object cl_locator
     
     cdef public DoubleArray s_h, s_m, s_rho
     cdef public DoubleArray s_x, s_y, s_z

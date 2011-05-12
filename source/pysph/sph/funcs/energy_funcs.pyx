@@ -21,7 +21,7 @@ cdef class EnergyEquationNoVisc(SPHFunctionParticle):
         self.id = 'energyeqn'
         self.tag = "energy"
 
-        self.cl_kernel_src_file = "energy_funcs.cl"
+        self.cl_kernel_src_file = "energy_funcs.clt"
         self.cl_kernel_function_name = "EnergyEquationNoVisc"
         self.num_outputs = 1
 
@@ -127,7 +127,7 @@ cdef class EnergyEquationAVisc(SPHFunctionParticle):
         self.id = 'energyavisc'
         self.tag = "energy"
 
-        self.cl_kernel_src_file = "energy_funcs.cl"
+        self.cl_kernel_src_file = "energy_funcs.clt"
         self.cl_kernel_function_name = "EnergyEquationAVisc"
         self.num_outputs = 1
 
@@ -251,7 +251,7 @@ cdef class EnergyEquation(SPHFunctionParticle):
         self.id = 'energyequation'
         self.tag = "energy"
 
-        self.cl_kernel_src_file = "energy_funcs.cl"
+        self.cl_kernel_src_file = "energy_funcs.clt"
         self.cl_kernel_function_name = "EnergyEquationWithVisc"
         self.num_outputs = 1
 
@@ -401,7 +401,7 @@ cdef class ArtificialHeat(SPHFunctionParticle):
         self.src_reads.extend( ['u','v','w','p','cs','e','q'] )
         self.dst_reads.extend( ['u','v','w','p','cs','e','q'] )
 
-        self.cl_kernel_src_file = "energy_funcs.cl"
+        self.cl_kernel_src_file = "energy_funcs.clt"
         self.cl_kernel_function_name = "ArtificialHeat"
         self.num_outputs = 1
 

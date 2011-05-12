@@ -134,6 +134,7 @@ cdef class SPHFunction:
         self.cl_kernel = object()
         self.cl_program = object()
         self.context = object()
+        self.cl_locator = object()
 
         self.cl_args = []
         self.cl_args_name = []
@@ -254,11 +255,14 @@ cdef class SPHFunction:
         self.cl_args_name = []
         self.cl_args = []
         
-        # setup the  sph kernel args
-        nbrs = numpy.int32(self.source.get_number_of_particles())
-        self.cl_args.append(nbrs)
-        self.cl_args_name.append('int const nbrs')
+        # locator args
+        locator_args = self.cl_locator.get_kernel_args()
 
+        for arg_name, arg in locator_args.iteritems():
+            self.cl_args.append(arg)
+            self.cl_args_name.append(arg_name)
+
+        # kernel args
         if self.kernel is not None:        
             kernel_type = numpy.int32(self.kernel.get_type())
             dim = numpy.int32(self.kernel.dim)   
@@ -298,6 +302,9 @@ cdef class SPHFunction:
         
     def set_cl_program(self, object program):
         self.cl_program = program
+
+    def set_cl_locator(self, object locator):
+        self.cl_locator = locator
 
     def get_cl_workgroup_code(self):
         return """unsigned int work_dim = get_work_dim();

@@ -6,6 +6,9 @@ import numpy
 import time
 import pyopencl as cl
 
+CLDomain = base.DomainManagerType
+CLLocator = base.OpenCLNeighborLocatorType
+
 NSquareNeighborLocator = base.NeighborLocatorType.NSquareNeighborLocator
 
 np = 5001
@@ -48,8 +51,13 @@ for platform in platforms:
             pa = base.get_particle_array(cl_precision=prec,
                                          name="test", x=x,h=h,m=m,rho=rho)
 
-            particles = base.Particles(arrays=[pa,] ,
-                                       locator_type=NSquareNeighborLocator)
+            particles = base.Particles(arrays=[pa,])
+            
+            cl_particles = base.CLParticles(
+                arrays=[pa,],
+                domain_manager_type=CLDomain.LinkedListManager,
+                cl_locator_type=CLLocator.LinkedListSPHNeighborLocator)
+                                            
 
             kernel = base.CubicSplineKernel(dim=1)
 
@@ -57,29 +65,37 @@ for platform in platforms:
             func = sph.SPHRho.get_func(pa,pa)
 
             # create the CLCalc object
-            cl_calc = sph.CLCalc(particles=particles, sources=[pa,], dest=pa,
-                                 kernel=kernel, funcs=[func,], updates=['rho'] )
+            t1 = time.time()
+            cl_calc = sph.CLCalc(particles=cl_particles,
+                                 sources=[pa,],
+                                 dest=pa,
+                                 kernel=kernel,
+                                 funcs=[func,],
+                                 updates=['rho'] )
 
-            # create a normal calc object
-            calc = sph.SPHCalc(particles=particles, sources=[pa,], dest=pa,
-                               kernel=kernel, funcs=[func,], updates=['rho'] )
-
-            
             # setup OpenCL for PySPH
             cl_calc.setup_cl(ctx)
+            cl_setup_time = time.time() - t1
+
+            # create a normal calc object
+            t1 = time.time()
+            calc = sph.SPHCalc(particles=particles, sources=[pa,], dest=pa,
+                               kernel=kernel, funcs=[func,], updates=['rho'] )
+            cython_setup_time = time.time() - t1
 
             # evaluate pysph on the OpenCL device!
             t1 = time.time()
             cl_calc.sph()
             cl_elapsed = time.time() - t1
-            print "Execution time for PyOpenCL: %g s" %(cl_elapsed)
 
             # Read the buffer contents
             t1 = time.time()
             pa.read_from_buffer()
             read_elapsed = time.time() - t1
 
-            print "Read from buffer time: %g s "%(read_elapsed)
+            print "\nPyOpenCL setup time = %g s"%(cl_setup_time)
+            print "PyOpenCL execution time = %g s" %(cl_elapsed)
+            print "PyOpenCL buffer transfer time: %g s "%(read_elapsed)
             
             cl_rho = pa.get('_tmpx').copy()
             
@@ -87,7 +103,11 @@ for platform in platforms:
             t1 = time.time()
             calc.sph('_tmpx')
             cython_elapsed = time.time() - t1
-            print "Execution time for PySPH Cython: %g s" %(cython_elapsed)
+            print "Cython setup time = %g s"%(cython_setup_time)
+            print "Cython execution time = %g s" %(cython_elapsed)
+
+            cython_total = cython_setup_time + cython_elapsed
+            opencl_total = cl_setup_time + cl_elapsed + read_elapsed
 
             # Compare the results
 
@@ -96,7 +116,8 @@ for platform in platforms:
             
             if diff/np < 1e-6:
                 print "CL == Cython: True"
-                print "Speedup: %g "%(cython_elapsed/cl_elapsed)
+                print "Execution speedup: %g"%(cython_elapsed/cl_elapsed)
+                print "Overall Speedup: %g "%(cython_total/opencl_total)
             else:
                 print "Results Don't Match!"
 

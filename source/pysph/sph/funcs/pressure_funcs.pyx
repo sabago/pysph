@@ -26,7 +26,7 @@ cdef class SPHPressureGradient(SPHFunctionParticle):
         self.id = 'pgrad'
         self.tag = "velocity"
 
-        self.cl_kernel_src_file = "pressure_funcs.cl"
+        self.cl_kernel_src_file = "pressure_funcs.clt"
         self.cl_kernel_function_name = "SPHPressureGradient"
 
     def set_src_dst_reads(self):
@@ -126,7 +126,7 @@ cdef class MomentumEquation(SPHFunctionParticle):
         self.id = 'momentumequation'
         self.tag = "velocity"
 
-        self.cl_kernel_src_file = "pressure_funcs.cl"
+        self.cl_kernel_src_file = "pressure_funcs.clt"
         self.cl_kernel_function_name = "MomentumEquation"
 
     def set_src_dst_reads(self):

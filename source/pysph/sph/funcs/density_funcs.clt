@@ -17,7 +17,7 @@ __kernel void SPHRho(%(kernel_args)s)
     REAL wmb = 0.0F ;
     REAL w;
 
-    %(neighbor_loop_code)s 
+    %(neighbor_loop_code_start)s 
     {
         // SPH innermost loop code goes here.  The index `src_id` will
         // be available and looped over, this index.
@@ -26,7 +26,12 @@ __kernel void SPHRho(%(kernel_args)s)
         REAL mb = s_m[src_id];
         w = kernel_function(pa, pb, dim, kernel_type); 
         wmb += w*mb;  	  
+	
+	%(neighbor_loop_code_break)s
+
     }
+
+    %(neighbor_loop_code_end)s 
 
     tmpx[dest_id] += wmb;
   

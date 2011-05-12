@@ -13,11 +13,11 @@ import unittest
 
 import pyopencl as cl
 
+CLDomain = base.DomainManagerType
+CLLocator = base.OpenCLNeighborLocatorType
+
 class CLIntegratorTestCase(unittest.TestCase):
     """ Test the CLEulerIntegrator """
-
-    def runTest(self):
-        pass
 
     def setUp(self):
         """ The setup consists of two fluid particle arrays, each
@@ -40,7 +40,13 @@ class CLIntegratorTestCase(unittest.TestCase):
         self.f1 = base.get_particle_array(name="fluid1", x=x1, y=y1,tmpx=tmpx1)
         self.f2 = base.get_particle_array(name="fluid2", x=x2, y=y2,tmpx=tmpx2)
 
-        self.particles = base.Particles(arrays=[self.f1,self.f2])
+        self.particles = base.CLParticles(
+            arrays=[self.f1,self.f2],
+            domain_manager_type=CLDomain.DefaultManager,
+            cl_locator_type=CLLocator.AllPairNeighborLocator
+            )
+
+        
         self.kernel = kernel = base.CubicSplineKernel(dim=2)
 
         gravity = solver.SPHIntegration(
@@ -79,7 +85,7 @@ class CLIntegratorTestCase(unittest.TestCase):
 
         self.integrator = CLIntegrator(self.particles, calcs)
 
-        self.ctx = ctx = cl.create_some_context()
+        self.ctx = ctx = solver.create_context_from_cpu()
         self.integrator.setup_integrator(ctx)
         self.queue = calcs[0].queue
 
@@ -159,7 +165,7 @@ class CLEulerIntegratorTestCase(CLIntegratorTestCase):
 
         return x, y, u, v
 
-    def test_integrate(self):
+    def _test_integrate(self):
 
         # set the integrator type
         self.integrator = solver.CLEulerIntegrator(self.particles, self.calcs)
