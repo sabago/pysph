@@ -23,7 +23,7 @@ from particle_types import ParticleType
 from geometry import MeshPoint, Line, Geometry
 
 # LinkedListManager
-from linked_list import LinkedListManager, DomainManagerType
+from domain_manager import LinkedListManager, DomainManagerType
 
 # OpenCL locator
 from locator import OpenCLNeighborLocator, LinkedListSPHNeighborLocator, \

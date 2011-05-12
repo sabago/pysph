@@ -5,7 +5,8 @@ Functions defined in this file can be used to get neighbors from the
 linked list structure created from a LinkedListManager like so:
 
 # create the manager
-manager = linked_list.LinkedListManager(arrays=[pa1,pa2])
+import pysph.base.domain_manager as domain_manager
+manager = base.domain_manager.LinkedListManager(arrays=[pa1,pa2])
 
 # update the bin structure
 manager.update_status()
