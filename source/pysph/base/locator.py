@@ -4,7 +4,15 @@ import numpy
 # PySPH imports
 from carray import LongArray
 
-class LinkedListSPHNeighborLocator:
+class OpenCLNeighborLocatorType:
+    AllPairNeighborLocator = 0
+    LinkedListSPHNeighborLocator = 1
+    
+
+class OpenCLNeighborLocator(object):
+    pass
+
+class LinkedListSPHNeighborLocator(OpenCLNeighborLocator):
 
     def __init__(self, manager, source, dest, scale_fac=2.0, cache=False):
         """ Create a neighbor locator between a ParticleArray pair.
@@ -69,6 +77,7 @@ class LinkedListSPHNeighborLocator:
           int idz = ciz[dest_id];
 
           REAL tmp = ncx*ncy;
+          int src_id, cid;
 
           for (int ix = idx-1; ix <= idx+1; ++ix )
           {
@@ -93,6 +102,7 @@ class LinkedListSPHNeighborLocator:
         """ Return a string for the start of the neighbor loop code """
 
         return """
+
                     } // if cid < ncells
                             
 		 } // if ix >= 0
@@ -104,6 +114,9 @@ class LinkedListSPHNeighborLocator:
          } // for ix
 
          """
+
+    def neighbor_loop_code_break(self):
+        return "src_id = next[ src_id ]; "
 
     def get_kernel_args(self):
         """ Add the kernel arguments for the OpenCL template """
@@ -129,6 +142,7 @@ class LinkedListSPHNeighborLocator:
                 '__global int* head': head,
                 '__global int* next': next
                 }
+    
     def get_nearest_particles(self, i, output_array, exclude_index=-1):
         """ Return nearest particles from source array to the dest point.
 
@@ -237,3 +251,90 @@ class LinkedListSPHNeighborLocator:
             nbrs = self.particle_cache[i]
 
             self.get_nearest_particles_nocahe(i, nbrs)
+
+
+class AllPairNeighborLocator(OpenCLNeighborLocator):
+
+    def __init__(self, source, dest, scale_fac=2.0, cache=False):
+        """ Create a neighbor locator between a ParticleArray pair.
+
+        A neighbor locator interfaces with a domain manager which
+        provides an indexing scheme for the particles. The locator
+        knows how to interpret the information generated after the
+        domain manager's `update` function has been called.
+
+        For the locators based on linked lists as the domain manager,
+        the head and next arrays are used to determine the neighbors.
+
+        Note:
+        -----
+
+        Cython functions to retrieve nearest neighbors given a
+        destination particle index is only used when OpenCL support is
+        not available.
+
+        When OpenCL is available, the preferred approach is to
+        generate the neighbor loop code and kernel arguments and
+        inject this into the CL template files (done by CLCalc)
+
+        Parameters:
+        -----------
+
+        source, dest : ParticleArray
+            pair for which neighbors are sought.
+
+        scale_fac : REAL
+            Radius scale factor for non OpenCL runs.
+
+        cache : bool
+            Flag to indicate if neighbors are to be cached.
+
+        """
+        self.manager = None
+        self.source = source
+        self.dest = dest
+
+        self.scale_fac = scale_fac
+        self.with_cl = True
+
+        # Explicitly set the cache to false
+        self.cache = False
+
+        # Initialize the cache if using with Cython
+        self.particle_cache = []
+
+        # set the dirty bit to True
+        self.is_dirty = True
+
+    def neighbor_loop_code_start(self):
+        """ Return a string for the start of the neighbor loop code """
+
+        return "for (int src_id=0; src_id<nbrs; ++src_id)"
+
+    def neighbor_loop_code_end(self):
+        """ Return a string for the start of the neighbor loop code """
+
+        return """ """
+
+    def neighbor_loop_code_break(self):
+        return ""
+
+    def get_kernel_args(self):
+        """ Add the kernel arguments for the OpenCL template """
+
+        src = self.source
+        np = numpy.int32(src.get_number_of_particles())
+
+        return {'int const nbrs': np}
+
+    def update(self):
+        """ Update the bin structure and compute cache contents if
+        necessary."""
+
+        if self.is_dirty:
+            self.is_dirty = False
+
+    def update_status(self):
+        """ Update the dirty bit for the locator and the DomainManager"""
+        if not self.is_dirty:
+            self.is_dirty = self.source.is_dirty or self.dest.is_dirty

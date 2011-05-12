@@ -8,6 +8,57 @@ if HAS_CL:
 # Cython functions for neighbor list construction
 from linked_list_functions import cbin
 
+class DomainManagerType:
+    DefaultManager = 0
+    LinkedListManager = 1
+
+class DefaultManager:
+    def __init__(self, arrays, context=None):
+        if len(arrays) == 0:
+            raise RuntimeError("No Arrays provided!")
+
+        self.arrays = arrays
+        self.narrays = narrays = len(arrays)
+
+        # check if the arrays have unique names
+        if narrays > 1:
+            for i in range(1, narrays):
+                if arrays[i].name == arrays[i-1].name:
+                    msg = "You mnust provide arrays with unique names!"
+                    raise RuntimeError(msg)
+
+                if arrays[i].cl_precision != arrays[i-1].cl_precision:
+                    msg = "Arrays cannot have different precision!"
+                    raise RuntimeError(msg)
+
+        # set the cl_precision
+        self.cl_precision = arrays[0].cl_precision
+
+        if HAS_CL:
+            self.with_cl = True
+            self.setup_cl(context)
+        else:
+            self.with_cl = False
+
+    def setup_cl(self, context=None):
+        """ OpenCL setup for the CLNNPSManager  """
+
+        if not context:
+            self.context = context = cl.create_some_context()
+            self.queue = queue = cl.CommandQueue(context)            
+        else:
+            self.context = context
+            self.queue = queue = cl.CommandQueue(context)
+
+        # allocate the particle array device buffers
+        for i in range(self.narrays):
+            pa = self.arrays[i]
+            pa.setup_cl(context, queue)
+
+    def update(self):
+        for pa in self.arrays:
+            pa.set_dirty(False)
+
 class LinkedListManager:
     """ Domain manager using bins as the indexing scheme and a linked
     list as the neighbor locator scheme.
@@ -54,7 +105,7 @@ class LinkedListManager:
 
     """
 
-    def __init__(self, arrays, cell_size=None):
+    def __init__(self, arrays, cell_size=None, context=None):
         """ Construct a linked list manager.
 
         Parameters:
@@ -95,11 +146,11 @@ class LinkedListManager:
         # check if the arrays have unique names
         if narrays > 1:
             for i in range(1, narrays):
-                if array[i].name == array[i-1].name:
+                if arrays[i].name == arrays[i-1].name:
                     msg = "You mnust provide arrays with unique names!"
                     raise RuntimeError(msg)
 
-                if array[i].cl_precision != array[i-1].cl_precision:
+                if arrays[i].cl_precision != arrays[i-1].cl_precision:
                     msg = "Arrays cannot have different precision!"
                     raise RuntimeError(msg)
 
@@ -137,10 +188,9 @@ class LinkedListManager:
         self.diy = {}
         self.diz = {}
 
-        # Initialize the OpenCL program if PyOpenCL is available
         if HAS_CL:
             self.with_cl = True
-            self.setup_cl()
+            self.setup_cl(context)
         else:
             self.with_cl = False
 
@@ -465,16 +515,20 @@ class LinkedListManager:
 
             self.is_dirty = False
 
-    def setup_cl(self):
+    def setup_cl(self, context=None):
         """ OpenCL setup for the CLNNPSManager  """
 
-        self.context = ctx = cl.create_some_context()
-        self.queue = queue = cl.CommandQueue(ctx)
+        if not context:
+            self.context = context = cl.create_some_context()
+            self.queue = queue = cl.CommandQueue(context)            
+        else:
+            self.context = context
+            self.queue = queue = cl.CommandQueue(context)
 
         # allocate the particle array device buffers
         for i in range(self.narrays):
             pa = self.arrays[i]
-            pa.setup_cl(ctx, queue)
+            pa.setup_cl(context, queue)
 
         # create the program
         self.setup_program()

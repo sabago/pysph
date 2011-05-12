@@ -22,7 +22,7 @@ cdef class IdealGasEquation(SPHFunction):
         self.id = 'idealgas'
         self.tag = "state"
 
-        self.cl_kernel_src_file = "eos_funcs.cl"
+        self.cl_kernel_src_file = "eos_funcs.clt"
         self.cl_kernel_function_name = "IdealGasEquation"
         self.num_outputs = 2
 

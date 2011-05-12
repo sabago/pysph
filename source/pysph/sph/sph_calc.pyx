@@ -32,7 +32,8 @@ from pysph.solver.cl_utils import (HAS_CL, get_cl_include,
     get_pysph_root, cl_read)
 if HAS_CL:
     import pyopencl as cl
-    #from pyopencl.array import vec
+
+from pysph.base.locator import LinkedListSPHNeighborLocator
 
 cdef int log_level = logger.level
 
@@ -79,7 +80,7 @@ cdef class SPHCalc:
     #cdef public Particles particles
     #cdef public LongArray nbrs
 
-    def __cinit__(self, particles, list sources, ParticleArray dest,
+    def __init__(self, particles, list sources, ParticleArray dest,
                   KernelBase kernel, list funcs,
                   list updates, integrates=False, dnum=0, nbr_info=True,
                   str id = "", bint kernel_gradient_correction=False,
@@ -277,6 +278,53 @@ cdef class SPHCalc:
 class CLCalc(SPHCalc):
     """ OpenCL aware SPHCalc """
 
+    def __init__(self, particles, sources, dest, kernel, funcs,
+                 updates, integrates=False, dnum=0, nbr_info=True,
+                 str id = "", bint kernel_gradient_correction=False,
+                 kernel_correction=-1, int dim = 1, str snum=""):
+
+        self.nbr_info = nbr_info
+        self.particles = particles
+        self.sources = sources
+        self.nsrcs = len(sources)
+        self.dest = dest
+
+        self.funcs = funcs
+        self.kernel = kernel
+
+        self.integrates = integrates
+        self.updates = updates
+        self.nupdates = len(updates)
+
+        self.dnum = dnum
+        self.id = id
+
+        self.dim = dim
+        self.snum = snum
+
+        self.tag = ""
+
+        self.src_reads = []
+        self.dst_reads = []
+        self.initial_props = []
+        self.dst_writes = {}
+
+        self.context = object()
+        self.queue = object()
+        self.cl_kernel = object()
+        self.cl_kernel_src_file = ''
+        self.cl_kernel_function_name = ''
+
+        self.check_internals()
+        self.setup_internals()
+
+    def setup_internals(self):
+        self.cl_kernel_function_name = self.funcs[0].cl_kernel_function_name
+        self.tag = self.funcs[0].tag
+
+        for func in self.funcs:
+            func.kernel = self.kernel
+
     def setup_cl_kernel_file(self):
         func = self.funcs[0]
         
@@ -284,7 +332,7 @@ class CLCalc(SPHCalc):
         src = path.join(src, 'sph/funcs/' + func.cl_kernel_src_file)
 
         if not path.isfile(src):
-            fname = self.func.cl_kernel_src_file
+            fname = func.cl_kernel_src_file
             logger.debug("OpenCL kernel file does not exist: %s"%fname)
             
         self.cl_kernel_src_file = src
@@ -316,12 +364,11 @@ class CLCalc(SPHCalc):
         # create a command queue with the first device on the context 
         self.queue = cl.CommandQueue(context, self.devices[0])
 
-        # set up the device buffers for the srcs and dest
+        # set up the domain manager and device buffers for the srcs and dest
+        self.particles.setup_cl(self.context)
 
-        self.dest.setup_cl(self.context, self.queue)
-
-        for src in self.sources:
-            src.setup_cl(self.context, self.queue)
+        # setup the locators on each function
+        self.set_cl_locator()
 
         self.setup_program()
 
@@ -357,8 +404,12 @@ class CLCalc(SPHCalc):
         # Get the kernel workgroup code
         workgroup_code = func.get_cl_workgroup_code()
 
-        # Construct the neighbor loop code.
-        neighbor_loop_code = "for (int src_id=0; src_id<nbrs; ++src_id)"
+        # get the neighbor loop code
+        locator = func.cl_locator
+
+        neighbor_loop_code_start = locator.neighbor_loop_code_start()
+        neighbor_loop_code_end = locator.neighbor_loop_code_end()
+        neighbor_loop_code_break = locator.neighbor_loop_code_break()
 
         return template%(locals())
 
@@ -383,7 +434,7 @@ class CLCalc(SPHCalc):
                                function_name=self.cl_kernel_function_name)
 
         prog_src = self._create_program(prog_src_tmp)
-
+        
         self.cl_kernel_src = prog_src
 
         build_options = get_cl_include()
@@ -394,7 +445,24 @@ class CLCalc(SPHCalc):
         # set the OpenCL kernel for each of the SPHFunctions
         for func in self.funcs:
             func.setup_cl(self.prog, self.context)
-        
+
+    def set_cl_locator(self):
+        dst = self.dest
+        manager = self.particles.domain_manager
+
+        if self.nsrcs == 0:
+            self.funcs[0].set_cl_locator(
+                self.particles.get_neighbor_locator(dst, dst)
+                )
+        else:    
+            for i in range(self.nsrcs):
+                func = self.funcs[i]
+                src = self.sources[i]
+
+                func.set_cl_locator(
+                    self.particles.get_neighbor_locator(src, dst)
+                    )
+
     def sph(self):
         """ Evaluate the contribution from the sources on the
         destinations using OpenCL.

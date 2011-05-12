@@ -27,6 +27,14 @@ def get_cl_devices():
                 
     return _devices
 
+def create_context_from_cpu():
+    """ Create an OpenCL context using the CPU as the default device """
+    cl_devices = get_cl_devices()
+    if ( cl_devices['CPU'] == [] ):
+        raise ValueError("No CPU device found! ")
+
+    return cl.Context( devices=cl_devices['CPU'] )
+
 def get_cl_include():
     """ Include directories for OpenCL definitions """
 

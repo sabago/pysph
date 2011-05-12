@@ -3,6 +3,16 @@ from nnps import NNPSManager, NeighborLocatorType
 from particle_array import ParticleArray
 from particle_types import ParticleType
 
+from linked_list import DomainManagerType as CLDomain
+from locator import OpenCLNeighborLocatorType as CLLocator
+import locator
+import linked_list
+
+from pysph.solver.cl_utils import HAS_CL
+
+if HAS_CL:
+    import pyopencl as cl
+
 Fluid = ParticleType.Fluid
 Solid = ParticleType.Solid
 Probe = ParticleType.Probe
@@ -151,6 +161,9 @@ class Particles(object):
         self.correction_manager = None        
         self.misc_prop_update_functions = []
 
+        # by default, no OpenCL
+        self.with_cl = False
+
         # call an update on the particles (i.e index)
         
         if update_particles:
@@ -185,10 +198,16 @@ class Particles(object):
         
         """
 
-        # update the cell structure
+        # Update the domain manager if with_cl
 
-        err = self.nnps_manager.py_update()
-        assert err != -1, 'NNPSManager update failed! '
+        if self.with_cl:
+            self.domain_manager.update_status()
+
+        else:
+            # update the cell structure
+
+            err = self.nnps_manager.py_update()
+            assert err != -1, 'NNPSManager update failed! '            
 
         # update any other properties (rho, p, cs, div etc.)
             
@@ -277,6 +296,89 @@ class Particles(object):
         query the cl_precision.
         """
         return self.arrays[0].cl_precision
+
+    def setup_cl(self, context):
+        """ OpenCL setup for the particles given a context """
+
+        self.with_cl = True
+        self.context = context
+
+        # create the domain manager. This will create device buffers
+        # for the ParticleArrays as well
+        self.domain_manager = linked_list.LinkedListManager(arrays=self.arrays,
+                                                            context=context)
+        # Update the domain manager
+        self.domain_manager.update()
+
+class CLParticles:
+
+    def __init__(self, arrays,
+                 domain_manager_type=CLDomain.DefaultManager,
+                 cl_locator_type=CLLocator.AllPairNeighborLocator):
+
+        self.arrays = arrays
+        self.with_cl = True
+
+        self.domain_manager_type = domain_manager_type
+        self.cl_locator_type = cl_locator_type
+
+        self.nnps_manager=1
+
+    def get_cl_precision(self):
+        """Return the cl_precision used by the Particle Arrays.
+
+        This property cannot be set it is set at construction time for
+        the Particle arrays.  This is simply a convenience function to
+        query the cl_precision.
+        """
+        return self.arrays[0].cl_precision
+
+    def setup_cl(self, context):
+        """ OpenCL setup for the particles given a context """
+
+        self.with_cl = True
+        self.context = context
+
+        # create the domain manager. This will create device buffers
+        # for the ParticleArrays as well
+        self.domain_manager = self.get_domain_manager(context)
+
+        # Update the domain manager
+        self.domain_manager.update()
+
+    def get_domain_manager(self, context):
+
+        if self.domain_manager_type == CLDomain.DefaultManager:
+            return  linked_list.DefaultManager(
+                arrays = self.arrays, context = context
+                )
+
+        if self.domain_manager_type == CLDomain.LinkedListManager:
+            return linked_list.LinkedListManager(
+                arrays=self.arrays, context = context
+                )
+
+        else:
+            raise ValueError
+
+    def get_neighbor_locator(self, source, dest, scale_fac=2.0):
+
+        if self.cl_locator_type == \
+               CLLocator.AllPairNeighborLocator:
+
+            return locator.AllPairNeighborLocator(source=source, dest=dest)
+
+        if self.cl_locator_type == \
+               CLLocator.LinkedListSPHNeighborLocator:
+
+            if not self.domain_manager_type == \
+                   CLDomain.LinkedListManager:
+                raise RuntimeError
+
+            return locator.LinkedListSPHNeighborLocator(
+                manager=self.domain_manager, source=source, dest=dest,
+                scale_fac=scale_fac)
+        
 
 ###############################################################################
 def get_particle_array(cl_precision="double", **props):
