@@ -3,10 +3,11 @@ from nnps import NNPSManager, NeighborLocatorType
 from particle_array import ParticleArray
 from particle_types import ParticleType
 
-from linked_list import DomainManagerType as CLDomain
+from domain_manager import DomainManagerType as CLDomain
 from locator import OpenCLNeighborLocatorType as CLLocator
 import locator
-import linked_list
+
+import domain_manager
 
 from pysph.solver.cl_utils import HAS_CL
 
@@ -161,9 +162,6 @@ class Particles(object):
         self.correction_manager = None        
         self.misc_prop_update_functions = []
 
-        # by default, no OpenCL
-        self.with_cl = False
-
         # call an update on the particles (i.e index)
         
         if update_particles:
@@ -198,16 +196,8 @@ class Particles(object):
         
         """
 
-        # Update the domain manager if with_cl
-
-        if self.with_cl:
-            self.domain_manager.update_status()
-
-        else:
-            # update the cell structure
-
-            err = self.nnps_manager.py_update()
-            assert err != -1, 'NNPSManager update failed! '            
+        err = self.nnps_manager.py_update()
+        assert err != -1, 'NNPSManager update failed! '            
 
         # update any other properties (rho, p, cs, div etc.)
             
@@ -288,30 +278,52 @@ class Particles(object):
         return nnps_manager.get_neighbor_particle_locator(
             src, dst, radius_scale)
 
-    def get_cl_precision(self):
-        """Return the cl_precision used by the Particle Arrays.
-
-        This property cannot be set it is set at construction time for
-        the Particle arrays.  This is simply a convenience function to
-        query the cl_precision.
-        """
-        return self.arrays[0].cl_precision
-
-    def setup_cl(self, context):
-        """ OpenCL setup for the particles given a context """
-
-        self.with_cl = True
-        self.context = context
-
-        # create the domain manager. This will create device buffers
-        # for the ParticleArrays as well
-        self.domain_manager = linked_list.LinkedListManager(arrays=self.arrays,
-                                                            context=context)
-        # Update the domain manager
-        self.domain_manager.update()
-
 class CLParticles:
+    """ A collection of ParticleArrays for use with OpenCL.
 
+    CLParticles is modelled very closely on `Particles` which is
+    intended for Cython computations. The only reason it is not
+    subclassed is that the init script gets too messy.
+
+    Use CLParticles when using a CLCalc with OpenCL.
+
+    Attributes:
+    -----------
+
+    arrays : list
+        The list of arrays considered in the solution
+
+    with_cl : bool {True}
+         Duh
+         
+    domain_manager_type : int base.DomainManagerType
+        A domain manager is used to spatially index the particles and provide
+        an interface which is accesible and comprehensible to an appropriate
+        OpenCLNeighborLocator object.
+
+        Acceptable values are:
+        (1) base.DomainManagerType.LinkedListManager : Indexing based on the
+            linked list structure defined by Hockney and Eastwood.
+
+        (2) base.DomainManagerType.DefaultManager : No indexing. Intended to
+            be used for all pair neighbor searches.
+
+    cl_locator_type : int base.OpenCLNeighborLocatorType
+        A neighbor locator is in cahoots with the DomainManager to provide
+        near neighbors for a particle upon a query.
+
+        Acceptable values are:
+        (1) base.OpenCLNeighborLocatorType.LinkedListSPHNeighborLocator :
+           A neighbor locator that uses the linked list structure of the
+           LinkedListManager to provide neighbors in an SPH context. That
+           is, nearest neighbors are particles in the 27 neighboring cells
+           for the destination particle.
+
+        (2) base.OpenCLNeighborLocatorType.AllPairNeighborLocator :
+            A trivial locator that essentially returns all source particles
+            as near neighbors for any query point.
+
+    """
     def __init__(self, arrays,
                  domain_manager_type=CLDomain.DefaultManager,
                  cl_locator_type=CLLocator.AllPairNeighborLocator):
@@ -322,8 +334,6 @@ class CLParticles:
         self.domain_manager_type = domain_manager_type
         self.cl_locator_type = cl_locator_type
 
-        self.nnps_manager=1
-
     def get_cl_precision(self):
         """Return the cl_precision used by the Particle Arrays.
 
@@ -331,38 +341,90 @@ class CLParticles:
         the Particle arrays.  This is simply a convenience function to
         query the cl_precision.
         """
+        # ensure that all arrays have the same precision
+        narrays = len(self.arrays)
+        if ( narrays > 1 ):
+            for i in range(1, narrays):
+                assert self.arrays[i-1].cl_precision == \
+                       self.arrays[i].cl_precision
+
         return self.arrays[0].cl_precision
 
     def setup_cl(self, context):
-        """ OpenCL setup for the particles given a context """
+        """ OpenCL setup given a context.
 
+        Parameters:
+        -----------
+
+        context : pyopencl.Context
+
+        The context is used to instantiate the domain manager, the
+        type of which is determined from the attribute
+        `domain_manager_type`.
+
+        I expect this function to be called from the associated
+        CLCalc, from within it's `setup_cl` method.  The point is that
+        the same context is used for the Calc, the DomainManager and
+        the underlying ParticleArrays. This is important as a mix of
+        contexts will result in crashes.
+
+        The DomainManager is updated after creation. This means that
+        the data is ready to be used by the SPHFunction OpenCL
+        kernels.
+
+        """
         self.with_cl = True
         self.context = context
 
-        # create the domain manager. This will create device buffers
-        # for the ParticleArrays as well
+        # create the domain manager.
         self.domain_manager = self.get_domain_manager(context)
 
         # Update the domain manager
+        self.domain_manager.update_status()
         self.domain_manager.update()
 
     def get_domain_manager(self, context):
+        """ Get the domain manager from type. """ 
 
         if self.domain_manager_type == CLDomain.DefaultManager:
-            return  linked_list.DefaultManager(
+            return  domain_manager.DefaultManager(
                 arrays = self.arrays, context = context
                 )
 
         if self.domain_manager_type == CLDomain.LinkedListManager:
-            return linked_list.LinkedListManager(
+            return domain_manager.LinkedListManager(
                 arrays=self.arrays, context = context
                 )
 
         else:
-            raise ValueError
+            msg = "Manager type %d not understood!"%(self.domain_manager_type)
+            raise ValueError(msg)
 
     def get_neighbor_locator(self, source, dest, scale_fac=2.0):
+        """ Return an OpenCLNeighborLocator between a source and
+        destination.
 
+        Parameters:
+        -----------
+
+        source : ParticleArray
+            The source particle array
+
+        dest : ParticleArray
+            The destination particle array
+
+        scale_fac : float
+            NOTIMPLEMENTED. The scale facor to determine the effective
+            cutoff radius.
+
+        Note:
+        -----
+
+        An error is raised if a linked list neighbor locator is
+        requested with a domain manager other than the
+        LinkedListManager. 
+
+        """
         if self.cl_locator_type == \
                CLLocator.AllPairNeighborLocator:
 
@@ -378,7 +440,18 @@ class CLParticles:
             return locator.LinkedListSPHNeighborLocator(
                 manager=self.domain_manager, source=source, dest=dest,
                 scale_fac=scale_fac)
-        
+
+    def update(self):
+        """ Update the spatial index of the particles.
+
+        First check if the domain manager needs an update by calling
+        it's update_status method and then proceed with the update.
+
+        The reason this is done is to avoid any repeated updates.
+
+        """
+        self.domain_manager.update_status()
+        self.domain_manager.update()        
 
 ###############################################################################
 def get_particle_array(cl_precision="double", **props):

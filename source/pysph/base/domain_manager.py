@@ -1,6 +1,8 @@
 import numpy
 
-from pysph.solver.cl_utils import cl_read, get_real, HAS_CL, get_pysph_root
+from pysph.solver.cl_utils import cl_read, get_real, HAS_CL, get_pysph_root,\
+     create_context_from_cpu
+
 if HAS_CL:
     import pyopencl as cl
     mf = cl.mem_flags
@@ -44,7 +46,7 @@ class DefaultManager:
         """ OpenCL setup for the CLNNPSManager  """
 
         if not context:
-            self.context = context = cl.create_some_context()
+            self.context = context = create_context_from_cpu()
             self.queue = queue = cl.CommandQueue(context)            
         else:
             self.context = context
@@ -54,6 +56,22 @@ class DefaultManager:
         for i in range(self.narrays):
             pa = self.arrays[i]
             pa.setup_cl(context, queue)
+
+    def update_status(self):
+        """Updates the is_dirty flag to indicate that an update is required.
+
+        Notes:
+        ------
+
+        Any module that may modify the particle data, should call this
+        update_status function.
+
+        """
+        for i in range(self.narrays):
+            parray = self.arrays[i]
+            if parray.is_dirty:
+                self.is_dirty = True
+                break            
 
     def update(self):
         for pa in self.arrays:
@@ -519,7 +537,7 @@ class LinkedListManager:
         """ OpenCL setup for the CLNNPSManager  """
 
         if not context:
-            self.context = context = cl.create_some_context()
+            self.context = context = create_context_from_cpu()
             self.queue = queue = cl.CommandQueue(context)            
         else:
             self.context = context
