@@ -10,7 +10,7 @@ CLDomain = base.DomainManagerType
 CLLocator = base.OpenCLNeighborLocatorType
 
 # number of particles
-np = 4096
+np = 65536
 
 # number of times a single calc is evaluated
 neval = 5
@@ -29,10 +29,10 @@ for platform in platforms:
     print("Platform profile:", platform.profile)
     print("Platform vendor:", platform.vendor)
     print("Platform version:", platform.version)
-    print("---------------------------------------------------------------")
     devices = platform.get_devices()
     for device in devices:
         ctx = cl.Context([device])
+        print("===============================================================")
         print("Device name:", device.name)
         print("Device type:", cl.device_type.to_string(device.type))
         print("Device memory: ", device.global_mem_size//1024//1024, 'MB')
@@ -46,8 +46,7 @@ for platform in platforms:
             precision_types.append('double')
             
         for prec in precision_types:
-
-            print "\n========================================================"
+            print "--------------------------------------------------------"
             print "Summation Density Comparison using %s precision"%(prec)
         
             pa = base.get_particle_array(cl_precision=prec,
