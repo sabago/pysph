@@ -1,7 +1,7 @@
 import numpy
 
 from pysph.solver.cl_utils import cl_read, get_real, HAS_CL, get_pysph_root,\
-     create_context_from_cpu
+    create_some_context
 
 if HAS_CL:
     import pyopencl as cl
@@ -46,7 +46,7 @@ class DefaultManager:
         """ OpenCL setup for the CLNNPSManager  """
 
         if not context:
-            self.context = context = create_context_from_cpu()
+            self.context = context = create_some_context()
             self.queue = queue = cl.CommandQueue(context)            
         else:
             self.context = context
@@ -333,8 +333,8 @@ class LinkedListManager:
             
             np = pa.get_number_of_particles()
 
-            head = numpy.ones(ncells, numpy.int32) * -numpy.int32(1)
-            next = numpy.ones(np, numpy.int32) * -numpy.int32(1)
+            head = numpy.ones(ncells, numpy.int32) * numpy.int32(-1)
+            next = numpy.ones(np, numpy.int32) * numpy.int32(-1)
             cellids = numpy.ones(np, numpy.uint32)
             locks = numpy.zeros(ncells, numpy.int32)
 
@@ -363,7 +363,7 @@ class LinkedListManager:
 
             # initialize the kerel launch parameters
             self.global_sizes[pa.name] = (np,)
-            self.local_sizes[pa.name] = None
+            self.local_sizes[pa.name] = (1,)
 
             head = self.head[pa.name]
             next = self.next[pa.name]
@@ -469,7 +469,6 @@ class LinkedListManager:
                            self.cell_size
                            ).wait()
 
-            # Construct neighbor list
             self.prog.construct_neighbor_list(self.queue,
                                               self.global_sizes[pa.name],
                                               self.local_sizes[pa.name],
@@ -523,6 +522,7 @@ class LinkedListManager:
             # update the data structures
             if self.with_cl:
                 self.cl_update()
+
             else:
                 self.cy_update()
 
@@ -534,16 +534,17 @@ class LinkedListManager:
             self.is_dirty = False
 
     def setup_cl(self, context=None):
-        """ OpenCL setup for the CLNNPSManager  """
+        """ OpenCL setup for the LinkedListManager  """
 
         if not context:
-            self.context = context = create_context_from_cpu()
+            self.context = context = create_some_context()
             self.queue = queue = cl.CommandQueue(context)            
         else:
             self.context = context
             self.queue = queue = cl.CommandQueue(context)
 
         # allocate the particle array device buffers
+
         for i in range(self.narrays):
             pa = self.arrays[i]
             pa.setup_cl(context, queue)

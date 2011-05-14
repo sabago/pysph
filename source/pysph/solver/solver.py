@@ -2,7 +2,7 @@
 
 import os
 from utils import PBar, savez_compressed, savez
-from cl_utils import get_cl_devices, HAS_CL
+from cl_utils import get_cl_devices, HAS_CL, create_some_context
 
 import pysph.base.api as base
 
@@ -537,6 +537,12 @@ class Solver(object):
                 savez(_fname, dt=self.dt, cell_size=cell_size, 
                       np = pa.num_real_particles, **props)
 
+    def setup_cl(self):
+        """ Setup the OpenCL context and other initializations """
+
+        if HAS_CL:
+            self.cl_context = create_some_context()
+
     def setup_solver(self):
         """ Implement the basic solvers here 
 
@@ -546,29 +552,6 @@ class Solver(object):
         Look at solver/fluid_solver.py for an example.
 
         """
-        pass                
-
-    def setup_cl(self):
-        """ Setup the OpenCL context and other initializations """
-
-        if HAS_CL:
-            devices = get_cl_devices()
-
-            gpu_devices = devices['GPU']
-            cpu_devices = devices['CPU']
-
-            # choose the first available device by default
-            if len(gpu_devices) > 0:
-                devices = gpu_devices
-                device = gpu_devices[0]
-
-            elif len(cpu_devices) > 0:
-                devices = cpu_devices
-                device = cpu_devices[0]
-
-            else:
-                raise RuntimeError, "Did not find any OpenCL devices!"
-
-            self.cl_context = cl.Context(devices=devices)
+        pass 
 
 ############################################################################

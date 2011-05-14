@@ -9,9 +9,11 @@ import pyopencl as cl
 CLDomain = base.DomainManagerType
 CLLocator = base.OpenCLNeighborLocatorType
 
-NSquareNeighborLocator = base.NeighborLocatorType.NSquareNeighborLocator
+# number of particles
+np = 4096
 
-np = 5001
+# number of times a single calc is evaluated
+neval = 5
 
 x = numpy.linspace(0,1,np)
 m = numpy.ones_like(x) * (x[1] - x[0])
@@ -85,7 +87,8 @@ for platform in platforms:
 
             # evaluate pysph on the OpenCL device!
             t1 = time.time()
-            cl_calc.sph()
+            for i in range(neval):
+                cl_calc.sph()
             cl_elapsed = time.time() - t1
 
             # Read the buffer contents
@@ -101,7 +104,8 @@ for platform in platforms:
             
             # Do the same thing with Cython.
             t1 = time.time()
-            calc.sph('_tmpx')
+            for i in range(neval):
+                calc.sph('_tmpx')
             cython_elapsed = time.time() - t1
             print "Cython setup time = %g s"%(cython_setup_time)
             print "Cython execution time = %g s" %(cython_elapsed)
@@ -113,11 +117,9 @@ for platform in platforms:
 
             cython_rho = pa.get('_tmpx')
             diff = sum(abs(cl_rho - cython_rho))
-            
-            if diff/np < 1e-6:
-                print "CL == Cython: True"
-                print "Execution speedup: %g"%(cython_elapsed/cl_elapsed)
-                print "Overall Speedup: %g "%(cython_total/opencl_total)
-            else:
-                print "Results Don't Match!"
+
+            print "sum(abs(cl_rho - cy_rho))/np = ", diff/np
+            print "Execution speedup: %g"%(cython_elapsed/cl_elapsed)
+            print "Overall Speedup: %g "%(cython_total/opencl_total)
+
 

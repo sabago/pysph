@@ -209,8 +209,9 @@ cpdef numpy.ndarray get_neighbors(
 
                 if ( (cid >= 0) and (cid < ncells) ):
                     tmp = cell_neighbors(cid, head, next)
-                    nbrs = numpy.resize( nbrs, nbrs.size + tmp.size )
-                    nbrs[-tmp.size:] = tmp[:]
+                    if tmp.size > 0:
+                        nbrs = numpy.resize( nbrs, nbrs.size + tmp.size )
+                        nbrs[-tmp.size:] = tmp[:]
 
     return nbrs
 
