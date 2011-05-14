@@ -85,7 +85,7 @@ class CLIntegratorTestCase(unittest.TestCase):
 
         self.integrator = CLIntegrator(self.particles, calcs)
 
-        self.ctx = ctx = solver.create_context_from_cpu()
+        self.ctx = ctx = solver.create_some_context()
         self.integrator.setup_integrator(ctx)
         self.queue = calcs[0].queue
 

@@ -61,7 +61,7 @@ class FunctionTestCase(unittest.TestCase):
         #self.func = func = sph.NBodyForce.get_func(pa, pa)
         
         if solver.HAS_CL:
-            self.ctx = ctx = solver.create_context_from_cpu()
+            self.ctx = ctx = solver.create_some_context()
             self.q = q = cl.CommandQueue(ctx)
 
         self.setup()

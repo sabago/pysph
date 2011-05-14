@@ -85,15 +85,15 @@ __kernel void bin(__global const REAL *x,
   
   REAL cell_size1 = 1.0F/cell_size;
   
-  int _ix = (int)( ( x[gid]-mx ) * cell_size1 );
-  int _iy = (int)( ( y[gid]-my ) * cell_size1 );
-  int _iz = (int)( ( z[gid]-mz ) * cell_size1 );
+  unsigned int _ix = (int)( ( x[gid]-mx ) * cell_size1 );
+  unsigned int _iy = (int)( ( y[gid]-my ) * cell_size1 );
+  unsigned int _iz = (int)( ( z[gid]-mz ) * cell_size1 );
 
   ix[gid] = _ix;
   iy[gid] = _iy;
   iz[gid] = _iz;
   
-  int cellid = _iz * (ncx*ncy) + _iy * ncx + _ix;
+  unsigned int cellid = _iz * (ncx*ncy) + _iy * ncx + _ix;
 
   cellids[gid] = cellid;
 
