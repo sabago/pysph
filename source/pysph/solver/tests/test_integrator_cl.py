@@ -34,11 +34,8 @@ class CLIntegratorTestCase(unittest.TestCase):
         x2 = numpy.array([0.5,])
         y2 = numpy.array([1.0,])
 
-        tmpx1 = numpy.ones_like(x1)
-        tmpx2 = numpy.ones_like(x2)
-
-        self.f1 = base.get_particle_array(name="fluid1", x=x1, y=y1,tmpx=tmpx1)
-        self.f2 = base.get_particle_array(name="fluid2", x=x2, y=y2,tmpx=tmpx2)
+        self.f1 = base.get_particle_array(name="fluid1", x=x1, y=y1)
+        self.f2 = base.get_particle_array(name="fluid2", x=x2, y=y2)
 
         self.particles = base.CLParticles(
             arrays=[self.f1,self.f2],
