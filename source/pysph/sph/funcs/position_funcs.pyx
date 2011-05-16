@@ -23,11 +23,9 @@ cdef class PositionStepping(SPHFunction):
         self.cl_kernel_function_name = "PositionStepping"
 
     def set_src_dst_reads(self):
+        self.dst_reads = ['u','v','w','tag']
         self.src_reads = []
-        self.dst_reads = []
 
-        self.dst_reads.extend( ['u','v','w'] )        
-    
     cpdef eval(self, KernelBase kernel, DoubleArray output1,
                DoubleArray output2, DoubleArray output3):
         
@@ -49,17 +47,9 @@ cdef class PositionStepping(SPHFunction):
     
     def cl_eval(self, object queue, object context, output1, output2, output3):
 
-        tmpx = self.dest.get_cl_buffer(output1)
-        tmpy = self.dest.get_cl_buffer(output2)
-        tmpz = self.dest.get_cl_buffer(output3)
-
-        tag = self.dest.get_cl_buffer('tag')
-        d_u = self.dest.get_cl_buffer('u')
-        d_v = self.dest.get_cl_buffer('v')
-        d_w = self.dest.get_cl_buffer('w')
-
+        self.set_cl_kernel_args(output1, output2, output3)
+        
         self.cl_program.PositionStepping(
-            queue, self.global_sizes, self.local_sizes, d_u, d_v,
-            d_w, tag, tmpx, tmpy, tmpz)
+            queue, self.global_sizes, self.local_sizes, *self.cl_args).wait()
     
 ##########################################################################

@@ -23,7 +23,7 @@ DefaultManager = base.DomainManagerType.DefaultManager
 
 # constants
 tf = 1.0
-dt = 0.5
+dt = 0.01
 nsteps = tf/dt
 
 # generate the particles
@@ -60,6 +60,7 @@ solver1.add_operation_step(types=[0])
 solver1.setup_integrator(particles1)
 solver1.set_final_time(tf)
 solver1.set_time_step(dt)
+solver1.set_print_freq(nsteps + 1)
 
 # create the OpenCL solver
 solver2 = solver.Solver(dim=2, integrator_type=solver.EulerIntegrator)
@@ -77,6 +78,7 @@ solver2.set_cl(True)
 solver2.setup_integrator(particles2)
 solver2.set_final_time(tf)
 solver2.set_time_step(dt)
+solver2.set_print_freq(nsteps + 1)
 
 t1 = time()
 solver1.solve()
@@ -88,21 +90,7 @@ opencl_time = time() - t1
 
 pa2.read_from_buffer()
 
-diff = sum(abs(pa1.x - pa2.x))
-diff += sum(abs(pa1.y - pa2.y))
-
-diff += sum(abs(pa1.u - pa2.u))
-diff += sum(abs(pa1.v - pa2.v))
-
-diff /= 4
-
 print "=================================================================="
 print "OpenCL execution time = %g s"%opencl_time
 print "Cython execution time = %g s"%cython_time
 print "Speedup = %g"%(cython_time/opencl_time)
-
-if diff < 1e-6:
-    print "Results match"
-
-else:
-    print "Results dont match"
