@@ -47,11 +47,11 @@ cdef class PositionStepping(SPHFunction):
     def _set_extra_cl_args(self):
         pass
     
-    def cl_eval(self, object queue, object context):
+    def cl_eval(self, object queue, object context, output1, output2, output3):
 
-        tmpx = self.dest.get_cl_buffer('_tmpx')
-        tmpy = self.dest.get_cl_buffer('_tmpy')
-        tmpz = self.dest.get_cl_buffer('_tmpz')
+        tmpx = self.dest.get_cl_buffer(output1)
+        tmpy = self.dest.get_cl_buffer(output2)
+        tmpz = self.dest.get_cl_buffer(output3)
 
         tag = self.dest.get_cl_buffer('tag')
         d_u = self.dest.get_cl_buffer('u')

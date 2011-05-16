@@ -244,6 +244,5 @@ cdef class MomentumEquation(SPHFunctionParticle):
 
         self.cl_program.MomentumEquation(
             queue, self.global_sizes, self.local_sizes, *self.cl_args).wait()
-        
-        
+
 ###############################################################################
