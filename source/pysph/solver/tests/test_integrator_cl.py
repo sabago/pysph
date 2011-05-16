@@ -83,7 +83,6 @@ class CLIntegratorTestCase(unittest.TestCase):
         self.integrator = CLIntegrator(self.particles, calcs)
 
         self.ctx = ctx = solver.create_some_context()
-        self.integrator.setup_integrator(ctx)
         self.queue = calcs[0].queue
 
         self.dt = 0.1
@@ -93,6 +92,7 @@ class CLIntegratorTestCase(unittest.TestCase):
         """ Test the construction of the integrator """
 
         integrator = self.integrator
+        self.integrator.setup_integrator(self.ctx)
         calcs = integrator.calcs
 
         self.assertEqual( len(calcs), 6 )
