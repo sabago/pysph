@@ -136,13 +136,11 @@ class Solver(object):
         """
         updates = ['x','y','z'][:self.dim]
 
-        kernel = base.DummyKernel(dim=self.dim)
-        
         id = 'step'
         
         self.add_operation(SPHIntegration(
             sph.PositionStepping, on_types=types, updates=updates, id=id,
-            kernel=kernel)
+            kernel=None)
                            )
 
     def add_operation_xsph(self, eps, hks=False):
