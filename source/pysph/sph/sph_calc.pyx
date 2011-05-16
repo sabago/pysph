@@ -463,7 +463,7 @@ class CLCalc(SPHCalc):
                     self.particles.get_neighbor_locator(src, dst)
                     )
 
-    def sph(self):
+    def sph(self, output1=None, output2=None, output3=None):
         """ Evaluate the contribution from the sources on the
         destinations using OpenCL.
 
@@ -512,12 +512,16 @@ class CLCalc(SPHCalc):
         
         # set the tmpx, tmpy and tmpz arrays for dest to 0
 
-        self.cl_reset_output_arrays()
+        if output1 is None: output1 = '_tmpx'
+        if output2 is None: output2 = '_tmpy'
+        if output3 is None: output3 = '_tmpz'
+
+        self.cl_reset_output_arrays(output1, output2, output3)
 
         for func in self.funcs:
-            func.cl_eval(self.queue, self.context)
+            func.cl_eval(self.queue, self.context, output1, output2, output3)
 
-    def cl_reset_output_arrays(self):
+    def cl_reset_output_arrays(self, output1, output2, output3):
         """ Reset the dst tmpx, tmpy and tmpz arrays to 0
 
         Since multiple functions contribute to the same LHS value, the
@@ -527,14 +531,11 @@ class CLCalc(SPHCalc):
         
         """
 
-        if not self.dest.cl_setup_done:
-            raise RuntimeWarning, "CL not setup on destination array!"
-
         dest = self.dest
 
-        cl_tmpx = dest.get_cl_buffer('_tmpx')
-        cl_tmpy = dest.get_cl_buffer('_tmpy')
-        cl_tmpz = dest.get_cl_buffer('_tmpz')
+        cl_tmpx = dest.get_cl_buffer(output1)
+        cl_tmpy = dest.get_cl_buffer(output2)
+        cl_tmpz = dest.get_cl_buffer(output3)
 
         npd = self.dest.get_number_of_particles()
 
