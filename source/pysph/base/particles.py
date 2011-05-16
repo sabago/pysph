@@ -278,12 +278,11 @@ class Particles(object):
         return nnps_manager.get_neighbor_particle_locator(
             src, dst, radius_scale)
 
-class CLParticles:
+class CLParticles(Particles):
     """ A collection of ParticleArrays for use with OpenCL.
 
     CLParticles is modelled very closely on `Particles` which is
-    intended for Cython computations. The only reason it is not
-    subclassed is that the init script gets too messy.
+    intended for Cython computations.
 
     Use CLParticles when using a CLCalc with OpenCL.
 
@@ -333,6 +332,8 @@ class CLParticles:
 
         self.domain_manager_type = domain_manager_type
         self.cl_locator_type = cl_locator_type
+
+        self.in_parallel = False
 
     def get_cl_precision(self):
         """Return the cl_precision used by the Particle Arrays.

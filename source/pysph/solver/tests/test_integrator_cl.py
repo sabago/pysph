@@ -165,7 +165,7 @@ class CLEulerIntegratorTestCase(CLIntegratorTestCase):
 
         return x, y, u, v
 
-    def _test_integrate(self):
+    def test_integrate(self):
 
         # set the integrator type
         self.integrator = solver.CLEulerIntegrator(self.particles, self.calcs)

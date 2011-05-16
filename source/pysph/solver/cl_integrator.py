@@ -209,7 +209,7 @@ class CLIntegrator(Integrator):
 
                     current_buffer = pa.get_cl_buffer(update_prop)
                     step_buffer = pa.get_cl_buffer(k_prop)
-                    tmp_buffer = pa.get_cl_buffer('tmpx')
+                    tmp_buffer = pa.get_cl_buffer('_tmpx')
                 
                     self.program.step_array(queue, (np,1,1), (1,1,1),
                                             current_buffer, step_buffer,
@@ -257,7 +257,7 @@ class CLEulerIntegrator(CLIntegrator):
             initial_buffer = pa.get_cl_buffer(initial_prop)
             update_buffer = pa.get_cl_buffer(update_prop)
             k1_buffer = pa.get_cl_buffer(k_prop)
-            tmp_buffer = pa.get_cl_buffer('tmpx')
+            tmp_buffer = pa.get_cl_buffer('_tmpx')
            
             self.program.step_array(queue, (np,1,1), (1,1,1),
                                     initial_buffer, k1_buffer,
