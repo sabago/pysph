@@ -87,9 +87,9 @@ cdef class SPHPressureGradient(SPHFunctionParticle):
         nr[1] += temp*grad.y
         nr[2] += temp*grad.z
 
-    def cl_eval(self, object queue, object context):
+    def cl_eval(self, object queue, object context, output1, output2, output3):
 
-        self.set_cl_kernel_args()        
+        self.set_cl_kernel_args(output1, output2, output3)
 
         self.cl_program.SPHPressureGradient(
             queue, self.global_sizes, self.local_sizes, *self.cl_args).wait()
@@ -238,9 +238,9 @@ cdef class MomentumEquation(SPHFunctionParticle):
         nr[1] += tmp*grad.y
         nr[2] += tmp*grad.z
 
-    def cl_eval(self, object queue, object context):
+    def cl_eval(self, object queue, object context, output1, output2, output3):
 
-        self.set_cl_kernel_args()        
+        self.set_cl_kernel_args(output1, output2, output3)
 
         self.cl_program.MomentumEquation(
             queue, self.global_sizes, self.local_sizes, *self.cl_args).wait()

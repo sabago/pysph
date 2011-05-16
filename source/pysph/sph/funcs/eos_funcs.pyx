@@ -46,9 +46,9 @@ cdef class IdealGasEquation(SPHFunction):
         result[0] = (gamma-1.0)*rhoa*ea
         result[1] = sqrt(ea*(gamma - 1.0))
 
-    def cl_eval(self, object queue, object context):
+    def cl_eval(self, object queue, object context, output1, output2, output3):
 
-        self.set_cl_kernel_args()        
+        self.set_cl_kernel_args(output1, output2, output3)
 
         self.cl_program.IdealGasEquation(
             queue, self.global_sizes, self.local_sizes, *self.cl_args).wait()

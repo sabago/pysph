@@ -252,7 +252,11 @@ cdef class SPHFunction:
         self.cl_program = program
         self.context = context
 
-    def set_cl_kernel_args(self):
+    def set_cl_kernel_args(self, output1=None, output2=None, output3=None):
+
+        if output1 is None: output1 = '_tmpx'
+        if output2 is None: output2 = '_tmpy'
+        if output3 is None: output3 = '_tmpz'
 
         self.cl_args_name = []
         self.cl_args = []
@@ -295,13 +299,13 @@ cdef class SPHFunction:
             self.cl_args_name.append('__global REAL* s_%s'%(prop))
 
         # append the output buffer. 
-        self.cl_args.append( self.dest.get_cl_buffer('_tmpx') )
+        self.cl_args.append( self.dest.get_cl_buffer(output1) )
         self.cl_args_name.append('__global REAL* tmpx')
 
-        self.cl_args.append( self.dest.get_cl_buffer('_tmpy') )
+        self.cl_args.append( self.dest.get_cl_buffer(output2) )
         self.cl_args_name.append('__global REAL* tmpy')
 
-        self.cl_args.append( self.dest.get_cl_buffer('_tmpz') )
+        self.cl_args.append( self.dest.get_cl_buffer(output3) )
         self.cl_args_name.append('__global REAL* tmpz')
 
         self._set_extra_cl_args()

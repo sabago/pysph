@@ -55,9 +55,9 @@ cdef class GravityForce(SPHFunction):
         self.cl_args.append(get_real(self.gz, self.dest.cl_precision))
         self.cl_args_name.append('REAL const gz')
 
-    def cl_eval(self, object queue, object context):
+    def cl_eval(self, object queue, object context, output1, output2, output3):
 
-        self.set_cl_kernel_args()        
+        self.set_cl_kernel_args(output1, output2, output3)
 
         self.cl_program.GravityForce(
             queue, self.global_sizes, self.local_sizes, *self.cl_args).wait()
@@ -263,9 +263,9 @@ cdef class NBodyForce(SPHFunctionParticle):
         self.cl_args.append( numpy.int32(self.dest.name==self.source.name) )
         self.cl_args_name.append("int const self")
 
-    def cl_eval(self, object queue, object context):
+    def cl_eval(self, object queue, object context, output1, output2, output3):
 
-        self.set_cl_kernel_args()
+        self.set_cl_kernel_args(output1, output2, output3)
 
         self.cl_program.NBodyForce(
             queue, self.global_sizes, self.local_sizes, *self.cl_args).wait()
