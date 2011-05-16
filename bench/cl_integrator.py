@@ -88,7 +88,21 @@ opencl_time = time() - t1
 
 pa2.read_from_buffer()
 
-print "\n\n=================================================================="
+diff = sum(abs(pa1.x - pa2.x))
+diff += sum(abs(pa1.y - pa2.y))
+
+diff += sum(abs(pa1.u - pa2.u))
+diff += sum(abs(pa1.v - pa2.v))
+
+diff /= 4
+
+print "=================================================================="
 print "OpenCL execution time = %g s"%opencl_time
 print "Cython execution time = %g s"%cython_time
 print "Speedup = %g"%(cython_time/opencl_time)
+
+if diff < 1e-6:
+    print "Results match"
+
+else:
+    print "Results dont match"

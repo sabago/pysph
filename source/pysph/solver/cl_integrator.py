@@ -82,8 +82,6 @@ class CLIntegrator(Integrator):
                                     dest=initial_prop_buffer,
                                     ).wait()
 
-                    pa.read_from_buffer()
-
     def reset_current_buffers(self, calcs):
         """ Reset the current arrays """
         
@@ -134,8 +132,6 @@ class CLIntegrator(Integrator):
             # Evaluate the calc. The result is stored in cl_tmpx, cl_tmpy, ...
 
             calc.sph()
-
-            pa.read_from_buffer()
 
             for j in range(nupdates):
                 update_prop = updates[j]

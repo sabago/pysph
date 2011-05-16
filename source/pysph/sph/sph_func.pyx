@@ -3,6 +3,8 @@ from libc.stdlib cimport *
 cimport numpy
 import numpy
 
+from pysph.solver.cl_utils import get_real
+
 def get_all_funcs():
     ''' function to gather all implemented funcs in pysph.sph.funcs package '''
     import os
@@ -262,10 +264,17 @@ cdef class SPHFunction:
             self.cl_args.append(arg)
             self.cl_args_name.append(arg_name)
 
+        precision = self.dest.cl_precision
+
         # kernel args
-        if self.kernel is not None:        
+        if self.kernel is not None:
+
+            kernel_radius = get_real(self.kernel.radius(), precision)
             kernel_type = numpy.int32(self.kernel.get_type())
-            dim = numpy.int32(self.kernel.dim)   
+            dim = numpy.int32(self.kernel.dim)
+
+            self.cl_args.append(kernel_radius)
+            self.cl_args_name.append("REAL const kernel_radius")
 
             self.cl_args.append(kernel_type)
             self.cl_args_name.append('int const kernel_type')

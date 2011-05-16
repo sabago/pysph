@@ -14,18 +14,30 @@ __kernel void SPHRho(%(kernel_args)s)
 
     REAL4 pa = (REAL4)( d_x[dest_id], d_y[dest_id], 
                         d_z[dest_id], d_h[dest_id] );
+    REAL4 pb;
+  
     REAL wmb = 0.0F ;
-    REAL w;
+    REAL w, mb, dist, dst_rad, src_rad;
+
+    dst_rad = d_h[dest_id] * kernel_radius;
 
     %(neighbor_loop_code_start)s 
     {
         // SPH innermost loop code goes here.  The index `src_id` will
         // be available and looped over, this index.
 
-        REAL4 pb = (REAL4)(s_x[src_id], s_y[src_id], s_z[src_id], s_h[src_id]);
-        REAL mb = s_m[src_id];
-        w = kernel_function(pa, pb, dim, kernel_type); 
-        wmb += w*mb;  	  
+      pb = (REAL4)(s_x[src_id], s_y[src_id], s_z[src_id], s_h[src_id]);
+      mb = s_m[src_id];
+
+      src_rad = s_h[src_id] * kernel_radius;
+
+      dist = distance( pa, pb );
+
+      if ( (dst_rad > dist) || (src_rad > dist) )
+	{
+	  w = kernel_function(pa, pb, dim, kernel_type); 
+	  wmb += w*mb;
+	}
 	
 	%(neighbor_loop_code_break)s
 
