@@ -38,18 +38,19 @@ class SinglePrecisionLinkedListManagerTestCase(unittest.TestCase):
 
         self.cy_pa = base.get_particle_array(name='test', x=x, y=y, z=z, h=h)
 
-        self.cl_pa = base.get_particle_array(name="test", cl_precision=self.cl_precision,
-                                             x=x, y=y, z=z, h=h)
+        self.cl_pa = base.get_particle_array(
+            name="test", cl_precision=self.cl_precision,
+            x=x, y=y, z=z, h=h)
 
         self.cl_manager = base.LinkedListManager([self.cl_pa,])
 
-        self.cy_manager = base.LinkedListManager([self.cy_pa,])
-        self.cy_manager.with_cl = False
+        self.cy_manager = base.LinkedListManager([self.cy_pa,], with_cl=False)
         self.cy_manager.cl_precision = "single"
 
         # construct the neighbor locator
-        self.loc = base.LinkedListSPHNeighborLocator(manager=self.cy_manager,
-                                                     source=self.cy_pa, dest=self.cy_pa)
+        self.loc = base.LinkedListSPHNeighborLocator(
+            manager=self.cy_manager,
+            source=self.cy_pa, dest=self.cy_pa)
 
     def test_neighbor_locator_construct(self):
 
@@ -122,7 +123,7 @@ class SinglePrecisionLinkedListManagerTestCase(unittest.TestCase):
         cy_manager = self.cy_manager
         cl_manager = self.cl_manager
 
-        # update the bin structure 
+        # update the bin structure
         cy_manager.update()
         cl_manager.update()
 

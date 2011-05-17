@@ -123,3 +123,10 @@ __kernel void construct_neighbor_list(__global uint* cellids,
   release_lock( &locks[ cellids[gid] ] );
 
 } //__kernel
+
+
+__kernel void reset(__global int* array, int const val)
+{
+  unsigned int gid = get_global_id(0);
+  array[gid] = val;
+}

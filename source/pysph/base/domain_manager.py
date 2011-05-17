@@ -123,7 +123,8 @@ class LinkedListManager:
 
     """
 
-    def __init__(self, arrays, cell_size=None, context=None):
+    def __init__(self, arrays, cell_size=None, context=None,
+                 with_cl=True):
         """ Construct a linked list manager.
 
         Parameters:
@@ -133,7 +134,10 @@ class LinkedListManager:
                 The ParticleArrays being managed.
 
         cell_size -- REAL
-                The optional bin size to use. 
+                The optional bin size to use.
+
+        with_cl -- bool
+            Explicitly choose OpenCL
 
 
         A LinkedListManager constructs and maintains a linked list for
@@ -206,15 +210,19 @@ class LinkedListManager:
         self.diy = {}
         self.diz = {}
 
-        if HAS_CL:
-            self.with_cl = True
-            self.setup_cl(context)
+        if with_cl:
+            if HAS_CL:
+                self.with_cl = True
+                self.setup_cl(context)
         else:
             self.with_cl = False
 
         # dict for kernel launch parameters 
         self.global_sizes = {}
         self.local_sizes = {}
+
+        # initialize the linked list
+        self.init_linked_list()
 
     def find_bounds(self):
         """ Find the bounds for the particle arrays.
@@ -409,6 +417,47 @@ class LinkedListManager:
             self.diy[pa.name] = diy
             self.diz[pa.name] = diz
 
+    def reset_data(self):
+        """ Initialize the data structures.
+
+        Head is initialized to -1
+        Next is initialized to -1
+        locks is initialized to 0
+
+        """
+
+        if self.with_cl:
+            self.reset_cl_data()
+        else:
+            self.reset_cy_data()
+
+    def reset_cy_data(self):
+        for pa in self.arrays:
+            head = self.head[pa.name]
+            next = self.next[pa.name]
+
+            head[:] = -1
+            next[:] = -1
+
+    def reset_cl_data(self):
+        for pa in self.arrays:
+
+            dhead = self.dhead[pa.name]
+            dnext = self.dnext[pa.name]
+            dlocks = self.dlocks[pa.name]
+
+            global_sizes = (int(self.ncells),)
+            val = numpy.int32(-1)
+
+            self.prog.reset(self.queue, global_sizes, None, dhead, val).wait()
+
+            val = numpy.int32(0)
+            self.prog.reset(self.queue, global_sizes, None, dlocks, val).wait()
+
+            global_sizes = self.global_sizes[pa.name]
+            val = numpy.int32(-1)
+            self.prog.reset(self.queue, global_sizes, None, dnext, val).wait()
+
     def cy_update(self):
         """ Construct the linked lists for the particle arrays using Cython"""
 
@@ -478,35 +527,6 @@ class LinkedListManager:
                                               self.dlocks[pa.name]
                                               ).wait()
 
-    def enqueue_copy(self):
-        """ Copy the Buffer contents to the host
-
-        The buffers copied are
-
-        cellids, head, next, dix, diy, diz
-
-        """
-
-        if self.with_cl:
-        
-            for pa in self.arrays:
-                cl.enqueue_copy(self.queue, dest=self.cellids[pa.name],
-                                src=self.dcellids[pa.name])
-        
-                cl.enqueue_copy(self.queue, dest=self.head[pa.name],
-                                src=self.dhead[pa.name])
-        
-                cl.enqueue_copy(self.queue, dest=self.next[pa.name],
-                                src=self.dnext[pa.name])
-        
-                cl.enqueue_copy(self.queue, dest=self.ix[pa.name],
-                                src=self.dix[pa.name])
-        
-                cl.enqueue_copy(self.queue, dest=self.iy[pa.name],
-                                src=self.diy[pa.name])
-        
-                cl.enqueue_copy(self.queue, dest=self.iz[pa.name],
-                                src=self.diz[pa.name])
 
     def update(self):
         """ Update the linked list """
@@ -516,8 +536,8 @@ class LinkedListManager:
             # find the bounds for the manager
             self.find_bounds()
 
-            # initialize the data structures
-            self.init_linked_list()
+            # reset the data structures
+            self.reset_data()
 
             # update the data structures
             if self.with_cl:
@@ -557,3 +577,33 @@ class LinkedListManager:
         src_file = get_pysph_root() + '/base/linked_list.cl'
         src = cl_read(src_file, precision=self.cl_precision)
         self.prog = cl.Program(self.context, src).build()
+
+    def enqueue_copy(self):
+        """ Copy the Buffer contents to the host
+
+        The buffers copied are
+
+        cellids, head, next, dix, diy, diz
+
+        """
+
+        if self.with_cl:
+        
+            for pa in self.arrays:
+                cl.enqueue_copy(self.queue, dest=self.cellids[pa.name],
+                                src=self.dcellids[pa.name])
+        
+                cl.enqueue_copy(self.queue, dest=self.head[pa.name],
+                                src=self.dhead[pa.name])
+        
+                cl.enqueue_copy(self.queue, dest=self.next[pa.name],
+                                src=self.dnext[pa.name])
+        
+                cl.enqueue_copy(self.queue, dest=self.ix[pa.name],
+                                src=self.dix[pa.name])
+        
+                cl.enqueue_copy(self.queue, dest=self.iy[pa.name],
+                                src=self.diy[pa.name])
+        
+                cl.enqueue_copy(self.queue, dest=self.iz[pa.name],
+                                src=self.diz[pa.name])        
