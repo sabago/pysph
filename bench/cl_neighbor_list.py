@@ -13,6 +13,9 @@ CLLocator = base.OpenCLNeighborLocatorType
 # number of points
 np = 2**20
 
+# number of times to bin
+nbins = 3
+
 # generate the point set
 
 x = random.random(np)
@@ -29,17 +32,26 @@ pa = base.get_particle_array(name="test", cl_precision=precision,
                              x=x, y=y, z=z, h=h)
 
 t1 = time()
-particles =  base.Particles([pa,])
+for i in range(nbins):
+    particles =  base.Particles([pa,])
+    pa.set_dirty(True)
 cython_time = time() - t1
-t2 = time()
+
 
 t1 = time()
+
 cl_particles = base.CLParticles(
     arrays=[pa,],
     domain_manager_type=CLDomain.LinkedListManager,
     cl_locator_type=CLLocator.LinkedListSPHNeighborLocator)
-
 cl_particles.setup_cl(ctx)
+
+domain_manager = cl_particles.domain_manager
+
+for i in range(nbins - 1):
+    domain_manager.is_dirty = False
+    domain_manager.update()
+
 opencl_time = time() - t1
 
 print "================================================================"
