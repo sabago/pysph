@@ -51,5 +51,8 @@ cdef class PositionStepping(SPHFunction):
         
         self.cl_program.PositionStepping(
             queue, self.global_sizes, self.local_sizes, *self.cl_args).wait()
+
+        # set the dirty bit for the destination
+        self.dest.set_dirty(True)
     
 ##########################################################################
