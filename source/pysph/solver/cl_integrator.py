@@ -143,10 +143,10 @@ class CLIntegrator(Integrator):
 
                 # update the remote particle properties
 
-                self.rupdate_list[calc.dnum] = [update_prop]
+                #self.rupdate_list[calc.dnum] = [update_prop]
                 
-                particles.update_remote_particle_properties(
-                    self.rupdate_list)
+                #particles.update_remote_particle_properties(
+                #    self.rupdate_list)
 
         #ensure that the eval phase is completed for all processes
 

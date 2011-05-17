@@ -11,8 +11,12 @@ These are obtained from the solver.shock_tube_solver.standard_shock_tube_data
 """
 import logging
 
+import pysph.base.api as base
 import pysph.solver.api as solver
 from pysph.base.kernels import CubicSplineKernel
+
+CLDomain = base.DomainManagerType
+CLLocator = base.OpenCLNeighborLocatorType
 
 # Create the application, do this first so the application sets up the
 # logging and also gets all command line arguments.
@@ -24,7 +28,10 @@ app.process_command_line()
 # function which generates the particles.
 particles = app.create_particles(False,
     solver.shock_tube_solver.standard_shock_tube_data,
-    name='fluid', type=0)
+    name='fluid', type=0,
+    locator_type=CLLocator.LinkedListSPHNeighborLocator,
+    domain_manager_type=CLDomain.LinkedListManager)    
+    
 pa = particles.arrays[0]
 
 # Set the solver using the default cubic spline kernel

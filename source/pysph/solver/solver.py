@@ -518,7 +518,9 @@ class Solver(object):
         fname = self.fname + '_' 
         props = {}
 
-        cell_size = self.particles.cell_manager.cell_size
+        cell_size = None
+        if not self.with_cl:
+            cell_size = self.particles.cell_manager.cell_size
 
         for pa in self.particles.arrays:
             name = pa.name
