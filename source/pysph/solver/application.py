@@ -7,7 +7,7 @@ import sys
 from utils import mkdir
 
 # PySPH imports.
-from pysph.base.particles import Particles, ParticleArray
+from pysph.base.particles import Particles, CLParticles, ParticleArray
 from pysph.solver.controller import CommandManager
 
 # MPI conditional imports
@@ -268,11 +268,27 @@ class Application(object):
         else:
             self.load_balance = True
 
-        self.particles = Particles(arrays=pa, variable_h=variable_h,
-                                   in_parallel=in_parallel,
-                                   load_balancing=self.load_balance,
-                                   update_particles=True,
-                                   min_cell_size=min_cell_size)
+        if self.options.with_cl:
+
+            cl_locator_type = kw.get('locator_type', None)
+            domain_manager_type = kw.get('locator_type', None)
+
+            if cl_locator_type and domain_manager_type:
+
+                self.particles = CLParticles(
+                    arrays=pa, cl_locator_type=cl_locator_type,
+                    domain_manager_type=domain_manager_type)
+
+            else:
+                self.particles = CLParticles(arrays=pa)
+                
+        else:
+
+            self.particles = Particles(arrays=pa, variable_h=variable_h,
+                                       in_parallel=in_parallel,
+                                       load_balancing=self.load_balance,
+                                       update_particles=True,
+                                       min_cell_size=min_cell_size)
 
         return self.particles
 
