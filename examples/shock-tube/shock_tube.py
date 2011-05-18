@@ -17,6 +17,7 @@ from pysph.base.kernels import CubicSplineKernel
 
 CLDomain = base.DomainManagerType
 CLLocator = base.OpenCLNeighborLocatorType
+Locator = base.NeighborLocatorType
 
 # Create the application, do this first so the application sets up the
 # logging and also gets all command line arguments.
@@ -29,8 +30,7 @@ app.process_command_line()
 particles = app.create_particles(False,
     solver.shock_tube_solver.standard_shock_tube_data,
     name='fluid', type=0,
-    locator_type=CLLocator.LinkedListSPHNeighborLocator,
-    domain_manager_type=CLDomain.LinkedListManager)    
+    locator_type=Locator.SPHNeighborLocator)
     
 pa = particles.arrays[0]
 
