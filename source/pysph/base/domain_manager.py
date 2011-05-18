@@ -537,7 +537,8 @@ class LinkedListManager:
             self.find_bounds()
 
             # reset the data structures
-            self.reset_data()
+            #self.reset_data()
+            self.init_linked_list()
 
             # update the data structures
             if self.with_cl:
