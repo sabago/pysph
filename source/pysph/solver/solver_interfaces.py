@@ -14,13 +14,32 @@ class MultiprocessingInterface(BaseManager):
     This object exports a controller instance proxy over the multiprocessing
     interface. Control actions can be performed by connecting to the interface
     and calling methods on the controller proxy instance """
+    def __init__(self, address=None, authkey=None, try_next_port=False):
+        BaseManager.__init__(self, address, authkey)
+        self.authkey = authkey
+        self.try_next_port = try_next_port
+
     def get_controller(self):
         return self.controller
     
     def start(self, controller):
         self.controller = controller
         self.register('get_controller', self.get_controller)
-        self.get_server().serve_forever()
+        if not self.try_next_port:
+            self.get_server().serve_forever()
+        host, port = self.address
+        while self.try_next_port:
+            try:
+                BaseManager.__init__(self, (host,port), self.authkey)
+                self.get_server().serve_forever()
+                self.try_next_port = False
+            except socket.error as e:
+                try_next_port = False
+                import errno
+                if e.errno == errno.EADDRINUSE:
+                    port += 1
+                else:
+                    raise
         
 class MultiprocessingClient(BaseManager):
     """ A client for the multiprocessing interface
