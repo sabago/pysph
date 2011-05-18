@@ -452,7 +452,12 @@ class CLParticles(Particles):
 
         """
         self.domain_manager.update_status()
-        self.domain_manager.update()        
+        self.domain_manager.update()
+
+    def read_from_buffer(self):
+        """ Read the buffer contents for all the arrays """
+        for pa in self.arrays:
+            pa.read_from_buffer()
 
 ###############################################################################
 def get_particle_array(cl_precision="double", **props):

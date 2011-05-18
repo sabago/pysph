@@ -515,6 +515,9 @@ class Solver(object):
         
         """
 
+        if self.with_cl:
+            self.particles.read_from_buffer()
+
         fname = self.fname + '_' 
         props = {}
 
