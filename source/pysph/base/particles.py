@@ -304,7 +304,7 @@ class CLParticles(Particles):
         (1) base.DomainManagerType.LinkedListManager : Indexing based on the
             linked list structure defined by Hockney and Eastwood.
 
-        (2) base.DomainManagerType.DefaultManager : No indexing. Intended to
+        (2) base.DomainManagerType.DomainManager : No indexing. Intended to
             be used for all pair neighbor searches.
 
     cl_locator_type : int base.OpenCLNeighborLocatorType
@@ -324,7 +324,7 @@ class CLParticles(Particles):
 
     """
     def __init__(self, arrays,
-                 domain_manager_type=CLDomain.DefaultManager,
+                 domain_manager_type=CLDomain.DomainManager,
                  cl_locator_type=CLLocator.AllPairNeighborLocator):
 
         self.arrays = arrays
@@ -387,8 +387,8 @@ class CLParticles(Particles):
     def get_domain_manager(self, context):
         """ Get the domain manager from type. """ 
 
-        if self.domain_manager_type == CLDomain.DefaultManager:
-            return  domain_manager.DefaultManager(
+        if self.domain_manager_type == CLDomain.DomainManager:
+            return  domain_manager.DomainManager(
                 arrays = self.arrays, context = context
                 )
 

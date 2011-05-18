@@ -11,10 +11,10 @@ if HAS_CL:
 from linked_list_functions import cbin
 
 class DomainManagerType:
-    DefaultManager = 0
+    DomainManager = 0
     LinkedListManager = 1
 
-class DefaultManager:
+class DomainManager:
     def __init__(self, arrays, context=None):
         if len(arrays) == 0:
             raise RuntimeError("No Arrays provided!")
@@ -77,7 +77,7 @@ class DefaultManager:
         for pa in self.arrays:
             pa.set_dirty(False)
 
-class LinkedListManager:
+class LinkedListManager(DomainManager):
     """ Domain manager using bins as the indexing scheme and a linked
     list as the neighbor locator scheme.
 
@@ -311,22 +311,6 @@ class LinkedListManager:
 
         self.ncells = numpy.int32(self.ncx * self.ncy * self.ncz)
 
-    def update_status(self):
-        """Updates the is_dirty flag to indicate that an update is required.
-
-        Notes:
-        ------
-
-        Any module that may modify the particle data, should call this
-        update_status function.
-
-        """
-        for i in range(self.narrays):
-            parray = self.arrays[i]
-            if parray.is_dirty:
-                self.is_dirty = True
-                break
-
     def init_linked_list(self):
         """ Initialize the linked list dictionaries to store the
         particle neighbor information.
@@ -526,7 +510,6 @@ class LinkedListManager:
                                               self.dnext[pa.name],
                                               self.dlocks[pa.name]
                                               ).wait()
-
 
     def update(self):
         """ Update the linked list """
