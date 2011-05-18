@@ -303,7 +303,7 @@ class Application(object):
                     raise RuntimeError(msg)
 
             else:
-                locator = LocatorType.SPHNeighborLocator
+                locator_type = LocatorType.SPHNeighborLocator
 
             self.particles = Particles(arrays=pa, variable_h=variable_h,
                                        in_parallel=in_parallel,
