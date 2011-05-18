@@ -171,10 +171,18 @@ class Application(object):
                                     "HOST=0.0.0.0 by default"))
         
         interfaces.add_option("--multiproc", action="store",
-                              dest="multiproc", metavar='[[AUTHKEY@]HOST:]PORT',
+                              dest="multiproc", metavar='[[AUTHKEY@]HOST:]PORT[+]',
+                              default="pysph@0.0.0.0:8000+",
                               help=("Add a python multiprocessing interface "
                                     "to the solver; "
-                                    "AUTHKEY=pysph, HOST=0.0.0.0 by default"))
+                                    "AUTHKEY=pysph, HOST=0.0.0.0, PORT=8000+ by"
+                                    " default (8000+ means first available port "
+                                    "number 8000 onwards)"))
+        
+        interfaces.add_option("--no-multiproc", action="store_const",
+                              dest="multiproc", const=None,
+                              help=("Disable multiprocessing interface "
+                                    "to the solver"))
         
         parser.add_option_group(interfaces)
     
@@ -196,7 +204,7 @@ class Application(object):
                     stderr
         """
         # logging setup
-        logger = logging.getLogger()
+        self.logger = logger = logging.getLogger()
         logger.setLevel(loglevel)
         # Setup the log file.
         if filename is None:
@@ -387,9 +395,21 @@ class Application(object):
                 addr = addr[idx+1:]
                 idx = addr.find(':')
                 host = "0.0.0.0" if idx == -1 else addr[:idx]
-                port = int(addr[idx+1:])
-                self.command_manager.add_interface(MultiprocessingInterface(
-                        (host,port), authkey=authkey).start)
+                port = addr[idx+1:]
+                if port[-1] == '+':
+                    try_next_port = True
+                    port = port[:-1]
+                else:
+                    try_next_port = False
+                port = int(port)
+
+                interface = MultiprocessingInterface((host,port), authkey,
+                                                     try_next_port)
+
+                self.command_manager.add_interface(interface.start)
+
+                self.logger.info('started multiprocessing interface on %s'%(
+                        interface.address,))
 
     def run(self):
         """Run the application."""
