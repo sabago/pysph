@@ -468,6 +468,8 @@ class Solver(object):
         maxval = int((self.tf - self.t)/self.dt +1)
         bar = PBar(maxval, show=show_progress)
 
+        self.dump_output(*self.print_properties)
+
         while self.t < self.tf:
             self.t += self.dt
             self.count += 1

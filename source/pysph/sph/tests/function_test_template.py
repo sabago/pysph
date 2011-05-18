@@ -54,8 +54,8 @@ class FunctionTestCase(unittest.TestCase):
 
         self.cl_particles = base.CLParticles(
             arrays=[self.pa,],
-            domain_manager_type=CLDomain.LinkedListManager,
-            cl_locator_type=CLLocator.LinkedListSPHNeighborLocator)        
+            domain_manager_type=CLDomain.DomainManager,
+            cl_locator_type=CLLocator.AllPairNeighborLocator)
 
         # define the function here
         #self.func = func = sph.NBodyForce.get_func(pa, pa)

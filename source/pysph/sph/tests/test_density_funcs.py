@@ -89,7 +89,7 @@ class SummationDensityTestCase(FunctionTestCase):
 
         self.cl_particles = base.CLParticles(
             arrays=[self.pa,],
-            domain_manager_type=CLDomain.DefaultManager,
+            domain_manager_type=CLDomain.DomainManager,
             cl_locator_type=CLLocator.AllPairNeighborLocator)
 
         self.setup_calcs()
