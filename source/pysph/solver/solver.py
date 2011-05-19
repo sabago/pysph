@@ -78,6 +78,10 @@ class Solver(object):
         self.with_cl = False
         self.cl_integrator_types = {EulerIntegrator:CLEulerIntegrator}
 
+        self.fname = "solver"
+        self.output_directory = "."
+        self.detailed_output = False
+
     def initialize(self):
         """ Perform basic initializations """
 

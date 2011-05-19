@@ -19,7 +19,7 @@ import pyopencl as cl
 
 AllPairLocatorCython = base.NeighborLocatorType.NSquareNeighborLocator
 AllPairLocatorOpenCL = base.OpenCLNeighborLocatorType.AllPairNeighborLocator
-DefaultManager = base.DomainManagerType.DefaultManager
+DomainManager = base.DomainManagerType.DomainManager
 
 # constants
 tf = 1.0
