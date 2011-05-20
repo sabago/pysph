@@ -4,14 +4,22 @@ import pysph.solver.api as solver
 import pysph.base.api as base
 import pysph.sph.api as sph
 
-from pysph.solver.cl_integrator import CLIntegrator
-
 Fluid = base.ParticleType.Fluid
 
 import numpy
 import unittest
 
-import pyopencl as cl
+if solver.HAS_CL:
+    import pyopencl as cl
+    from pysph.solver.cl_integrator import CLIntegrator
+
+else:
+    try:
+        import nose.plugins.skip as skip
+        reason = "PyOpenCL not installed"
+        raise skip.SkipTest(reason)
+    except ImportError:
+        pass
 
 CLDomain = base.DomainManagerType
 CLLocator = base.OpenCLNeighborLocatorType
