@@ -73,6 +73,8 @@ eps = 0.5
 
  """
 
+import warnings
+
 import numpy
 import pysph.base.api as base
 import pysph.solver.api as solver
@@ -252,7 +254,7 @@ def get_fluid_particles(name="fluid"):
 
     return fluid
 
-def get_particles():
+def get_particles(**args):
     boundary, width = get_boundary_particles()
 
     fluid1 = get_fluid_particles(name="fluid1")
@@ -265,10 +267,26 @@ def get_particles():
 app = solver.Application()
 app.process_command_line()
 
-particles = app.create_particles(variable_h=False, callable=get_particles)
+integrator_type = solver.RK2Integrator
+if app.options.with_cl:
+    msg = """\n\n
+You have chosen to run the example with OpenCL support.  The only
+integrator with OpenCL support is the forward Euler
+integrator. This integrator will be used instead of the default
+RK2 integrator for this example.\n\n
+"""
+    warnings.warn(msg)
+    integrator_type = solver.EulerIntegrator    
+
+particles = app.create_particles(
+    variable_h=False, callable=get_particles,
+    locator_type=base.NeighborLocatorType.SPHNeighborLocator,
+    domain_manager=base.DomainManagerType.DomainManager,
+    cl_locator_type=base.OpenCLNeighborLocatorType.AllPairNeighborLocator
+    )
 
 kernel = base.HarmonicKernel(dim=2, n=3)
-s = solver.Solver(dim=2, integrator_type=solver.RK2Integrator)
+s = solver.Solver(dim=2, integrator_type=integrator_type)
 
 s.default_kernel = kernel
 

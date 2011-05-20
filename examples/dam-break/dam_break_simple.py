@@ -123,7 +123,7 @@ def get_fluid_particles():
 
     return fluid
 
-def get_particles():
+def get_particles(**args):
     fluid = get_fluid_particles()
     boundary = get_boundary_particles()
 
@@ -132,10 +132,17 @@ def get_particles():
 app = solver.Application()
 app.process_command_line(sys.argv+['-q',
                     '--xml-rpc=0.0.0.0:8900', '--multiproc=pysph@0.0.0.0:8800'])
+
+if app.options.with_cl:
+    raise RuntimeError("OpenCL support not added for MonaghanBoundaryForce!")
                     
 
-particles = app.create_particles(variable_h=False, callable=get_particles,
-                                 min_cell_size=2*h)
+particles = app.create_particles(
+    variable_h=False, callable=get_particles, min_cell_size=2*h,
+    locator_type=base.NeighborLocatorType.SPHNeighborLocator,
+    domain_manager=base.DomainManagerType.DomainManager,
+    cl_locator_type=base.OpenCLNeighborLocatorType.AllPairNeighborLocator
+    )
 
 s = solver.Solver(dim=2, integrator_type=solver.EulerIntegrator)
 
