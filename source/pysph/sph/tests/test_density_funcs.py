@@ -79,41 +79,61 @@ class SummationDensityTestCase(FunctionTestCase):
     def test_double_precision(self):
         self._test('double', nd=6)
 
-    def _test_all_pair_double_precision(self):
-        """ Test the OpenCL double precision and PySPH solution """
+class DensityRateTestCase(FunctionTestCase):
+    """ The setup consists of four particles placed at the
+    vertices of a unit square. 
+    
+    """    
+    def setup(self):
+        self.func = sph.SPHDensityRate.withargs().get_func(self.pa, self.pa)
 
+    def get_reference_solution(self):
+        """ Evaluate the force on each particle manually """
+        
         pa = self.pa
+        rhos = []
 
-        # set the precision for the particle array
-        self.pa.set_cl_precision('double')
+        x, y, z, m, h = pa.get('x','y','z','m','h')
+        u, v, w = pa.get('u','v','w')
 
-        self.cl_particles = base.CLParticles(
-            arrays=[self.pa,],
-            domain_manager_type=CLDomain.DomainManager,
-            cl_locator_type=CLLocator.AllPairNeighborLocator)
-
-        self.setup_calcs()
-
-        # setup OpenCL
-        self.cl_calc.setup_cl(self.ctx)
-
-        # get the reference solution
-        reference_solution = self.get_reference_solution()        
-
-        # Evaluate the Cython Calc. default outputs are _tmpx, _tmpy and _tmpz
-        self.calc.sph()
-        cython_tmpx = pa._tmpx.copy()
-
-        # Evaluate the OpenCL calc. default outputs are the same
-        pa._tmpx[:] = -1
-        self.cl_calc.sph()
-        pa.read_from_buffer()
-
-        opencl_tmpx = pa._tmpx        
+        kernel = base.CubicSplineKernel(dim=2)
 
         for i in range(self.np):
-            self.assertAlmostEqual(reference_solution[i], cython_tmpx[i], 6)
-            self.assertAlmostEqual(reference_solution[i], opencl_tmpx[i], 6)
+
+            rho_sum = 0.0
+            force = base.Point()
+            xi, yi, zi = x[i], y[i], z[i]
+
+            ri = base.Point(xi,yi,zi)
+
+            hi = h[i]
+
+            for j in range(self.np):
+
+                grad = base.Point()
+                xj, yj, zj = x[j], y[j], z[j]
+                hj, mj = m[j], h[j]
+
+                vij = base.Point(u[i]-u[j], v[i]-v[j], w[i]-w[j])
+
+                havg = 0.5 * (hi + hj)
+
+                rj = base.Point(xj, yj, zj)
+        
+                kernel.py_gradient(ri, rj, havg, grad)
+                
+                rho_sum += mj*vij.dot(grad)
+
+            force.x = rho_sum
+            rhos.append(force)
+
+        return rhos
+
+    def test_single_precision(self):
+        self._test('single', nd=6)
+
+    def test_double_precision(self):
+        self._test('double', nd=7)
 
 if __name__ == '__main__':
     unittest.main()
