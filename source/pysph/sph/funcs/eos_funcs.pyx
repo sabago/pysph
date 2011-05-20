@@ -93,7 +93,8 @@ cdef class TaitEquation(SPHFunction):
         self.id = 'tait'
         self.tag = "state"
 
-        self.cl_kernel_src_file = "eos_funcs.cl"
+        self.cl_kernel_src_file = "eos_funcs.clt"
+        self.cl_kernel_function_name = "TaitEquation"
         self.num_outputs = 2
 
     def set_src_dst_reads(self):
@@ -101,6 +102,19 @@ cdef class TaitEquation(SPHFunction):
         self.dst_reads = []
 
         self.dst_reads.extend( ['rho'] )
+
+    def _set_extra_cl_args(self):
+        self.cl_args.append( get_real(self.gamma, self.dest.cl_precision) )
+        self.cl_args_name.append( 'REAL const gamma' )
+
+        self.cl_args.append( get_real(self.co, self.dest.cl_precision) )
+        self.cl_args_name.append( 'REAL const co' )
+
+        self.cl_args.append( get_real(self.ro, self.dest.cl_precision) )
+        self.cl_args_name.append( 'REAL const ro' )
+
+        self.cl_args.append( get_real(self.B, self.dest.cl_precision) )
+        self.cl_args_name.append( 'REAL const B' )
 
     cdef void eval_single(self, size_t dest_pid, KernelBase kernel,
                           double* result):
@@ -114,5 +128,12 @@ cdef class TaitEquation(SPHFunction):
 
         result[0] = (tmp-1.0)*self.B
         result[1] = pow(ratio, gamma2)*self.co
+
+    def cl_eval(self, object queue, object context, output1, output2, output3):
+
+        self.set_cl_kernel_args(output1, output2, output3)
+
+        self.cl_program.IdealGasEquation(
+            queue, self.global_sizes, self.local_sizes, *self.cl_args).wait()
 
 ##############################################################################
