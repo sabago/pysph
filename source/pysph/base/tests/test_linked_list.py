@@ -7,10 +7,19 @@ import unittest
 
 # PySPH imports
 import pysph.base.api as base
-from pysph.solver.api import get_real
+from pysph.solver.api import get_real, HAS_CL
 
 # Cython functions for the neighbor list
 import pysph.base.linked_list_functions as ll
+
+if not HAS_CL:
+    try:
+        import nose.plugins.skip as skip
+        reason = "PyOpenCL not installed"
+        raise skip.SkipTest(reason)
+    except ImportError:
+        pass
+
 
 class SinglePrecisionLinkedListManagerTestCase(unittest.TestCase):
 

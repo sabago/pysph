@@ -5,6 +5,14 @@ import pysph.sph.api as sph
 if solver.HAS_CL:
     import pyopencl as cl
 
+else:
+    try:
+        import nose.plugins.skip as skip
+        reason = "PyOpenCL not installed"
+        raise skip.SkipTest(reason)
+    except ImportError:
+        pass
+    
 import numpy
 import unittest
 from os import path
