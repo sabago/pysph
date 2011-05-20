@@ -61,6 +61,15 @@ class CLCalcTestCase(unittest.TestCase):
 
     def setUp(self):
 
+        if not solver.HAS_CL:
+            try:
+                import nose.plugins.skip as skip
+                reason = "PyOpenCL not installed!"
+                raise skip.SkipTest(reason)
+
+            except ImportError:
+                pass
+        
         self.np = np = 101
         self.x = x = numpy.linspace(0, 1, np)
         self.m = m = numpy.ones_like(x) * (x[1] - x[0])
@@ -78,7 +87,8 @@ class CLCalcTestCase(unittest.TestCase):
                                updates=['u','v','w'], kernel=kernel,
                                funcs=[func,])
 
-        self.context = solver.create_some_context()
+        if solver.HAS_CL:
+            self.context = solver.create_some_context()
 
     def test_constructor(self):
 
