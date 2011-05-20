@@ -73,6 +73,8 @@ eps = 0.5
 
  """
 
+import warnings
+
 import numpy
 import pysph.base.api as base
 import pysph.solver.api as solver
@@ -250,7 +252,7 @@ def get_fluid_particles():
 
     return fluid
 
-def get_particles():
+def get_particles(**args):
     fluid = get_fluid_particles()
     boundary = get_boundary_particles()
 
@@ -259,12 +261,25 @@ def get_particles():
 app = solver.Application()
 app.process_command_line()
 
-particles = app.create_particles(variable_h=False, callable=get_particles,
-                                 min_cell_size=4*h)
+integrator_type = solver.PredictorCorrectorIntegrator
+if app.options.with_cl:
+    msg = """\n\n
+You have chosen to run the example with OpenCL support.  The only
+integrator with OpenCL support is the forward Euler
+integrator. This integrator will be used instead of the default
+predictor corrector integrator for this example.\n\n
+"""
+    warnings.warn(msg)
+    integrator_type = solver.EulerIntegrator    
 
-print "Number of cells: ", len(particles.cell_manager.cells_dict)
+particles = app.create_particles(
+    variable_h=False, callable=get_particles, min_cell_size=4*h,
+    locator_type=base.NeighborLocatorType.SPHNeighborLocator,
+    domain_manager=base.DomainManagerType.DomainManager,
+    cl_locator_type=base.OpenCLNeighborLocatorType.AllPairNeighborLocator
+    )
 
-s = solver.Solver(dim=2, integrator_type=solver.PredictorCorrectorIntegrator)
+s = solver.Solver(dim=2, integrator_type=integrator_type)
 
 #Equation of state
 s.add_operation(solver.SPHOperation(
