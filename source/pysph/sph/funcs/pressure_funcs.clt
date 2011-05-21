@@ -1,0 +1,155 @@
+
+
+$SPHPressureGradient
+
+#include "cl_common.h"
+#include "cl_common.cl"
+#include "kernels.h"
+
+__kernel void SPHPressureGradient(%(kernel_args)s)
+{
+    %(workgroup_code)s
+
+    // The term `dest_id` will be suitably defined at this point.
+
+    REAL4 ri = (REAL4)( d_x[dest_id], d_y[dest_id], 
+                        d_z[dest_id], d_h[dest_id] );
+
+    REAL rhoa = d_rho[dest_id];
+    REAL Pa = d_p[dest_id];
+    REAL4 grad;
+    REAL temp, mb, dist, dst_rad, src_rad;
+
+    REAL Pb, rhob;
+    REAL4 rj;
+
+    dst_rad = d_h[dest_id] * kernel_radius;
+ 
+    %(neighbor_loop_code_start)s 
+
+       {
+
+        // SPH innermost loop code goes here.  The index `src_id` will
+        // be available and looped over, this index.
+
+        rj = (REAL4)(s_x[src_id], s_y[src_id], s_z[src_id], s_h[src_id]);
+	
+	src_rad = s_h[src_id] * kernel_radius;
+	dist = distance( ri, rj );
+	
+	if ( (dst_rad > dist) || (src_rad > dist) )
+	  {
+
+	    Pb = s_p[src_id];
+	    mb = s_m[src_id];
+	    rhob = s_rho[src_id];
+	
+	    temp = -mb*( Pa/(rhoa*rhoa) + Pb/(rhob*rhob) ) ;
+	
+	    kernel_gradient(ri, rj, &grad, dim, kernel_type);
+	
+	    tmpx[dest_id] += temp*grad.x;
+	    tmpy[dest_id] += temp*grad.y;
+	    tmpz[dest_id] += temp*grad.z;
+
+	  }
+
+	%(neighbor_loop_code_break)s
+
+       } // neighbor loop
+
+    %(neighbor_loop_code_end)s 
+
+} // __kernel
+
+$SPHPressureGradient
+
+
+$MomentumEquation
+
+#include "cl_common.h"
+#include "cl_common.cl"
+#include "kernels.h"
+
+__kernel void MomentumEquation(%(kernel_args)s)
+{
+    %(workgroup_code)s
+
+    // The term `dest_id` will be suitably defined at this point.
+
+    REAL4 ra = (REAL4)( d_x[dest_id], d_y[dest_id], 
+                        d_z[dest_id], d_h[dest_id] );
+  
+    REAL4 va = (REAL4)(d_u[dest_id], d_v[dest_id], d_w[dest_id], 0.0F);
+    
+    REAL rhoa = d_rho[dest_id];
+    REAL Pa = d_p[dest_id];
+    REAL4 grad;
+    REAL temp, Pi_ab;
+
+    REAL4 rb, vb;
+    REAL Pb, rhob, mb, dot_product;
+    REAL src_rad, dst_rad, dist;
+
+    dst_rad = d_h[dest_id] * kernel_radius;
+ 
+    %(neighbor_loop_code_start)s 
+
+       {
+
+        // SPH innermost loop code goes here.  The index `src_id` will
+        // be available and looped over, this index.
+
+	rb = (REAL4)(s_x[src_id], s_y[src_id], s_z[src_id], s_h[src_id]);
+        Pb = s_p[src_id];
+	rhob = s_rho[src_id];
+	mb = s_m[src_id];
+
+	src_rad = s_h[src_id];
+	dist = distance( ra,rb );
+
+	if ( (dst_rad > dist) || (src_rad > dist) )
+	  {
+	    vb = (REAL4)(s_u[src_id], s_v[src_id], s_w[src_id], 0.0F);
+	    
+	    dot_product = dot( (va-vb), (ra-rb) );
+	    
+	    temp =  Pa/(rhoa*rhoa) + Pb/(rhob*rhob)  ;
+	    
+	    kernel_gradient(ra, rb, &grad, dim, kernel_type);
+
+	    Pi_ab = 0.0F;	
+	    if ( dot_product < 0.0F )
+	      {
+		REAL cab = 0.5F * ( d_cs[dest_id] + s_cs[src_id] );
+		REAL rhoab = 0.5F * (rhoa + rhob);
+		
+		REAL hab = 0.5F * ( d_h[dest_id] + s_h[src_id] );
+		REAL mu = dot_product*hab;
+		REAL norm2 = length(ra-rb) * length(ra-rb);
+		
+		mu /= ( norm2 + eta*eta*hab*hab );
+		
+		Pi_ab = -alpha*cab*mu + beta*mu*mu;
+		Pi_ab /= rhoab;
+
+	      } //if dot_product
+
+	    temp += Pi_ab;
+	    temp = -mb*temp;
+
+	    tmpx[dest_id] += temp*grad.x;
+	    tmpy[dest_id] += temp*grad.y;
+	    tmpz[dest_id] += temp*grad.z;
+	    
+	  } // if dst_rad
+
+	%(neighbor_loop_code_break)s
+
+       } //neighbor_loop_code
+
+       	%(neighbor_loop_code_end)s
+
+} //__kernel
+	
+$MomentumEquation
