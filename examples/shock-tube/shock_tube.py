@@ -30,7 +30,9 @@ app.process_command_line()
 particles = app.create_particles(False,
     solver.shock_tube_solver.standard_shock_tube_data,
     name='fluid', type=0,
-    locator_type=Locator.SPHNeighborLocator)
+    locator_type=Locator.SPHNeighborLocator,
+    cl_locator_type=CLLocator.AllPairNeigborLocator,
+    domain_manager_type=CLDomain.DomainManager)
     
 pa = particles.arrays[0]
 

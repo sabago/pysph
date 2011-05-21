@@ -280,7 +280,7 @@ class Application(object):
         if self.options.with_cl:
 
             cl_locator_type = kw.get('cl_locator_type', None)
-            domain_manager_type = kw.get('locator_type', None)
+            domain_manager_type = kw.get('domain_manager_type', None)
 
             if cl_locator_type and domain_manager_type:
 
