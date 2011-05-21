@@ -80,6 +80,10 @@ class ParticleArrayHelper(HasTraits):
     # Sync'd trait with the dataset to turn on/off visibility.
     visible = Bool(True, desc='if the particle array is to be displayed')
 
+    # Do we show the hidden arrays?
+    show_hidden_arrays = Bool(False, 
+                              desc='if hidden arrays are to be listed')
+
     ########################################
     # View related code.
     view = View(Item(name='name', 
@@ -87,6 +91,7 @@ class ParticleArrayHelper(HasTraits):
                            editor=TitleEditor()),
                 Group(
                       Item(name='visible'),
+                      Item(name='show_hidden_arrays'),
                       Item(name='scalar',
                            editor=EnumEditor(name='scalar_list')
                           ),
@@ -100,7 +105,7 @@ class ParticleArrayHelper(HasTraits):
     def _particle_array_changed(self, pa):
         self.name = pa.name
         # Setup the scalars.
-        self.scalar_list = sorted(pa.properties.keys())
+        self._show_hidden_arrays_changed(self.show_hidden_arrays)
 
         # Update the plot.
         x, y, z, u, v, w = pa.x, pa.y, pa.z, pa.u, pa.v, pa.w
@@ -134,6 +139,16 @@ class ParticleArrayHelper(HasTraits):
             p.mlab_source.scalars = getattr(self.particle_array, value)
             p.module_manager.scalar_lut_manager.data_name = value
 
+    def _show_hidden_arrays_changed(self, value):
+        pa = self.particle_array
+        sc_list = pa.properties.keys()
+        if value:
+            self.scalar_list = sorted(sc_list)
+        else:
+            self.scalar_list = sorted([x for x in sc_list 
+                                       if not x.startswith('_')])
+        
+
 
 ##############################################################################
 # `MayaviViewer` class.
@@ -161,7 +176,7 @@ class MayaviViewer(HasTraits):
     ########################################
     # Timer traits.
     timer = Instance(Timer)
-    interval = Range(2, 20.0, 5.0, 
+    interval = Range(1, 20.0, 5.0, 
                      desc='frequency in seconds with which plot is updated')
     
     ########################################

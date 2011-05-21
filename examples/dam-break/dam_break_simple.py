@@ -130,8 +130,7 @@ def get_particles(**args):
     return [fluid, boundary]
 
 app = solver.Application()
-app.process_command_line(sys.argv+['-q',
-                    '--xml-rpc=0.0.0.0:8900', '--multiproc=pysph@0.0.0.0:8800'])
+app.process_command_line()
 
 if app.options.with_cl:
     raise RuntimeError("OpenCL support not added for MonaghanBoundaryForce!")
@@ -201,7 +200,7 @@ dt = 1e-4
 
 s.set_final_time(3.0)
 s.set_time_step(dt)
-
 app.set_solver(s)
+s.set_print_freq(1000)
 
 app.run()

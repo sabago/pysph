@@ -173,12 +173,12 @@ class Application(object):
         
         interfaces.add_option("--multiproc", action="store",
                               dest="multiproc", metavar='[[AUTHKEY@]HOST:]PORT[+]',
-                              default="pysph@0.0.0.0:8000+",
+                              default="pysph@0.0.0.0:8800+",
                               help=("Add a python multiprocessing interface "
                                     "to the solver; "
-                                    "AUTHKEY=pysph, HOST=0.0.0.0, PORT=8000+ by"
-                                    " default (8000+ means first available port "
-                                    "number 8000 onwards)"))
+                                    "AUTHKEY=pysph, HOST=0.0.0.0, PORT=8800+ by"
+                                    " default (8800+ means first available port "
+                                    "number 8800 onwards)"))
         
         interfaces.add_option("--no-multiproc", action="store_const",
                               dest="multiproc", const=None,
