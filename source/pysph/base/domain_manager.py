@@ -240,6 +240,7 @@ class LinkedListManager(DomainManager):
 
         # update the minimum and maximum for the particle arrays
         for pa in self.arrays:
+            pa.read_from_buffer()
             pa.update_min_max(props=['x','y','z','h'])
 
         if self.narrays > 0:
