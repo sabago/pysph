@@ -1,2 +1,2 @@
-Particle Array
+ParticleArray
 ===============
