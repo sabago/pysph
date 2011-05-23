@@ -13,7 +13,8 @@ from sph_equation import SPHOperation, SPHIntegration
 Fluids = base.ParticleType.Fluid
 Solids = base.ParticleType.Solid
 
-def get_circular_patch(name="", type=0, dx=0.025):
+def get_circular_patch(name="", type=0, dx=0.025,
+                       cl_precision="single"):
     
     x,y = numpy.mgrid[-1.05:1.05+1e-4:dx, -1.05:1.05+1e-4:dx]
     x = x.ravel()
@@ -37,7 +38,8 @@ def get_circular_patch(name="", type=0, dx=0.025):
             indices.append(i)
             
     pa = base.get_particle_array(x=x, y=y, m=m, rho=rho, h=h, p=p, u=u, v=v,
-                                 cs=cs,name=name, type=type)
+                                 cs=cs,name=name, type=type,
+                                 cl_precision=cl_precision)
 
     la = base.LongArray(len(indices))
     la.set_data(numpy.array(indices))
