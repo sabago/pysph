@@ -124,7 +124,7 @@ class LinkedListManager(DomainManager):
     """
 
     def __init__(self, arrays, cell_size=None, context=None,
-                 with_cl=True):
+                 kernel_scale_factor = 2.0, with_cl=True):
         """ Construct a linked list manager.
 
         Parameters:
@@ -134,7 +134,10 @@ class LinkedListManager(DomainManager):
                 The ParticleArrays being managed.
 
         cell_size -- REAL
-                The optional bin size to use.
+                The optional bin size to use
+
+        kernel_scale_factor --REAL.
+                the scale factor for the radius
 
         with_cl -- bool
             Explicitly choose OpenCL
@@ -164,6 +167,8 @@ class LinkedListManager(DomainManager):
 
         self.arrays = arrays
         self.narrays = narrays = len(arrays)
+
+        self.kernel_scale_factor = kernel_scale_factor
 
         # check if the arrays have unique names
         if narrays > 1:
@@ -288,7 +293,8 @@ class LinkedListManager(DomainManager):
 
         """
         if not self.const_cell_size:
-            self.cell_size = get_real(2*self.Mh, self.cl_precision)
+            self.cell_size = get_real(self.kernel_scale_factor*self.Mh,
+                                      self.cl_precision)
         else:
             self.cell_size = self.const_cell_size
 
@@ -474,6 +480,7 @@ class LinkedListManager(DomainManager):
                   numpy.int32(ncx), numpy.int32(ncy), numpy.int32(ncz),
                   cell_size, numpy.int32(np)
                   )
+
 
     def cl_update(self):
         """ Construct the linked lists for the particle arrays using OpenCL"""
