@@ -67,6 +67,10 @@ cdef class FixedDestNbrParticleLocator(NbrParticleLocatorBase):
                                    LongArray output_array,
                                    bint exclude_self=*) except -1
 
+    cpdef get_cellid_dest(self, long dest_p_index)
+
+    cpdef get_cellid_src(self, long dest_p_index)
+
 cdef class VarHNbrParticleLocator(FixedDestNbrParticleLocator):
     """
     Particle locator, where different particles can have different interaction

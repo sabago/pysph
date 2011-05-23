@@ -1261,24 +1261,26 @@ cdef class ParticleArray:
     def read_from_buffer(self):
         """ Read all the buffer props """
 
-        for prop in self.properties:
+        if self.cl_setup_done:
+            
+            for prop in self.properties:
 
-            buffer = self.get_cl_buffer(prop)
+                buffer = self.get_cl_buffer(prop)
 
-            carray = self.properties.get(prop)
-            array = carray.get_npy_array()
-
-            dtype = carray.get_c_type()
-            if self.cl_precision == 'single':
-                if dtype == "double":
-                    array = array.astype(numpy.float32)
+                carray = self.properties.get(prop)
+                array = carray.get_npy_array()
+            
+                dtype = carray.get_c_type()
+                if self.cl_precision == 'single':
+                    if dtype == "double":
+                        array = array.astype(numpy.float32)
 
                 if dtype == "long":
                     array = array.astype(numpy.int32)
 
-            cl.enqueue_copy(self.queue, src=buffer, dest=array).wait()
-
-            self.set( **{prop:array} )            
+                cl.enqueue_copy(self.queue, src=buffer, dest=array).wait()
+                    
+                self.set( **{prop:array} )            
         
 ##############################################################################
 

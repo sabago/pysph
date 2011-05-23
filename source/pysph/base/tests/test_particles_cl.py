@@ -4,13 +4,21 @@ from pysph.base.particles import CLParticles, get_particle_array
 from pysph.base.locator import OpenCLNeighborLocatorType
 from pysph.base.domain_manager import DomainManagerType, LinkedListManager
 
-from pysph.solver.cl_utils import create_some_context
+from pysph.solver.cl_utils import create_some_context, HAS_CL
 
 import unittest
 import numpy
 
-import pyopencl as cl
-mf = cl.mem_flags
+if HAS_CL:
+    import pyopencl as cl
+    mf = cl.mem_flags
+else:
+    try:
+        import nose.plugins.skip as skip
+        reason = "PyOpenCL not installed"
+        raise skip.SkipTest(reason)
+    except ImportError:
+        pass
 
 class CLParticlesTestCase(unittest.TestCase):
     """ The CLParticles class is tested. 
