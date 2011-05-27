@@ -135,7 +135,7 @@ class Application(object):
 
         # --directory
         parser.add_option("--directory", action="store",
-                         dest="output_dir", default=".",
+                         dest="output_dir", default=self.fname+'_output',
                          help="Dump output in the specified directory.")
 
         # -k/--kernel-correction
@@ -156,7 +156,7 @@ class Application(object):
                           default=False, help=""" Use OpenCL to run the
                           simulation on an appropriate device """)
         
-        # solver commandline interface
+        # solver interfaces
         interfaces = OptionGroup(parser, "Interfaces",
                                  "Add interfaces to the solver")
 
@@ -172,12 +172,12 @@ class Application(object):
         
         interfaces.add_option("--multiproc", action="store",
                               dest="multiproc", metavar='[[AUTHKEY@]HOST:]PORT[+]',
-                              default="pysph@0.0.0.0:8000+",
+                              default="pysph@0.0.0.0:8800+",
                               help=("Add a python multiprocessing interface "
                                     "to the solver; "
-                                    "AUTHKEY=pysph, HOST=0.0.0.0, PORT=8000+ by"
-                                    " default (8000+ means first available port "
-                                    "number 8000 onwards)"))
+                                    "AUTHKEY=pysph, HOST=0.0.0.0, PORT=8800+ by"
+                                    " default (8800+ means first available port "
+                                    "number 8800 onwards)"))
         
         interfaces.add_option("--no-multiproc", action="store_const",
                               dest="multiproc", const=None,
@@ -185,7 +185,15 @@ class Application(object):
                                     "to the solver"))
         
         parser.add_option_group(interfaces)
-    
+        
+        # solver job resume support
+        parser.add_option('--resume', action='store', dest='resume',
+                          metavar='TIME|*|?',
+                          help=('Resume solver from specified time (as stored '
+                                'in the data in output directory); * chooses '
+                                'the latest available time; ? lists all '
+                                'available times')
+                          )
 
     def _setup_logging(self, filename=None, 
                       loglevel=logging.WARNING,
@@ -348,13 +356,21 @@ class Application(object):
 
         # OpenCL setup for the solver
         solver.set_cl(self.options.with_cl)
-
-        solver.setup_integrator(self.particles)
         
+        if self.options.resume:
+            solver.particles = self.particles # needed to be able to load particles
+            r = solver.load_output(self.options.resume)
+            if r is not None:
+                print 'available times for resume:'
+                print r
+                sys.exit(0)
+        
+        solver.setup_integrator(self.particles)
+
         # add solver interfaces
         self.command_manager = CommandManager(solver, self.comm)
         solver.set_command_handler(self.command_manager.execute_commands)
-        
+
         if comm.Get_rank() == 0:
             # commandline interface
             if self.options.cmd_line:
@@ -369,13 +385,12 @@ class Application(object):
                 host = "0.0.0.0" if idx == -1 else addr[:idx]
                 port = int(addr[idx+1:])
                 self.command_manager.add_interface(XMLRPCInterface((host,port)).start)
-        
             # python MultiProcessing interface
             if self.options.multiproc:
                 from pysph.solver.solver_interfaces import MultiprocessingInterface
                 addr = self.options.multiproc
                 idx = addr.find('@')
-                authkey = "pysph" if idx == -1 else addr[:idx] 
+                authkey = "pysph" if idx == -1 else addr[:idx]
                 addr = addr[idx+1:]
                 idx = addr.find(':')
                 host = "0.0.0.0" if idx == -1 else addr[:idx]
