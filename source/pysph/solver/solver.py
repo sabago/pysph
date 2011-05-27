@@ -2,6 +2,7 @@
 
 import os
 from utils import PBar, savez_compressed, savez
+import numpy
 from cl_utils import get_cl_devices, HAS_CL
 
 import pysph.base.api as base
@@ -394,7 +395,7 @@ class Solver(object):
 
     def set_output_fname(self, fname):
         """ Set the output file name """
-        self.fname = fname    
+        self.fname = fname
 
     def set_output_printing_level(self, detailed_output):
         """ Set the output printing level """
@@ -528,7 +529,8 @@ class Solver(object):
                                   fname + name + '_' + str(self.t) + '.npz')
             
             if self.detailed_output:
-                savez(_fname, dt=self.dt, **pa.properties)
+                savez(_fname, dt=self.dt, cell_size=cell_size, 
+                      np = pa.num_real_particles, **pa.properties)
 
             else:
                 for prop in print_properties:
@@ -536,6 +538,54 @@ class Solver(object):
 
                 savez(_fname, dt=self.dt, cell_size=cell_size, 
                       np = pa.num_real_particles, **props)
+
+    def load_output(self, time):
+        """ load particle data from dumped output file
+
+        Parameters
+        ----------
+        time : string
+            The time from which to load the data. If time is '?' then list of
+            available time data files is returned and if time is '*' then the
+            latest available data file is used
+
+        Notes
+        -----
+        Data is loaded from the :py:attr:`output_directory` using the same format
+        as stored by the :py:meth:`dump_output` method.
+        Proper functioning required that all the relevant properties of arrays be
+        dumped
+
+        """
+        if time == '?':
+            l = [i.rsplit('_',1)[1][:-4] for i in os.listdir(self.output_directory) if i.startswith(self.fname) and i.endswith('.npz')]
+            return sorted(set(l), key=float)
+        elif time == '*':
+            l = [i.rsplit('_',1)[1][:-4] for i in os.listdir(self.output_directory) if i.startswith(self.fname) and i.endswith('.npz')]
+            l = sorted(set(l), key=float)
+            time = l[-1]
+
+        for pa in self.particles.arrays:
+            name = pa.name
+            
+            data = numpy.load(os.path.join(self.output_directory, self.fname+'_'+name+'_'+time+'.npz'))
+
+            cleared = False
+            for prop, val in data.iteritems():
+                if val.ndim==0: # constants become 0 dim arrays
+                    pa.constants[prop] = val
+                else:
+                    # this is so that life
+                    if not cleared and len(val) != pa.get_number_of_particles():
+                        idx = base.LongArray(pa.get_number_of_particles())
+                        idxn = idx.get_npy_array()
+                        idxn[:] = range(pa.get_number_of_particles())
+                        pa.remove_particles(idx)
+                        cleared = True
+                    
+                    pa.add_property(dict(name=prop, data=val))
+
+        self.t = float(time)
 
     def setup_solver(self):
         """ Implement the basic solvers here 

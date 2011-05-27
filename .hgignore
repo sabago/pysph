@@ -17,3 +17,5 @@ build/
 
 syntax: regexp
 ^source/.*\.html$
+^examples/.*_output
+
