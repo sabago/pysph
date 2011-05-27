@@ -1,10 +1,14 @@
 
-from libc.math cimport sqrt, cos, acos, sin
+from libc.math cimport sqrt, cos, acos, sin, atan2
 cimport cython
+
+cdef extern:
+    int isnan(double)
 
 from numpy.linalg import eigh
 from numpy import empty
 cimport numpy
+import numpy
 
 # NOTE: for a symmetric 3x3 matrix M, the notation d,s of denotes the diagonal
 # and off-diagonal elements as [c]Points
@@ -139,6 +143,21 @@ cdef void transform2(cPoint A, double P[3][3], double res[3][3]):
                 #for l in range(3):
                 res[i][j] += P[k][i]*(&A.x)[k]*P[k][j] # P.T*A*P
 
+def py_transform2(A, P):
+    cdef double res[3][3]
+    cdef double cP[3][3]
+    for i in range(3):
+        for j in range(3):
+            res[i][j] = 0
+            cP[i][j] = P[i][j]
+    cdef Point cA = Point(*A)
+    
+    transform2(cA.data, cP, res)
+    ret = empty((3,3))
+    for i in range(3):
+        for j in range(3):
+            ret[i][j] = res[i][j]
+    return ret
 
 cdef void symm_to_points(double * mat[3][3], long idx, cPoint& d, cPoint& s):
     ''' convert arrays of matrix elements for index idx into d,s components '''
@@ -219,7 +238,7 @@ cdef class StressFunction(SPHFunctionParticle):
         pass
 
 ################################################################################
-# `StressAcceleration` class.
+# `SimpleStressAcceleration` class.
 ################################################################################
 cdef class SimpleStressAcceleration(StressFunction):
     """ Computes acceleration from stress """
@@ -251,12 +270,14 @@ cdef class SimpleStressAcceleration(StressFunction):
         if self.bonnet_and_lok_correction:
             self.bonnet_and_lok_gradient_correction(dest_pid, &grad)
 
-        cdef double * dgrad = [grad.x, grad.y, grad.z]
+        cdef double * dgrad = &grad.x
         
         for i in range(3): # result
             for j in range(3): # stress term
-                result[i] += (self._d_s[i][j][dest_pid]/(rhoa*rhoa) -
-                            self._s_s[i][j][source_pid]/(rhob*rhob)) * dgrad[j]
+                add = self.s_m[source_pid] * (self._d_s[i][j][dest_pid]/(rhoa*rhoa) +
+                                              self._s_s[i][j][source_pid]/(rhob*rhob)) * dgrad[j]
+                result[i] += add
+
 
 #############################################################################
 
@@ -285,39 +306,7 @@ cdef class StrainEval(StressFunction):
         self.src_reads += ['x','y','z','h','rho','m']
         self.dst_reads += ['x','y','z','h','rho','m']
     
-    cdef void eval_nbr(self, size_t source_pid, size_t dest_pid,
-                       KernelBase kernel, double *result):
-        cdef int i
-        #cdef double mb = self.s_m.data[source_pid]
-        cdef double rhoa = self.d_rho.data[dest_pid]
-        cdef double rhob = self.s_rho.data[source_pid]
-        #cdef double sa = self.d_s.data[dest_pid]
-        #cdef double sb = self.s_s.data[source_pid]
-
-        cdef double h = 0.5*(self.s_h.data[source_pid] +
-                             self.d_h.data[dest_pid])
-
-        cdef double temp = 0.0
-
-        self._src.x = self.s_x.data[source_pid]
-        self._src.y = self.s_y.data[source_pid]
-        self._src.z = self.s_z.data[source_pid]
-
-        self._dst.x = self.d_x.data[dest_pid]
-        self._dst.y = self.d_y.data[dest_pid]
-        self._dst.z = self.d_z.data[dest_pid]
-
-        cdef cPoint grad = kernel.gradient(self._dst, self._src, h)
-
-        if self.bonnet_and_lok_correction:
-            self.bonnet_and_lok_gradient_correction(dest_pid, &grad)
-
-        cdef double * dgrad = &grad.x
-
-        for i in range(3): # result
-            for j in range(3): # stress term
-                result[i] += (self._d_s[i][j][dest_pid]/(rhoa*rhoa) - self._s_s[i][j][source_pid]/(rhob*rhob)) * dgrad[j]
-
+    # FIXME: implement
 
 cdef class DivVStressFunction(StressFunction):
     ''' base class for functions which need to use velocity gradients '''
@@ -326,37 +315,33 @@ cdef class DivVStressFunction(StressFunction):
         self.src_reads += ['x','y','z','h','rho','m']
         self.dst_reads += ['x','y','z','h','rho','m']
 
-    cdef void eval_vel_grad(self, size_t dest_pid, double result[3][3], KernelBase kernel):
+    cdef void eval_vel_grad(self, size_t dest_pid, double d_u, double d_v,
+                            double d_w, double * s_u, double * s_v,
+                            double * s_w, double result[3][3], KernelBase kernel,
+                            long * nbrs, int nnbrs):
         cdef size_t source_pid
         cdef int i,j,k
         cdef cPoint grad
-        
-        cdef LongArray nbrs = self.nbr_locator.get_nearest_particles(dest_pid)
+
+        #cdef LongArray nbrs = self.nbr_locator.get_nearest_particles(dest_pid)
         
         self._dst.x = self.d_x.data[dest_pid]
         self._dst.y = self.d_y.data[dest_pid]
         self._dst.z = self.d_z.data[dest_pid]
-        
-        cdef double* s_V[3], mb, rhob, h
-        cdef double** d_V = [self.d_u.data, self.d_v.data, self.d_w.data]
-        
-        for i in range(3):
-            for j in range(3):
-                result[i][j] = 0
+
+        cdef double mb, rhob, h
+        cdef double* d_V = [d_u, d_v, d_w]
+        cdef double ** s_V = [s_u, s_v, s_w]
         
         # exclude self
-        for k in range(nbrs.length-1):
-            source_pid = nbrs.data[k]
+        for k in range(nnbrs):
+            source_pid = nbrs[k]
             
             mb = self.s_m.data[source_pid]
             #cdef double rhoa = self.d_rho.data[dest_pid]
             rhob = self.s_rho.data[source_pid]
             #cdef double sa = self.d_s.data[dest_pid]
             #cdef double sb = self.s_s.data[source_pid]
-            
-            s_V[0] = self.s_u.data
-            s_V[1] = self.s_v.data
-            s_V[2] = self.s_w.data
             
             h = 0.5*(self.s_h.data[source_pid] + self.d_h.data[dest_pid])
             self._src.x = self.s_x.data[source_pid]
@@ -370,22 +355,35 @@ cdef class DivVStressFunction(StressFunction):
             
             for i in range(3):
                 for j in range(3):
-                    result[i][j] -= mb/rhob*(d_V[i]-s_V[i])*(&grad.x)[j]
+                    sub = mb/rhob*(d_V[i]-s_V[i][source_pid])*(&grad.x)[j]
+                    result[i][j] -= sub
 
 
 cdef class StressRateD(DivVStressFunction):
     ''' evaluate diagonal terms of deviatoric stress rate '''
 
     def __init__(self, ParticleArray source, ParticleArray dest, setup_arrays=True,
-                 str stress='sigma', str shear_mod='G', *args, **kwargs):
+                 str stress='sigma', str shear_mod='G', xsph=True, dim=3, *args, **kwargs):
         DivVStressFunction.__init__(self, source, dest,
                                     setup_arrays, stress, *args, **kwargs)
         self.G = shear_mod
+        self.xsph = xsph
+        self.dim = dim
+        if self.xsph:
+            self.s_ubar = self.source.get_carray('ubar')
+            self.s_vbar = self.source.get_carray('vbar')
+            self.s_wbar = self.source.get_carray('wbar')
+            self.d_ubar = self.dest.get_carray('ubar')
+            self.d_vbar = self.dest.get_carray('vbar')
+            self.d_wbar = self.dest.get_carray('wbar')
 
     def set_src_dst_reads(self):
         StressFunction.set_src_dst_reads(self)
-        self.src_reads += ['x','y','z','h','rho','m']
-        self.dst_reads += ['x','y','z','h','rho','m']
+        v = ['u', 'v', 'w']
+        if self.xsph:
+            v += ['ubar', 'vbar', 'wbar']
+        self.src_reads += v
+        self.dst_reads += v
     
     cpdef eval(self, KernelBase kernel, DoubleArray output1,
                DoubleArray output2, DoubleArray output3):
@@ -396,32 +394,66 @@ cdef class StressRateD(DivVStressFunction):
         StressFunction.setup_iter_data(self)
         self.s_G = self.source.constants[self.G]
     
-    cdef void eval_nbr(self, size_t source_pid, size_t dest_pid,
-                       KernelBase kernel, double * result):
-        cdef int i, j, p
+    cdef void eval_single(self, size_t dest_pid, KernelBase kernel,
+                          double * result):
+        cdef LongArray nbrs = self.nbr_locator.get_nearest_particles(dest_pid)
+        cdef size_t nnbrs = nbrs.length - 1 # self not needed to find V gradient
         cdef double gV[3][3]
-        self.eval_vel_grad(dest_pid, gV, kernel)
-        
+        for i in range(3):
+            for j in range(3):
+                gV[i][j] = 0
+        v = self.d_v.get_npy_array()
+
+        #result[0] = result[1] = result[2] = 0.0
+
+        self.eval_vel_grad(dest_pid, self.d_u.data[dest_pid],
+                           self.d_v.data[dest_pid], self.d_w.data[dest_pid],
+                           self.s_u.data, self.s_v.data, self.s_w.data,
+                           gV, kernel, nbrs.data, nnbrs)
+        if self.xsph:
+            self.eval_vel_grad(dest_pid, self.d_ubar.data[dest_pid],
+                               self.d_vbar.data[dest_pid], self.d_wbar.data[dest_pid],
+                               self.s_ubar.data, self.s_vbar.data, self.s_wbar.data,
+                               gV, kernel, nbrs.data, nnbrs)
+
+        cdef double * res = [0., 0., 0.]
         for p in range(3): # result
             j = i = p
-            result[p] += 2*self.s_G/3.0*(2*gV[i][j])
+            res[p] += 2*self.s_G/3.0*(2*gV[i][j])
             for k in range(3): # i==j stress term
-                result[p] += self._d_s[i][j][dest_pid]*(gV[i][k]-gV[k][j])
+                res[p] += self._d_s[i][j][dest_pid]*(gV[i][k]-gV[k][j])
+
+        cdef double tr = (res[0] + res[1] + res[2])/self.dim
+        for p in range(self.dim):
+            result[p] = res[p] - tr
+        for p in range(self.dim, 3):
+            result[p] = 0
 
     
 cdef class StressRateS(DivVStressFunction):
     ''' evaluate off-diagonal terms of deviatoric stress rate '''
-
+    
     def __init__(self, ParticleArray source, ParticleArray dest, setup_arrays=True,
-                 str stress='sigma', str shear_mod='G', *args, **kwargs):
+                 str stress='sigma', str shear_mod='G', xsph=True, *args, **kwargs):
         DivVStressFunction.__init__(self, source, dest,
                                     setup_arrays, stress, *args, **kwargs)
         self.G = shear_mod
+        self.xsph = xsph
+        if self.xsph:
+            self.s_ubar = self.source.get_carray('ubar')
+            self.s_vbar = self.source.get_carray('vbar')
+            self.s_wbar = self.source.get_carray('wbar')
+            self.d_ubar = self.dest.get_carray('ubar')
+            self.d_vbar = self.dest.get_carray('vbar')
+            self.d_wbar = self.dest.get_carray('wbar')
 
     def set_src_dst_reads(self):
         StressFunction.set_src_dst_reads(self)
-        self.src_reads += ['x','y','z','h','rho','m']
-        self.dst_reads += ['x','y','z','h','rho','m']
+        v = ['u', 'v', 'w']
+        if self.xsph:
+            v += ['ubar', 'vbar', 'wbar']
+        self.src_reads += v
+        self.dst_reads += v
 
     cpdef eval(self, KernelBase kernel, DoubleArray output1,
                DoubleArray output2, DoubleArray output3):
@@ -431,13 +463,28 @@ cdef class StressRateS(DivVStressFunction):
         """Setup data before each iteration"""
         StressFunction.setup_iter_data(self)
         self.s_G = self.source.constants[self.G]
-    
-    cdef void eval_nbr(self, size_t source_pid, size_t dest_pid,
-                       KernelBase kernel, double * result):
-        cdef int i, j, p
+
+    cdef void eval_single(self, size_t dest_pid, KernelBase kernel,
+                          double * result):
+        cdef LongArray nbrs = self.nbr_locator.get_nearest_particles(dest_pid)
+        cdef size_t nnbrs = nbrs.length - 1 # self not needed to find V gradient
         cdef double gV[3][3]
-        self.eval_vel_grad(dest_pid, gV, kernel)
-        
+        cdef int i, j
+        for i in range(3):
+            for j in range(3):
+                gV[i][j] = 0
+
+        result[0] = result[1] = result[2] = 0.0
+        self.eval_vel_grad(dest_pid, self.d_u.data[dest_pid],
+                           self.d_v.data[dest_pid], self.d_w.data[dest_pid],
+                           self.s_u.data, self.s_v.data, self.s_w.data,
+                           gV, kernel, nbrs.data, nnbrs)
+        if self.xsph:
+            self.eval_vel_grad(dest_pid, self.d_ubar.data[dest_pid],
+                               self.d_vbar.data[dest_pid], self.d_wbar.data[dest_pid],
+                               self.s_ubar.data, self.s_vbar.data, self.s_wbar.data,
+                               gV, kernel, nbrs.data, nnbrs)
+
         for p in range(3): # result
             j = 2 - (p==2)
             i = (p==0)
@@ -494,13 +541,14 @@ cdef class MonaghanArtStress(StressFunction):
 
     def __init__(self, ParticleArray source, ParticleArray dest, 
                  bint setup_arrays=True, str stress='sigma',
-                 double eps=0.3, double n=4, **kwargs):
+                 double eps=0.3, double n=4, dim=3, **kwargs):
 
         StressFunction.__init__(self, source, dest, setup_arrays, stress,
                                      **kwargs)
 
         self.eps = eps
         self.n = n
+        self.dim = dim
 
         self.id = 'monaghan_art_stress'
         self.tag = "velocity"
@@ -517,8 +565,97 @@ cdef class MonaghanArtStress(StressFunction):
     cpdef setup_iter_data(self):
         StressFunction.setup_iter_data(self)
         self.rho0 = self.dest.constants['rho0']
-    
-    cdef void eval_nbr(self, size_t source_pid, size_t dest_pid, 
+
+    cdef void eval_nbr(self, size_t source_pid, size_t dest_pid,
+                           KernelBase kernel, double *result):
+        if self.dim==2:
+            self.eval_nbr_2D(source_pid, dest_pid, kernel, result)
+        else:
+            self.eval_nbr_gen(source_pid, dest_pid, kernel, result)
+
+    cdef void eval_nbr_2D(self, size_t source_pid, size_t dest_pid,
+                          KernelBase kernel, double *result):
+        cdef double theta, c, s, sb_xx, sb_yy, s_xx, s_yy, s_xy
+        cdef double Rb_xx, Rb_yy, R_xx=0, R_yy=0, R_xy=0
+        cdef double mb = self.s_m.data[source_pid]
+        cdef double d_rho = self.d_rho.data[dest_pid]
+        cdef double s_rho = self.s_rho.data[source_pid]
+
+        # for self point
+        s_xx = self._d_s[0][0][dest_pid]
+        s_xy = self._d_s[0][1][dest_pid]
+        s_yy = self._d_s[1][1][dest_pid]
+        theta = atan2(2*s_xy, s_xx-s_yy)
+        c = cos(theta)
+        s = sin(theta)
+        sb_xx = c*c*s_xx + 2*s*c*s_xy+s*s*s_yy
+        sb_yy = s*s*s_xx + 2*s*c*s_xy+c*c*s_yy
+
+        if sb_xx > 0:
+            Rb_xx = -self.eps*sb_xx/d_rho
+        else:
+            Rb_xx = 0
+        
+        if sb_yy > 0:
+            Rb_yy = -self.eps*sb_yy/d_rho
+        else:
+            Rb_yy = 0
+
+        R_xx += c*c*Rb_xx + s*s*Rb_yy
+        R_yy += s*s*Rb_xx + c*c*Rb_yy
+        R_xy += s*c*(Rb_xx - Rb_yy)
+
+        # for other point
+        s_xx = self._s_s[0][0][source_pid]
+        s_xy = self._s_s[0][1][source_pid]
+        s_yy = self._s_s[1][1][source_pid]
+        theta = atan2(2*s_xy, s_xx-s_yy)
+        c = cos(theta)
+        s = sin(theta)
+        sb_xx = c*c*s_xx + 2*s*c*s_xy+s*s*s_yy
+        sb_yy = s*s*s_xx + 2*s*c*s_xy+c*c*s_yy
+
+        if sb_xx > 0:
+            Rb_xx = -self.eps*sb_xx/s_rho
+        else:
+            Rb_xx = 0
+        
+        if sb_yy > 0:
+            Rb_yy = -self.eps*sb_yy/s_rho
+        else:
+            Rb_yy = 0
+
+        R_xx += c*c*Rb_xx + s*s*Rb_yy
+        R_yy += s*s*Rb_xx + c*c*Rb_yy
+        R_xy += s*c*(Rb_xx - Rb_yy)
+
+        
+        cdef double h = 0.5*(self.s_h.data[source_pid] +
+                             self.d_h.data[dest_pid])
+
+        self._src.x = self.s_x.data[source_pid]
+        self._src.y = self.s_y.data[source_pid]
+        self._src.z = self.s_z.data[source_pid]
+
+        self._dst.x = self.d_x.data[dest_pid]
+        self._dst.y = self.d_y.data[dest_pid]
+        self._dst.z = self.d_z.data[dest_pid]
+
+        cdef cPoint grad = kernel.gradient(self._dst, self._src, h)
+        
+        if self.bonnet_and_lok_correction:
+            self.bonnet_and_lok_gradient_correction(dest_pid, &grad)
+        
+        cdef double * dgrad = [grad.x, grad.y, grad.z]
+        cdef double f = kernel.function(cPoint_new(h*(self.rho0/d_rho)**(1.0/kernel.dim),0,0),
+                                        cPoint_new(0,0,0), h)
+        f = kernel.function(self._dst, self._src, h) / f
+        
+        result[0] += mb * (R_xx*dgrad[0]+R_xy*dgrad[1]) * f**self.n
+        result[1] += mb * (R_xy*dgrad[0]+R_yy*dgrad[1]) * f**self.n
+
+
+    cdef void eval_nbr_gen(self, size_t source_pid, size_t dest_pid,
                        KernelBase kernel, double *result):
         cdef int i, j
         cdef double R_a_b[3][3], R[3][3]
@@ -527,12 +664,16 @@ cdef class MonaghanArtStress(StressFunction):
         cdef double rhob = self.s_rho.data[source_pid]
         
         cdef cPoint sd, ss, Rd=cPoint_new(0,0,0)
+        for i in range(3):
+            for j in range(3):
+                R_a_b[i][j] = 0
         
         # for other point
         symm_to_points(self._s_s, source_pid, sd, ss)
 
         # compute principal stresses
         cdef cPoint S = get_eigenvalues(sd, ss)
+        #print 'principal stress:', dest_pid, ':', S.x, S.y, S.z
 
         # correction term
         for i in range(3):
