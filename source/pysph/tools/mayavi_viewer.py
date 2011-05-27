@@ -161,7 +161,7 @@ class MayaviViewer(HasTraits):
     ########################################
     # Timer traits.
     timer = Instance(Timer)
-    interval = Range(2, 20.0, 5.0, 
+    interval = Range(0.5, 20.0, 2.0,
                      desc='frequency in seconds with which plot is updated')
     
     ########################################
@@ -245,7 +245,7 @@ class MayaviViewer(HasTraits):
                 c = self.client.controller
                 self.iteration = c.get_count()
             except Exception as e:
-                logger.info('Error: no connection or connection closed: reconnecting')
+                logger.info('Error: no connection or connection closed: reconnecting:%s'%e)
                 reconnect = True
                 self.client = None
         
@@ -256,9 +256,10 @@ class MayaviViewer(HasTraits):
                     self.client = MultiprocessingClient(address=(self.host, self.port),
                                                         authkey=self.authkey)
                 else:
+                    logger.info('Could not connect: Multiprocessing Interface not available on %s'%(self.host,self.port))
                     return None
             except Exception as e:
-                logger.info('Could not connect: check if solver is running')
+                logger.info('Could not connect: check if solver is running:%s'%e)
                 return None
             c = self.client.controller
             self.iteration = c.get_count()
@@ -297,7 +298,9 @@ class MayaviViewer(HasTraits):
         return Timer(int(self.interval*1000), self._timer_event)
 
     def _pause_solver_changed(self, value):
-        c = self.client.controller
+        c = self.controller
+        if c is None:
+            return
         if value:
             c.pause_on_next()
         else:
@@ -306,9 +309,13 @@ class MayaviViewer(HasTraits):
 ######################################################################
 def usage():
     print """Usage:
-mayavi_viewer.py <trait1=value> <trait2=value> ...
+mayavi_viewer.py [-v] <trait1=value> <trait2=value> ...
 
-Where the options <trait1=value> are optional.
+The option -v sets verbose mode which will print solver connection
+    status failures on stdout
+The options <trait1=value> are optional settings
+    host, port and authkey
+
 
 Example::
 
@@ -326,6 +333,11 @@ def main(args=None):
     if '-h' in args or '--help' in args:
         usage()
         sys.exit(0)
+    
+    if '-v' in args:
+        logger.addHandler(logging.StreamHandler())
+        logger.setLevel(logging.INFO)
+        args.remove('-v')
 
     kw = {}
     for arg in args:
