@@ -83,7 +83,8 @@ cdef class SPHCalc:
                   KernelBase kernel, list funcs,
                   list updates, integrates=False, dnum=0, nbr_info=True,
                   str id = "", bint kernel_gradient_correction=False,
-                  kernel_correction=-1, int dim = 1, str snum=""):
+                  kernel_correction=-1, int dim = 1, str snum="",
+                  reset_arrays=True):
 
         self.nbr_info = nbr_info
         self.particles = particles
@@ -110,6 +111,7 @@ cdef class SPHCalc:
 
         self.dim = dim
         self.snum = snum
+        self.reset_arrays = reset_arrays
 
         self.correction_manager = None
 
@@ -265,6 +267,8 @@ cdef class SPHCalc:
 
     cdef reset_output_arrays(self, DoubleArray output1, DoubleArray output2,
                              DoubleArray output3):
+        if not self.reset_arrays:
+            return
 
         cdef int i
         for i in range(output1.length):
@@ -458,6 +462,8 @@ class CLCalc(SPHCalc):
         any function is called.
         
         """
+        if not self.reset_arrays:
+            return
 
         if not self.dest.cl_setup_done:
             raise RuntimeWarning, "CL not setup on destination array!"
