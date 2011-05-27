@@ -320,8 +320,7 @@ cdef class SPHFunction:
         self.cl_locator = locator
 
     def get_cl_workgroup_code(self):
-        return """unsigned int work_dim = get_work_dim();
-    unsigned int dest_id = get_gid(work_dim); """
+        return """ unsigned int dest_id = get_global_id(0);"""
 
     def set_src_dst_reads(self):
         """ Populate the read requirements for the Function

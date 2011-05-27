@@ -1,9 +1,12 @@
 
 $GravityForce
 
-#include "cl_common.h"
 #include "cl_common.cl"
 #include "kernels.h"
+
+#define FALSE 0
+#define TRUE 1
+
 
 __kernel void GravityForce(%(kernel_args)s)
 {
@@ -18,7 +21,6 @@ $GravityForce
 
 $NBodyForce
 
-#include "cl_common.h"
 #include "cl_common.cl"
 #include "kernels.h"
 
