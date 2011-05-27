@@ -49,16 +49,23 @@ cdef class StrainEval(StressFunction):
     pass
 
 cdef class DivVStressFunction(StressFunction):
-    cdef void eval_vel_grad(self, size_t dest_pid, double result[3][3],
-                            KernelBase kernel)
+    cdef void eval_vel_grad(self, size_t dest_pid, double d_u, double d_v,
+                            double d_w, double * s_u, double * s_v,
+                            double * s_w, double result[3][3], KernelBase kernel,
+                            long * nbrs, int nnbrs)
 
 cdef class StressRateD(DivVStressFunction):
     cdef str G
     cdef double s_G
+    cdef DoubleArray s_ubar, s_vbar, s_wbar, d_ubar, d_vbar, d_wbar
+    cdef bint xsph
+    cdef int dim
 
 cdef class StressRateS(DivVStressFunction):
     cdef str G
     cdef double s_G
+    cdef DoubleArray s_ubar, s_vbar, s_wbar, d_ubar, d_vbar, d_wbar
+    cdef bint xsph
 
 cdef class BulkModulusPEqn(SPHFunction):
     pass
@@ -68,6 +75,12 @@ cdef class MonaghanEOS(SPHFunction):
 
 cdef class MonaghanArtStress(StressFunction):
     cdef double rho0, eps, n
+    cdef int dim
+    cdef void eval_nbr_2D(self, size_t source_pid, size_t dest_pid,
+                          KernelBase kernel, double *result)
+    cdef void eval_nbr_gen(self, size_t source_pid, size_t dest_pid,
+                           KernelBase kernel, double *result)
+    
 
 cdef class PressureStress(SPHFunction):
     pass
