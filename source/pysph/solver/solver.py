@@ -79,7 +79,7 @@ class Solver(object):
         self.with_cl = False
         self.cl_integrator_types = {EulerIntegrator:CLEulerIntegrator}
 
-        self.fname = self.__class.__name__
+        self.fname = self.__class__.__name__
         self.output_directory = self.fname+'_output'
         self.detailed_output = False
 
