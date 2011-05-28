@@ -582,20 +582,33 @@ class LinkedListManager(DomainManager):
         if self.with_cl:
         
             for pa in self.arrays:
-                cl.enqueue_copy(self.queue, dest=self.cellids[pa.name],
-                                src=self.dcellids[pa.name])
+                #cl.enqueue_copy(self.queue, dest=self.cellids[pa.name],
+                #                src=self.dcellids[pa.name])
+                cl.enqueue_read_buffer(self.queue,
+                                       mem=self.dcellids[pa.name],
+                                       hostbuf=self.cellids[pa.name])
         
-                cl.enqueue_copy(self.queue, dest=self.head[pa.name],
-                                src=self.dhead[pa.name])
+                #cl.enqueue_copy(self.queue, dest=self.head[pa.name],
+                #                src=self.dhead[pa.name])
+                cl.enqueue_read_buffer(self.queue, mem=self.dhead[pa.name],
+                                       hostbuf=self.head[pa.name])
         
-                cl.enqueue_copy(self.queue, dest=self.next[pa.name],
-                                src=self.dnext[pa.name])
+                #cl.enqueue_copy(self.queue, dest=self.next[pa.name],
+                #                src=self.dnext[pa.name])
+                cl.enqueue_read_buffer(self.queue, mem=self.dnext[pa.name],
+                                       hostbuf=self.next[pa.name])
         
-                cl.enqueue_copy(self.queue, dest=self.ix[pa.name],
-                                src=self.dix[pa.name])
+                #cl.enqueue_copy(self.queue, dest=self.ix[pa.name],
+                #                src=self.dix[pa.name])
+                cl.enqueue_read_buffer(self.queue, mem=self.dix[pa.name],
+                                       hostbuf=self.ix[pa.name])
         
-                cl.enqueue_copy(self.queue, dest=self.iy[pa.name],
-                                src=self.diy[pa.name])
+                #cl.enqueue_copy(self.queue, dest=self.iy[pa.name],
+                #                src=self.diy[pa.name])
+                cl.enqueue_read_buffer(self.queue, mem=self.diy[pa.name],
+                                       hostbuf=self.iy[pa.name])
         
-                cl.enqueue_copy(self.queue, dest=self.iz[pa.name],
-                                src=self.diz[pa.name])        
+                #cl.enqueue_copy(self.queue, dest=self.iz[pa.name],
+                #                src=self.diz[pa.name])
+                cl.enqueue_read_buffer(self.queue, mem=self.diz[pa.name],
+                                       hostbuf=self.iz[pa.name])
