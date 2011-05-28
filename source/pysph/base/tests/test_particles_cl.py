@@ -138,8 +138,10 @@ class CLParticlesTestCase(unittest.TestCase):
         xnew = numpy.array([1,0,0,1]).astype(numpy.float32)
         ynew = numpy.array([0,0,1,1]).astype(numpy.float32)
 
-        cl.enqueue_copy(q, src=xnew, dest=device_x)
-        cl.enqueue_copy(q, src=ynew, dest=device_y)
+        #cl.enqueue_copy(q, src=xnew, dest=device_x)
+        #cl.enqueue_copy(q, src=ynew, dest=device_y)
+        cl.enqueue_write_buffer(q, mem=device_x, hostbuf=xnew)
+        cl.enqueue_write_buffer(q, mem=device_y, hostbuf=ynew)
 
         pa.set_dirty(True)
 
