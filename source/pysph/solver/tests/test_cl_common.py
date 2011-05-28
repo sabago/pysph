@@ -1,9 +1,19 @@
 """ Tests for the OpenCL functions in cl_common """
-import pyopencl as cl
-#from pyopencl.array import vec
 
 import numpy
 import pysph.solver.api as solver
+
+if solver.HAS_CL:
+    import pyopencl as cl
+
+else:
+    try:
+        import nose.plugins.skip as skip
+        reason = "PyOpenCL not installed"
+        raise skip.SkipTest(reason)
+    except ImportError:
+        pass
+
 
 from os import path
 

@@ -76,9 +76,9 @@ cdef class SPHRho(CSPHFunctionParticle):
     def _set_extra_cl_args(self):
         pass
 
-    def cl_eval(self, object queue, object context):
+    def cl_eval(self, object queue, object context, output1, output2, output3):
 
-        self.set_cl_kernel_args()
+        self.set_cl_kernel_args(output1, output2, output3)
 
         self.cl_program.SPHRho(
             queue, self.global_sizes, self.local_sizes, *self.cl_args).wait()
@@ -97,7 +97,7 @@ cdef class SPHDensityRate(SPHFunctionParticle):
         self.id = 'densityrate'
         self.tag = "density"
 
-        self.cl_kernel_src_file = "density_funcs.cl"
+        self.cl_kernel_src_file = "density_funcs.clt"
         self.cl_kernel_function_name = "SPHDensityRate"
         self.num_outputs = 1
 
@@ -110,6 +110,9 @@ cdef class SPHDensityRate(SPHFunctionParticle):
 
         self.src_reads.extend( ['u','v','w'] )
         self.dst_reads.extend( ['u','v','w'] )
+
+    def _set_extra_cl_args(self):
+        pass        
 
     cdef void eval_nbr(self, size_t source_pid, size_t dest_pid, 
                        KernelBase kernel, double *nr):
@@ -157,4 +160,12 @@ cdef class SPHDensityRate(SPHFunctionParticle):
 
         nr[0] += cPoint_dot(vel, grad)*self.s_m.data[source_pid]
 
+    def cl_eval(self, object queue, object context, output1, output2, output3):
+
+        self.set_cl_kernel_args(output1, output2, output3)
+
+        self.cl_program.SPHDensityRate(
+            queue, self.global_sizes, self.local_sizes, *self.cl_args).wait()
+
+        
 #############################################################################

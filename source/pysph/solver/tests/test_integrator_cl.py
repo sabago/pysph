@@ -4,20 +4,29 @@ import pysph.solver.api as solver
 import pysph.base.api as base
 import pysph.sph.api as sph
 
-from pysph.solver.cl_integrator import CLIntegrator
-
 Fluid = base.ParticleType.Fluid
 
 import numpy
 import unittest
 
-import pyopencl as cl
+if solver.HAS_CL:
+    import pyopencl as cl
+    from pysph.solver.cl_integrator import CLIntegrator
+
+else:
+    try:
+        import nose.plugins.skip as skip
+        reason = "PyOpenCL not installed"
+        raise skip.SkipTest(reason)
+    except ImportError:
+        pass
+
+CLDomain = base.DomainManagerType
+CLLocator = base.OpenCLNeighborLocatorType
+CYLoctor = base.NeighborLocatorType
 
 class CLIntegratorTestCase(unittest.TestCase):
     """ Test the CLEulerIntegrator """
-
-    def runTest(self):
-        pass
 
     def setUp(self):
         """ The setup consists of two fluid particle arrays, each
@@ -34,13 +43,16 @@ class CLIntegratorTestCase(unittest.TestCase):
         x2 = numpy.array([0.5,])
         y2 = numpy.array([1.0,])
 
-        tmpx1 = numpy.ones_like(x1)
-        tmpx2 = numpy.ones_like(x2)
+        self.f1 = base.get_particle_array(name="fluid1", x=x1, y=y1)
+        self.f2 = base.get_particle_array(name="fluid2", x=x2, y=y2)
 
-        self.f1 = base.get_particle_array(name="fluid1", x=x1, y=y1,tmpx=tmpx1)
-        self.f2 = base.get_particle_array(name="fluid2", x=x2, y=y2,tmpx=tmpx2)
+        self.particles = base.CLParticles(
+            arrays=[self.f1,self.f2],
+            domain_manager_type=CLDomain.DomainManager,
+            cl_locator_type=CLLocator.AllPairNeighborLocator
+            )
 
-        self.particles = base.Particles(arrays=[self.f1,self.f2])
+        
         self.kernel = kernel = base.CubicSplineKernel(dim=2)
 
         gravity = solver.SPHIntegration(
@@ -79,8 +91,7 @@ class CLIntegratorTestCase(unittest.TestCase):
 
         self.integrator = CLIntegrator(self.particles, calcs)
 
-        self.ctx = ctx = cl.create_some_context()
-        self.integrator.setup_integrator(ctx)
+        self.ctx = ctx = solver.create_some_context()
         self.queue = calcs[0].queue
 
         self.dt = 0.1
@@ -90,6 +101,7 @@ class CLIntegratorTestCase(unittest.TestCase):
         """ Test the construction of the integrator """
 
         integrator = self.integrator
+        self.integrator.setup_integrator(self.ctx)
         calcs = integrator.calcs
 
         self.assertEqual( len(calcs), 6 )
@@ -192,6 +204,103 @@ class CLEulerIntegratorTestCase(CLIntegratorTestCase):
             self.assertAlmostEqual(f2.y, f2y, 8)
             self.assertAlmostEqual(f2.u, f2u, 8)
             self.assertAlmostEqual(f2.v, f2v, 8)
+
+
+class NBodyIntegrationTestCase(unittest.TestCase):
+    """ Compare the integration of particles in OpenCL with PySPH.
+
+    A system of point masses is integrated with OpenCL and in Cython
+    and the positions and velocities checked at each time step.
+
+    To achieve this, two separate solvers are created. A Cython one
+    and an OpenCL one. The NBody force and position stepping
+    operations are added to the solvers just as in the case of the
+    examples.
+
+    The command line option `--cl` to the PySPH application should
+    work if this test passes.
+    
+    """
+
+    def setUp(self):
+
+        self.np = np = 100
+        
+        x = numpy.random.random(np)
+        y = numpy.random.random(np)
+        z = numpy.random.random(np)
+        m = numpy.ones_like(x)
+
+        cy_pa = base.get_particle_array(name="test", x=x, y=y, z=z, m=m)
+        cl_pa = base.get_particle_array(name="test", cl_precision="double",
+                                        x=x, y=y, z=z, m=m)
+
+        cy_particles = base.Particles(
+            [cy_pa,], locator_type=CYLoctor.NSquareNeighborLocator)
+
+        cl_particles = base.CLParticles( [cl_pa,] )
+
+        cy_solver = solver.Solver(
+            dim=3, integrator_type=solver.EulerIntegrator)
+
+        cl_solver = solver.Solver(
+            dim=3, integrator_type=solver.EulerIntegrator)
+
+        self.cy_solver = cy_solver
+        self.cl_solver = cl_solver
+
+        cy_solver.add_operation(solver.SPHIntegration(
+
+            sph.NBodyForce.withargs(), on_types=[0], from_types=[0],
+            updates=['u','v','w'], id='nbody_force')
+
+                                )
+
+        cy_solver.add_operation_step([0,])
+
+        cl_solver.add_operation(solver.SPHIntegration(
+
+            sph.NBodyForce.withargs(), on_types=[0], from_types=[0],
+            updates=['u','v','w'], id='nbody_force')
+
+                                )
+
+        cl_solver.add_operation_step([0,])
+        cl_solver.set_cl(True)
+        
+        cy_solver.setup_integrator(cy_particles)
+        cl_solver.setup_integrator(cl_particles)
+
+    def test_integrate(self):
+
+        nsteps = 100
+        dt = 0.01
+
+        props = ['x','y','z','u','v','w']
+
+        step = 0
+
+        cy_integrator = self.cy_solver.integrator
+        cl_integrator = self.cl_solver.integrator
+
+        cy_pa = cy_integrator.particles.arrays[0]
+        cl_pa = cl_integrator.particles.arrays[0]
+
+        while ( step < nsteps ):
+
+            cl_pa.read_from_buffer()
+
+            for prop in props:
+                cy_prop = cy_pa.get(prop)
+                cl_prop = cl_pa.get(prop)
+
+                for j in range(self.np):
+                    self.assertAlmostEqual( cl_prop[j], cy_prop[j], 10 )
+
+            cy_integrator.integrate(dt)
+            cl_integrator.integrate(dt)
+
+            step += 1
             
 if __name__ == '__main__':
     unittest.main()

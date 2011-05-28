@@ -43,12 +43,6 @@ Module eos_funcs
 .. automodule:: pysph.sph.funcs.eos_funcs
    :members:
 
-Module eval_funcs
------------------
-
-.. automodule:: pysph.sph.funcs.eval_funcs
-   :members:
-
 Module external_force
 ---------------------
 

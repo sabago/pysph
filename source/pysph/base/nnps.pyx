@@ -58,7 +58,7 @@ logger = logging.getLogger()
 
 # local imports
 from pysph.base.carray cimport LongArray, DoubleArray
-from pysph.base.point cimport Point
+from pysph.base.point cimport Point, cIntPoint, IntPoint
 from pysph.base.particle_array cimport ParticleArray
 from pysph.base.cell cimport CellManager, Cell, find_cell_id
 from pysph.base.polygon_array cimport PolygonArray
@@ -619,6 +619,42 @@ cdef class FixedDestNbrParticleLocator(NbrParticleLocatorBase):
             
         return 0
 
+    cpdef get_cellid_dest(self, long dest_index):
+        """ Return the cell id for a destination particle. """
+
+        cdef IntPoint cid = IntPoint()
+        cdef ParticleArray dest = self.dest
+        cdef DoubleArray x = dest.properties['x']
+        cdef DoubleArray y = dest.properties['y']
+        cdef DoubleArray z = dest.properties['z']
+
+        cdef Point pnt = Point(x.data[dest_index],
+                               y.data[dest_index],
+                               z.data[dest_index])
+        
+        cdef double cell_size = self.cell_manager.cell_size
+        cid.data = find_cell_id(pnt.data, cell_size)
+
+        return cid
+
+    cpdef get_cellid_src(self, long src_index):
+        """ Return the cell id for a source particle. """
+
+        cdef IntPoint cid = IntPoint()
+        cdef ParticleArray source = self.source
+        cdef DoubleArray x = source.properties['x']
+        cdef DoubleArray y = source.properties['y']
+        cdef DoubleArray z = source.properties['z']
+
+        cdef Point pnt = Point(x.data[src_index],
+                               y.data[src_index],
+                               z.data[src_index])
+
+        cdef double cell_size = self.cell_manager.cell_size
+        cid.data = find_cell_id(pnt.data, cell_size)
+
+        return cid
+
     ######################################################################
     # python wrappers.
     ######################################################################
@@ -646,7 +682,7 @@ cdef class FixedDestNbrParticleLocator(NbrParticleLocatorBase):
         
         """
         return self.get_nearest_particles(dest_p_index, exclude_self)
-
+    
 
 ###############################################################################
 # `VarHNbrParticleLocator` class.

@@ -21,7 +21,7 @@ cdef class EnergyEquationNoVisc(SPHFunctionParticle):
         self.id = 'energyeqn'
         self.tag = "energy"
 
-        self.cl_kernel_src_file = "energy_funcs.cl"
+        self.cl_kernel_src_file = "energy_funcs.clt"
         self.cl_kernel_function_name = "EnergyEquationNoVisc"
         self.num_outputs = 1
 
@@ -96,9 +96,9 @@ cdef class EnergyEquationNoVisc(SPHFunctionParticle):
 
         nr[0] += tmp*dot
 
-    def cl_eval(self, object queue, object context):
+    def cl_eval(self, object queue, object context, output1, output2, output3):
 
-        self.set_cl_kernel_args()        
+        self.set_cl_kernel_args(output1, output2, output3)
 
         self.cl_program.EnergyEquationNoVisc(
             queue, self.global_sizes, self.local_sizes, *self.cl_args).wait()
@@ -127,7 +127,7 @@ cdef class EnergyEquationAVisc(SPHFunctionParticle):
         self.id = 'energyavisc'
         self.tag = "energy"
 
-        self.cl_kernel_src_file = "energy_funcs.cl"
+        self.cl_kernel_src_file = "energy_funcs.clt"
         self.cl_kernel_function_name = "EnergyEquationAVisc"
         self.num_outputs = 1
 
@@ -251,7 +251,7 @@ cdef class EnergyEquation(SPHFunctionParticle):
         self.id = 'energyequation'
         self.tag = "energy"
 
-        self.cl_kernel_src_file = "energy_funcs.cl"
+        self.cl_kernel_src_file = "energy_funcs.clt"
         self.cl_kernel_function_name = "EnergyEquationWithVisc"
         self.num_outputs = 1
 
@@ -362,9 +362,9 @@ cdef class EnergyEquation(SPHFunctionParticle):
 
         nr[0] += 0.5*mb*tmp
 
-    def cl_eval(self, object queue, object context):
+    def cl_eval(self, object queue, object context, output1, output2, output3):
 
-        self.set_cl_kernel_args()        
+        self.set_cl_kernel_args(output1, output2, output3)
 
         self.cl_program.EnergyEquationWithVisc(
             queue, self.global_sizes, self.local_sizes, *self.cl_args).wait()
@@ -401,7 +401,7 @@ cdef class ArtificialHeat(SPHFunctionParticle):
         self.src_reads.extend( ['u','v','w','p','cs','e','q'] )
         self.dst_reads.extend( ['u','v','w','p','cs','e','q'] )
 
-        self.cl_kernel_src_file = "energy_funcs.cl"
+        self.cl_kernel_src_file = "energy_funcs.clt"
         self.cl_kernel_function_name = "ArtificialHeat"
         self.num_outputs = 1
 

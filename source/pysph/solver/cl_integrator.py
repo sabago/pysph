@@ -82,8 +82,6 @@ class CLIntegrator(Integrator):
                                     dest=initial_prop_buffer,
                                     ).wait()
 
-                    pa.read_from_buffer()
-
     def reset_current_buffers(self, calcs):
         """ Reset the current arrays """
         
@@ -111,7 +109,6 @@ class CLIntegrator(Integrator):
 
                     cl.enqueue_copy(queue=queue,src=initial_prop_buffer,
                                     dest=update_prop_buffer)
-                    
 
     def eval(self, calcs):
         """ Evaluate each calc and store in the k list if necessary """
@@ -129,53 +126,27 @@ class CLIntegrator(Integrator):
 
             # get the destination particle array for this calc
             
-            pa = self.arrays[calc.dnum]
+            pa = calc.dest
             
-            # Evaluate the calc. The result is stored in cl_tmpx, cl_tmpy, ...
+            if calc.integrates:
+                calc.sph( *calc.dst_writes[k_num] )
 
-            calc.sph()
+            else:
+                calc.sph( *calc.updates )
 
-            pa.read_from_buffer()
+                particles.barrier()
 
-            for j in range(nupdates):
-                update_prop = updates[j]
-                step_prop = self.step_props[j]
+                # update neighbor information if 'h' has been updated
 
-                step_prop_buffer = pa.get_cl_buffer(step_prop) 
+                if calc.tag == "h":
+                    particles.update()
 
-                if not calc.integrates:
+                # update the remote particle properties
 
-                    update_prop_buffer = pa.get_cl_buffer(update_prop)
-
-                    cl.enqueue_copy(queue, src=step_prop_buffer,
-                                    dest=update_prop_buffer)
-                                       
-                    # ensure that all processes have reached this point
-
-                    particles.barrier()
-
-                    # update neighbor information if 'h' has been updated
-
-                    if calc.tag == "h":
-                        particles.update()
-
-                    # update the remote particle properties
-
-                    self.rupdate_list[calc.dnum] = [update_prop]
-
-                    particles.update_remote_particle_properties(
-                        self.rupdate_list)
-                    
-                else:
-                    k_prop = self.k_props[calc.id][k_num][j]
-
-                    k_prop_buffer = pa.get_cl_buffer(k_prop)
-
-                    cl.enqueue_copy(queue, src=step_prop_buffer,
-                                    dest=k_prop_buffer,
-                                    ).wait()
-
-                pass
+                #self.rupdate_list[calc.dnum] = [update_prop]
+                
+                #particles.update_remote_particle_properties(
+                #    self.rupdate_list)
 
         #ensure that the eval phase is completed for all processes
 
@@ -209,7 +180,7 @@ class CLIntegrator(Integrator):
 
                     current_buffer = pa.get_cl_buffer(update_prop)
                     step_buffer = pa.get_cl_buffer(k_prop)
-                    tmp_buffer = pa.get_cl_buffer('tmpx')
+                    tmp_buffer = pa.get_cl_buffer('_tmpx')
                 
                     self.program.step_array(queue, (np,1,1), (1,1,1),
                                             current_buffer, step_buffer,
@@ -249,7 +220,7 @@ class CLEulerIntegrator(CLIntegrator):
 
         cl_dt = get_real(dt, self.cl_precision)
 
-        for i in range(nupdates):
+        for i in range(nupdates):           
             initial_prop = self.initial_props[calc.id][i]
             k_prop = self.k_props[calc.id]['k1'][i]
             update_prop = updates[i]
@@ -257,9 +228,9 @@ class CLEulerIntegrator(CLIntegrator):
             initial_buffer = pa.get_cl_buffer(initial_prop)
             update_buffer = pa.get_cl_buffer(update_prop)
             k1_buffer = pa.get_cl_buffer(k_prop)
-            tmp_buffer = pa.get_cl_buffer('tmpx')
+            tmp_buffer = pa.get_cl_buffer('_tmpx')
            
-            self.program.step_array(queue, (np,1,1), (1,1,1),
+            self.program.step_array(queue, (np,), None,
                                     initial_buffer, k1_buffer,
                                     tmp_buffer, cl_dt).wait()
 
@@ -272,7 +243,7 @@ class CLEulerIntegrator(CLIntegrator):
                             ).wait()
 
     def integrate(self, dt):
-
+        
         # set the initial buffers
 
         self.set_initial_buffers()

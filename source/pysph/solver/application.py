@@ -7,8 +7,9 @@ import sys
 from utils import mkdir
 
 # PySPH imports.
-from pysph.base.particles import Particles, ParticleArray
+from pysph.base.particles import Particles, CLParticles, ParticleArray
 from pysph.solver.controller import CommandManager
+from pysph.base.nnps import NeighborLocatorType as LocatorType
 
 # MPI conditional imports
 HAS_MPI = True
@@ -284,11 +285,40 @@ class Application(object):
         else:
             self.load_balance = True
 
-        self.particles = Particles(arrays=pa, variable_h=variable_h,
-                                   in_parallel=in_parallel,
-                                   load_balancing=self.load_balance,
-                                   update_particles=True,
-                                   min_cell_size=min_cell_size)
+        if self.options.with_cl:
+
+            cl_locator_type = kw.get('cl_locator_type', None)
+            domain_manager_type = kw.get('domain_manager_type', None)
+
+            if cl_locator_type and domain_manager_type:
+
+                self.particles = CLParticles(
+                    arrays=pa, cl_locator_type=cl_locator_type,
+                    domain_manager_type=domain_manager_type)
+
+            else:
+                self.particles = CLParticles(arrays=pa)
+                
+        else:
+
+            locator_type = kw.get('locator_type', None)
+
+            if locator_type:
+                if locator_type not in [LocatorType.NSquareNeighborLocator,
+                                        LocatorType.SPHNeighborLocator]:
+
+                    msg = "locator type %d not understood"%(locator_type)
+                    raise RuntimeError(msg)
+
+            else:
+                locator_type = LocatorType.SPHNeighborLocator
+
+            self.particles = Particles(arrays=pa, variable_h=variable_h,
+                                       in_parallel=in_parallel,
+                                       load_balancing=self.load_balance,
+                                       update_particles=True,
+                                       min_cell_size=min_cell_size,
+                                       locator_type=locator_type)
 
         return self.particles
 

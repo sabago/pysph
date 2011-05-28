@@ -3,7 +3,7 @@
 import os
 from utils import PBar, savez_compressed, savez
 import numpy
-from cl_utils import get_cl_devices, HAS_CL
+from cl_utils import get_cl_devices, HAS_CL, create_some_context
 
 import pysph.base.api as base
 
@@ -79,6 +79,10 @@ class Solver(object):
         self.with_cl = False
         self.cl_integrator_types = {EulerIntegrator:CLEulerIntegrator}
 
+        self.fname = self.__class.__name__
+        self.output_directory = self.fname+'_output'
+        self.detailed_output = False
+
     def initialize(self):
         """ Perform basic initializations """
 
@@ -137,13 +141,11 @@ class Solver(object):
         """
         updates = ['x','y','z'][:self.dim]
 
-        kernel = base.DummyKernel(dim=self.dim)
-        
         id = 'step'
         
         self.add_operation(SPHIntegration(
             sph.PositionStepping, on_types=types, updates=updates, id=id,
-            kernel=kernel)
+            kernel=None)
                            )
 
     def add_operation_xsph(self, eps, hks=False):
@@ -471,6 +473,8 @@ class Solver(object):
         maxval = int((self.tf - self.t)/self.dt +1)
         bar = PBar(maxval, show=show_progress)
 
+        self.dump_output(*self.print_properties)
+
         while self.t < self.tf:
             self.t += self.dt
             self.count += 1
@@ -518,10 +522,15 @@ class Solver(object):
         
         """
 
+        if self.with_cl:
+            self.particles.read_from_buffer()
+
         fname = self.fname + '_' 
         props = {}
 
-        cell_size = self.particles.cell_manager.cell_size
+        cell_size = None
+        if not self.with_cl:
+            cell_size = self.particles.cell_manager.cell_size
 
         for pa in self.particles.arrays:
             name = pa.name
@@ -587,6 +596,12 @@ class Solver(object):
 
         self.t = float(time)
 
+    def setup_cl(self):
+        """ Setup the OpenCL context and other initializations """
+
+        if HAS_CL:
+            self.cl_context = create_some_context()
+
     def setup_solver(self):
         """ Implement the basic solvers here 
 
@@ -596,29 +611,6 @@ class Solver(object):
         Look at solver/fluid_solver.py for an example.
 
         """
-        pass                
-
-    def setup_cl(self):
-        """ Setup the OpenCL context and other initializations """
-
-        if HAS_CL:
-            devices = get_cl_devices()
-
-            gpu_devices = devices['GPU']
-            cpu_devices = devices['CPU']
-
-            # choose the first available device by default
-            if len(gpu_devices) > 0:
-                devices = gpu_devices
-                device = gpu_devices[0]
-
-            elif len(cpu_devices) > 0:
-                devices = cpu_devices
-                device = cpu_devices[0]
-
-            else:
-                raise RuntimeError, "Did not find any OpenCL devices!"
-
-            self.cl_context = cl.Context(devices=devices)
+        pass 
 
 ############################################################################

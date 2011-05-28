@@ -11,7 +11,8 @@ from sph_equation import SPHOperation, SPHIntegration
 Fluids = base.ParticleType.Fluid
 Solids = base.ParticleType.Solid
 
-def standard_shock_tube_data(name="", type=0):
+def standard_shock_tube_data(name="", type=0, cl_precision="single",
+                             **kwargs):
     """ Standard 400 particles shock tube problem """
     
     dxl = 0.001875
@@ -40,7 +41,8 @@ def standard_shock_tube_data(name="", type=0):
     idx = numpy.arange(400)
     
     return base.get_particle_array(name=name,x=x,m=m,h=h,rho=rho,p=p,e=e,
-                                   cs=cs,type=type, idx=idx)
+                                   cs=cs,type=type, idx=idx,
+                                   cl_precision=cl_precision)
 
 class ShockTubeSolver(Solver):
     

@@ -9,16 +9,14 @@ if solver.HAS_CL:
 
 import numpy
 import unittest
-from os import path
+
+from function_test_template import FunctionTestCase
 
 NSquareLocator = base.NeighborLocatorType.NSquareNeighborLocator
 
-class EnergyFunctionsTestCase(unittest.TestCase):
+class EnergyEquationNoViscTestCase(FunctionTestCase):
 
-    def runTest(self):
-        pass
-
-    def setUp(self):
+    def setup(self):
         """ The setup consists of four particles placed at the
         vertices of a unit square.
 
@@ -34,73 +32,10 @@ class EnergyFunctionsTestCase(unittest.TestCase):
 
         """
         
-        self.precision = "single"
 
-        self.np = 4
-
-        x = numpy.array([0, 0, 1, 1], numpy.float64)
-        y = numpy.array([0, 1, 1, 0], numpy.float64)
-
-        z = numpy.zeros_like(x)
-        m = numpy.ones_like(x)
-
-        u = numpy.array([1, 0, 0, -1], numpy.float64)
-        p = numpy.array([0, 0, 1, 1], numpy.float64)
+        self.func = sph.EnergyEquationNoVisc.withargs().get_func(self.pa,
+                                                                 self.pa)
         
-        tmpx = numpy.zeros_like(x)
-        tmpy = numpy.zeros_like(x)
-        tmpz = numpy.zeros_like(x)
-
-        self.pa = pa = base.get_particle_array(name="test", x=x,  y=y, z=z,
-                                               m=m, u=u, p=p,
-                                               tmpx=tmpx, tmpy=tmpy, tmpz=tmpz,
-                                               cl_precision=self.precision)
-
-        env = sph.EnergyEquationNoVisc.withargs()
-        ewv = sph.EnergyEquation.withargs(alpha=1.0, beta=1.0,
-                                          gamma=1.4, eta=0.1)
-
-
-        self.env = env.get_func(pa,pa)
-        self.ewv = ewv.get_func(pa,pa)
-        
-        self.env.kernel = base.CubicSplineKernel(dim=2)
-        self.env.nbr_locator = \
-                             base.Particles.get_neighbor_particle_locator(pa,
-                                                                          pa)
-
-        self.ewv.kernel = base.CubicSplineKernel(dim=2)
-        self.ewv.nbr_locator = \
-                             base.Particles.get_neighbor_particle_locator(pa,
-                                                                          pa)
-
-        self.setup_cl()
-
-    def setup_cl(self):
-        pass
-
-class EnergyEquationNoViscTestCase(EnergyFunctionsTestCase):
-
-    def setup_cl(self):
-        pa = self.pa
-        
-        if solver.HAS_CL:
-            self.ctx = ctx = cl.create_some_context()
-            self.q = q = cl.CommandQueue(ctx)
-
-            pa.setup_cl(ctx, q)
-            
-            pysph_root = solver.get_pysph_root()
-            
-            template = solver.cl_read(
-                path.join(pysph_root, "sph/funcs/energy_funcs.clt"),
-                function_name=self.env.cl_kernel_function_name,
-                precision=self.precision)
-
-            prog_src = solver.create_program(template, self.env)
-
-            self.prog=cl.Program(ctx, prog_src).build(solver.get_cl_include())
-
     def get_reference_solution(self):
         """ Evaluate the force on each particle manually """
         
@@ -147,71 +82,19 @@ class EnergyEquationNoViscTestCase(EnergyFunctionsTestCase):
 
         return forces
 
-    def test_eval(self):
-        """ Test the PySPH solution """
+    def test_single_precision(self):
+        self._test('single', nd=6)
 
-        pa = self.pa
-        func = self.env
+    def test_double_precision(self):
+        self._test('double', nd=6)
 
-        k = base.CubicSplineKernel(dim=2)
+class EnergyEquationTestCase(FunctionTestCase):
 
-        tmpx = pa.properties['tmpx']
-        tmpy = pa.properties['tmpy']
-        tmpz = pa.properties['tmpz']        
-
-        func.eval(k, tmpx, tmpy, tmpz)
-
-        reference_solution = self.get_reference_solution()
-
-        for i in range(self.np):
-            self.assertAlmostEqual(reference_solution[i].x, tmpx[i])
-            self.assertAlmostEqual(reference_solution[i].y, tmpy[i])
-            self.assertAlmostEqual(reference_solution[i].z, tmpz[i])
-
-    def test_cl_eval(self):
-        """ Test the PyOpenCL implementation """
-
-        if solver.HAS_CL:
-
-            pa = self.pa
-            func = self.env
-            
-            func.setup_cl(self.prog, self.ctx)
-
-            func.cl_eval(self.q, self.ctx)
-
-            pa.read_from_buffer()
-
-            reference_solution = self.get_reference_solution()
-
-            for i in range(self.np):
-                self.assertAlmostEqual(reference_solution[i].x, pa._tmpx[i], 6)
-                self.assertAlmostEqual(reference_solution[i].y, pa._tmpy[i], 6)
-                self.assertAlmostEqual(reference_solution[i].z, pa._tmpz[i], 6)
-
-class EnergyEquationTestCase(EnergyFunctionsTestCase):
-
-    def setup_cl(self):
-        pa = self.pa
-        
-        if solver.HAS_CL:
-            self.ctx = ctx = cl.create_some_context()
-            self.q = q = cl.CommandQueue(ctx)
-
-            pa.setup_cl(ctx, q)
-            
-            pysph_root = solver.get_pysph_root()
-            
-            template = solver.cl_read(
-                path.join(pysph_root, "sph/funcs/energy_funcs.clt"),
-                function_name=self.ewv.cl_kernel_function_name,
-                precision=self.precision)
-
-            self.ewv.set_cl_kernel_args()
-            prog_src = solver.create_program(template, self.ewv)
-
-            self.prog=cl.Program(ctx, prog_src).build(solver.get_cl_include())
-
+    def setup(self):
+        self.func = sph.EnergyEquation.withargs(
+            alpha=1.0, beta=1.0, gamma=1.4, eta=0.1).get_func(self.pa,
+                                                              self.pa)
+    
     def get_reference_solution(self):
         """ Evaluate the force on each particle manually """
         
@@ -283,48 +166,11 @@ class EnergyEquationTestCase(EnergyFunctionsTestCase):
 
         return forces
 
-    def test_eval(self):
-        """ Test the PySPH solution """
+    def test_single_precision(self):
+        self._test('single', nd=6)
 
-        pa = self.pa
-        func = self.ewv
-
-        k = base.CubicSplineKernel(dim=2)
-
-        tmpx = pa.properties['tmpx']
-        tmpy = pa.properties['tmpy']
-        tmpz = pa.properties['tmpz']        
-
-        func.eval(k, tmpx, tmpy, tmpz)
-
-        reference_solution = self.get_reference_solution()
-
-        for i in range(self.np):
-            self.assertAlmostEqual(reference_solution[i].x, tmpx[i], 6)
-            self.assertAlmostEqual(reference_solution[i].y, tmpy[i], 6)
-            self.assertAlmostEqual(reference_solution[i].z, tmpz[i], 6)
-
-    def test_cl_eval(self):
-        """ Test the PyOpenCL implementation """
-
-        if solver.HAS_CL:
-
-            pa = self.pa
-            func = self.ewv
-            
-            func.setup_cl(self.prog, self.ctx)
-
-            func.cl_eval(self.q, self.ctx)
-
-            pa.read_from_buffer()
-
-            reference_solution = self.get_reference_solution()
-
-            for i in range(self.np):
-                self.assertAlmostEqual(reference_solution[i].x, pa._tmpx[i], 6)
-                self.assertAlmostEqual(reference_solution[i].y, pa._tmpy[i], 6)
-                self.assertAlmostEqual(reference_solution[i].z, pa._tmpz[i], 6)
-                
+    def test_double_precision(self):
+        self._test('double', nd=6)
 
 if __name__ == '__main__':
     unittest.main()            

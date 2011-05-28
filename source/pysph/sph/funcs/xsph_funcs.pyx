@@ -2,6 +2,8 @@
 from pysph.base.point cimport cPoint, cPoint_new, cPoint_sub, cPoint_dot
 from pysph.base.carray cimport DoubleArray
 
+from pysph.solver.cl_utils import get_real
+
 ###############################################################################
 # `XSPHCorrection' class.
 ###############################################################################
@@ -20,12 +22,17 @@ cdef class XSPHCorrection(CSPHFunctionParticle):
         self.id = 'xsph'
         self.tag = "position"
 
-        self.cl_kernel_src_file = "xsph_funcs.cl"
+        self.cl_kernel_src_file = "xsph_funcs.clt"
         self.cl_kernel_function_name = "XSPHCorrection"
 
     def set_src_dst_reads(self):
         self.src_reads = ['x','y','z','h','m','rho','u','v','w']
         self.dst_reads = ['x','y','z','h','rho','u','v','w']
+
+    def _set_extra_cl_args(self):
+
+        self.cl_args.append( get_real(self.eps, self.dest.cl_precision) )
+        self.cl_args_name.append("REAL const eps")
 
     cdef void eval_nbr_csph(self, size_t source_pid, size_t dest_pid,
                             KernelBase kernel, double *nr, double *dnr):
@@ -83,8 +90,13 @@ cdef class XSPHCorrection(CSPHFunctionParticle):
         nr[0] += temp*Vba.x*self.eps
         nr[1] += temp*Vba.y*self.eps
         nr[2] += temp*Vba.z*self.eps
-        
-##########################################################################
+
+    def cl_eval(self, object queue, object context, output1, output2, output3):
+
+        self.set_cl_kernel_args(output1, output2, output3)
+
+        self.cl_program.XSPHCorrection(
+            queue, self.global_sizes, self.local_sizes, *self.cl_args).wait()
 
 
 ###############################################################################
@@ -176,4 +188,6 @@ cdef class XSPHDensityRate(SPHFunctionParticle):
         temp = cPoint_dot(grad, Vab)
         
         nr[0] += temp*mb
+
+       
 ###############################################################################

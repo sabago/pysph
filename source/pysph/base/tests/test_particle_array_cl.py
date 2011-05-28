@@ -1,8 +1,17 @@
 """ Tests for the OpenCL functions for ParticleArray """
 
 import pysph.solver.cl_utils as cl_utils
+
 if cl_utils.HAS_CL:
     import pyopencl as cl
+
+else:
+    try:
+        import nose.plugins.skip as skip
+        reason = "PyOpenCL not installed"
+        raise skip.SkipTest(reason)
+    except ImportError:
+        pass
 
 import unittest
 import numpy
