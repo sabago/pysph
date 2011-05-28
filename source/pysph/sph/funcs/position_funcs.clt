@@ -5,17 +5,14 @@ $PositionStepping
 #include "cl_common.cl"
 #include "kernels.h"
 
-__kernel void PositionStepping(__global float* d_u, __global float* d_v,
-			       __global float* d_w, __global int* tag,
-			       __global float* tmpx, __global float* tmpy,
-			       __global float* tmpz )
+__kernel void PositionStepping(%(kernel_args)s)
 {
-  unsigned int work_dim = get_work_dim();
-  unsigned int gid = get_gid(work_dim);
 
-  tmpx[gid] = d_u[0];
-  tmpy[gid] = d_v[0];
-  tmpz[gid] = d_w[0];
+  %(workgroup_code)s
+
+  tmpx[dest_id] = d_u[dest_id];
+  tmpy[dest_id] = d_v[dest_id];
+  tmpz[dest_id] = d_w[dest_id];
 
 }
 $PositionStepping

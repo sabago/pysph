@@ -10,6 +10,10 @@ import unittest
 
 Fluid = base.ParticleType.Fluid
 
+import nose.plugins.skip as skip
+
+raise skip.SkipTest("Not implmented")
+
 class UpdateSmoothingTestCase(unittest.TestCase):
     """ Default setup to test for updating the smoothing lengths in 1D
 

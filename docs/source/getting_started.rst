@@ -9,4 +9,4 @@ directory and run them like so::
 
 The example sources are informative and a good way to get started.
 
-
+For a more detailed example, have a look at :doc:`tutorial`

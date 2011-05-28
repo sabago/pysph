@@ -14,10 +14,20 @@ from nnps import NbrParticleLocatorBase, FixedDestNbrParticleLocator, \
 from nnps import NeighborLocatorType
 
 from particle_array import ParticleArray
-from particles import Particles, get_particle_array
+from particles import Particles, CLParticles, get_particle_array
 
 from point import Point, IntPoint
 
 from particle_types import ParticleType
 
 from geometry import MeshPoint, Line, Geometry
+
+# LinkedListManager
+from domain_manager import LinkedListManager, DomainManager, \
+     DomainManagerType
+
+# OpenCL locator
+from locator import OpenCLNeighborLocator, LinkedListSPHNeighborLocator, \
+     AllPairNeighborLocator
+
+from locator import OpenCLNeighborLocatorType

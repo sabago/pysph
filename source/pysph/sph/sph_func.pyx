@@ -3,6 +3,8 @@ from libc.stdlib cimport *
 cimport numpy
 import numpy
 
+from pysph.solver.cl_utils import get_real
+
 def get_all_funcs():
     ''' function to gather all implemented funcs in pysph.sph.funcs package '''
     import os
@@ -133,6 +135,7 @@ cdef class SPHFunction:
         self.cl_kernel = object()
         self.cl_program = object()
         self.context = object()
+        self.cl_locator = object()
 
         self.cl_args = []
         self.cl_args_name = []
@@ -248,19 +251,33 @@ cdef class SPHFunction:
         self.cl_program = program
         self.context = context
 
-    def set_cl_kernel_args(self):
+    def set_cl_kernel_args(self, output1=None, output2=None, output3=None):
+
+        if output1 is None: output1 = '_tmpx'
+        if output2 is None: output2 = '_tmpy'
+        if output3 is None: output3 = '_tmpz'
 
         self.cl_args_name = []
         self.cl_args = []
         
-        # setup the  sph kernel args
-        nbrs = numpy.int32(self.source.get_number_of_particles())
-        self.cl_args.append(nbrs)
-        self.cl_args_name.append('int const nbrs')
+        # locator args
+        locator_args = self.cl_locator.get_kernel_args()
 
-        if self.kernel is not None:        
+        for arg_name, arg in locator_args.iteritems():
+            self.cl_args.append(arg)
+            self.cl_args_name.append(arg_name)
+
+        precision = self.dest.cl_precision
+
+        # kernel args
+        if self.kernel is not None:
+
+            kernel_radius = get_real(self.kernel.radius(), precision)
             kernel_type = numpy.int32(self.kernel.get_type())
-            dim = numpy.int32(self.kernel.dim)   
+            dim = numpy.int32(self.kernel.dim)
+
+            self.cl_args.append(kernel_radius)
+            self.cl_args_name.append("REAL const kernel_radius")
 
             self.cl_args.append(kernel_type)
             self.cl_args_name.append('int const kernel_type')
@@ -281,13 +298,13 @@ cdef class SPHFunction:
             self.cl_args_name.append('__global REAL* s_%s'%(prop))
 
         # append the output buffer. 
-        self.cl_args.append( self.dest.get_cl_buffer('_tmpx') )
+        self.cl_args.append( self.dest.get_cl_buffer(output1) )
         self.cl_args_name.append('__global REAL* tmpx')
 
-        self.cl_args.append( self.dest.get_cl_buffer('_tmpy') )
+        self.cl_args.append( self.dest.get_cl_buffer(output2) )
         self.cl_args_name.append('__global REAL* tmpy')
 
-        self.cl_args.append( self.dest.get_cl_buffer('_tmpz') )
+        self.cl_args.append( self.dest.get_cl_buffer(output3) )
         self.cl_args_name.append('__global REAL* tmpz')
 
         self._set_extra_cl_args()
@@ -297,6 +314,9 @@ cdef class SPHFunction:
         
     def set_cl_program(self, object program):
         self.cl_program = program
+
+    def set_cl_locator(self, object locator):
+        self.cl_locator = locator
 
     def get_cl_workgroup_code(self):
         return """unsigned int work_dim = get_work_dim();

@@ -1143,14 +1143,34 @@ cdef class ParticleArray:
             self.properties.pop(prop_name)
             self.default_values.pop(prop_name)
 
-    def update_min_max(self):
+    def update_min_max(self, props=None):
         """ Update the min,max values of all properties """
-        for prop_array in self.properties.values():
-            prop_array.update_min_max()
+        if props:
+            for prop in props:
+                array = self.properties[prop]
+                array.update_min_max()
+        else:
+            for array in self.properties.values():
+                array.update_min_max()
 
     ######################################################################
     # OpenCL interface
     ######################################################################
+
+    def set_cl_precision(self, precision):
+        """ Set the OpenCL precision to use
+
+        Parameters:
+        -----------
+
+        precision : str
+                    The OpenCL precision to use {single, double}
+
+        """
+        if precision not in ['single', 'double']:
+            raise RuntimeWarning( "Precision %s not understood"%(precision) )
+
+        self.cl_precision = precision
 
     def setup_cl(self, object context, object queue):
         """ Setup OpenCL objects from the queue
@@ -1209,6 +1229,7 @@ cdef class ParticleArray:
                 devname = queue.device.name
                 msg = "Device %s does not support double precision"%(devname)
                 raise RuntimeError(msg)
+
         
         if not cl_utils.HAS_CL:
             raise RuntimeWarning("PyOpenCL not found!")
@@ -1259,24 +1280,26 @@ cdef class ParticleArray:
     def read_from_buffer(self):
         """ Read all the buffer props """
 
-        for prop in self.properties:
+        if self.cl_setup_done:
+            
+            for prop in self.properties:
 
-            buffer = self.get_cl_buffer(prop)
+                buffer = self.get_cl_buffer(prop)
 
-            carray = self.properties.get(prop)
-            array = carray.get_npy_array()
-
-            dtype = carray.get_c_type()
-            if self.cl_precision == 'single':
-                if dtype == "double":
-                    array = array.astype(numpy.float32)
+                carray = self.properties.get(prop)
+                array = carray.get_npy_array()
+            
+                dtype = carray.get_c_type()
+                if self.cl_precision == 'single':
+                    if dtype == "double":
+                        array = array.astype(numpy.float32)
 
                 if dtype == "long":
                     array = array.astype(numpy.int32)
 
-            cl.enqueue_copy(self.queue, src=buffer, dest=array).wait()
-
-            self.set( **{prop:array} )            
+                cl.enqueue_copy(self.queue, src=buffer, dest=array).wait()
+                    
+                self.set( **{prop:array} )            
         
 ##############################################################################
 

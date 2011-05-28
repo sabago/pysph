@@ -3,6 +3,18 @@ import os
 
 import pysph.solver.cl_utils as clu
 
+if clu.HAS_CL:
+    import pyopencl as cl
+
+else:
+    try:
+        import nose.plugins.skip as skip
+        reason = "PyOpenCL not installed"
+        raise skip.SkipTest(reason)
+    except ImportError:
+        pass
+    
+
 def test_cl_read():
     """Test if the pysph.solcer.cl_utils.cl_read works."""
 
