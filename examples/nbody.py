@@ -7,10 +7,12 @@ import numpy
 
 Fluid = base.ParticleType.Fluid
 
-# number of particles
+# number of particles, time step and final time
 np = 1024
+
 dt = 1e-2
 tf = 1.0
+
 nsteps = tf/dt
 
 def get_particles(**kwargs):
