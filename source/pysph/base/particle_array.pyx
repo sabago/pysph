@@ -1303,4 +1303,81 @@ cdef class ParticleArray:
         
 ##############################################################################
 
+def get_particle_array(cl_precision="double", **props):
+    """ Create and return a particle array with default properties 
+    
+    Parameters
+    ----------
+
+    cl_precision : {'single', 'double'}
+        Precision to use in OpenCL (default: 'double').
+
+    props : dict
+        A dictionary of properties requested.
+
+    Example Usage:
+    --------------
+    In [1]: import particle
+
+    In [2]: x = linspace(0,1,10)
+
+    In [3]: pa = particle.get_particle_array(x=x)
+
+    In [4]: pa
+    Out[4]: <pysph.base.particle_array.ParticleArray object at 0x9ec302c>
+ 
+    """ 
+        
+    nprops = len(props)
+    
+    prop_dict = {}
+    name = ""
+    particle_type = ParticleType.Fluid
+
+    default_props = {'x':0.0, 'y':0.0, 'z':0.0, 'u':0.0, 'v':0.0 ,
+                     'w':0.0, 'm':1.0, 'h':1.0, 'p':0.0,'e':0.0,
+                     'rho':1.0, 'cs':0.0, '_tmpx':0.0,
+                     '_tmpy':0.0, '_tmpz':0.0}
+    
+    #Add the properties requested
+    
+    np = 0
+
+    for prop in props.keys():
+        if prop in ['name','type']:
+            pass
+        else:
+            np = len(props[prop])
+            if prop == 'idx':
+                prop_dict[prop] = {'data':numpy.asarray(props[prop]), 
+                                   'type':'int'}
+            else:
+                data = numpy.asarray(props[prop])
+                prop_dict[prop] = {'data':data, 'type':'double'}
+            
+    # Add the default props
+    for prop in default_props:
+        if prop not in props.keys():
+            prop_dict[prop] = {'name':prop, 'type':'double',
+                               'default':default_props[prop]}
+
+    # Add the property idx
+    if not prop_dict.has_key('idx') and np != 0:
+        prop_dict['idx'] = {'name':'idx', 'data':numpy.arange(np),
+                            'type':'long'}
+            
+    #handle the name and particle_type information separately
+
+    if props.has_key('name'):
+        name = props['name']
+
+    if props.has_key("type"):
+        particle_type = props["type"]
+        assert particle_type in [ParticleType.Fluid, ParticleType.Solid, ParticleType.Probe], 'Type not understood!'
+
+    pa = ParticleArray(name=name, particle_type=particle_type,
+                       cl_precision=cl_precision, **prop_dict)
+
+    return pa
+
 
