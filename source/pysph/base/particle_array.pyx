@@ -1278,9 +1278,7 @@ cdef class ParticleArray:
                 if dtype == "long":
                     array = array.astype(numpy.int32)
 
-                #cl.enqueue_copy(self.queue, src=buffer, dest=array).wait()
-                cl.enqueue_read_buffer(self.queue,
-                                       mem=buffer, hostbuf=array).wait()
+                cl_utils.enqueue_copy(self.queue, src=buffer, dst=array)
                     
                 self.set( **{prop:array} )            
         

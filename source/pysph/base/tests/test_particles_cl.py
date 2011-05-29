@@ -4,7 +4,7 @@ from pysph.base.particles import CLParticles, get_particle_array
 from pysph.base.locator import OpenCLNeighborLocatorType
 from pysph.base.domain_manager import DomainManagerType, LinkedListManager
 
-from pysph.solver.cl_utils import create_some_context, HAS_CL
+from pysph.solver.cl_utils import create_some_context, HAS_CL, enqueue_copy
 
 import unittest
 import numpy
@@ -138,10 +138,8 @@ class CLParticlesTestCase(unittest.TestCase):
         xnew = numpy.array([1,0,0,1]).astype(numpy.float32)
         ynew = numpy.array([0,0,1,1]).astype(numpy.float32)
 
-        #cl.enqueue_copy(q, src=xnew, dest=device_x)
-        #cl.enqueue_copy(q, src=ynew, dest=device_y)
-        cl.enqueue_write_buffer(q, mem=device_x, hostbuf=xnew)
-        cl.enqueue_write_buffer(q, mem=device_y, hostbuf=ynew)
+        enqueue_copy(q, src=xnew, dst=device_x)
+        enqueue_copy(q, src=ynew, dst=device_y)
 
         pa.set_dirty(True)
 
