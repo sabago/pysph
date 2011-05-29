@@ -398,7 +398,7 @@ class CLParticles(Particles):
                 )
 
         else:
-            msg = "Manager type %d not understood!"%(self.domain_manager_type)
+            msg = "Manager type %s not understood!"%(self.domain_manager_type)
             raise ValueError(msg)
 
     def get_neighbor_locator(self, source, dest, scale_fac=2.0):
