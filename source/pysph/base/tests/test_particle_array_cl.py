@@ -103,7 +103,8 @@ class ParticleArrayCLTestCase(unittest.TestCase):
                     _array = _array.astype(numpy.int32)
                     pysph_arr = pysph_arr.astype(numpy.int32)
 
-            cl.enqueue_copy(self.queue, dest=_array, src=buffer)
+            #cl.enqueue_copy(self.queue, dest=_array, src=buffer)
+            cl.enqueue_read_buffer(self.queue, mem=buffer, hostbuf=_array)
 
             self.assertEqual( len(_array), len(pysph_arr) )
 

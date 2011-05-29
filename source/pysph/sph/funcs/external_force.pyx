@@ -176,7 +176,7 @@ cdef class NBodyForce(SPHFunctionParticle):
     """
 
     #Defined in the .pxd file
-    def __init__(self, ParticleArray source, ParticleArray dest, eps=1e-3,
+    def __init__(self, ParticleArray source, ParticleArray dest, eps=50.0,
                  *args, **kwargs):
         """ Constructor """
 

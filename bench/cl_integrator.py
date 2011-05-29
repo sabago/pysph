@@ -22,23 +22,23 @@ AllPairLocatorOpenCL = base.OpenCLNeighborLocatorType.AllPairNeighborLocator
 DomainManager = base.DomainManagerType.DomainManager
 
 # constants
+np = 1024
 tf = 1.0
 dt = 0.01
 nsteps = tf/dt
 
 # generate the particles
-x = numpy.array([0.0, 1.0, 1.0, 0.0])
-y = numpy.array([0.0, 0.0, 1.0, 1.0])
-z = numpy.zeros_like(x)
-h = numpy.ones_like(x)
-m = numpy.ones_like(x)
+x = numpy.random.random(np)
+y = numpy.random.random(np)
+z = numpy.random.random(np)
+m = numpy.random.random(np)
 
 precision = "single"
 ctx = solver.create_some_context()
 
-pa1 = base.get_particle_array(name="cython", x=x, y=y, z=z, h=h, m=m)
+pa1 = base.get_particle_array(name="cython", x=x, y=y, z=z, m=m)
 pa2 = base.get_particle_array(name="opencl", cl_precision=precision,
-                              x=x, y=y, z=z, h=h, m=m)
+                              x=x, y=y, z=z, m=m)
 
 particles1 = base.Particles([pa1,], locator_type=AllPairLocatorCython)
 particles2 = base.CLParticles([pa2, ])
@@ -89,6 +89,9 @@ solver2.solve()
 opencl_time = time() - t1
 
 pa2.read_from_buffer()
+
+print pa1.x - pa2.x
+print sum(abs(pa1.x - pa2.x))/np
 
 print "=================================================================="
 print "OpenCL execution time = %g s"%opencl_time

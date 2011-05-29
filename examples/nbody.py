@@ -7,14 +7,23 @@ import numpy
 
 Fluid = base.ParticleType.Fluid
 
+# number of particles, time step and final time
+np = 1024
+
+dt = 1e-2
+tf = 1.0
+
+nsteps = tf/dt
+
 def get_particles(**kwargs):
     
-    x = numpy.random.random(10) * 2.0 - 1.0
-    y = numpy.random.random(10) * 2.0 - 1.0
-    z = numpy.random.random(10) * 2.0 - 1.0
-    m = numpy.random.random(10)
+    x = numpy.random.random(np) * 2.0 - 1.0
+    y = numpy.random.random(np) * 2.0 - 1.0
+    z = numpy.random.random(np) * 2.0 - 1.0
+    m = numpy.random.random(np)
 
-    pa = base.get_particle_array(name="test", type=Fluid, x=x, y=y, z=z, m=m)
+    pa = base.get_particle_array(name="test", cl_precision="single",
+                                 type=Fluid, x=x, y=y, z=z, m=m)
 
     return pa
 
@@ -41,8 +50,8 @@ s.add_operation(solver.SPHIntegration(
 s.add_operation_step([Fluid])
 
 app.set_solver(s)
-s.set_final_time(1.0)
-s.set_time_step(1e-4)
-s.set_print_freq(1000)
+s.set_final_time(tf)
+s.set_time_step(dt)
+s.set_print_freq(nsteps + 1)
 
 app.run()

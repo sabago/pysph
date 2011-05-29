@@ -443,8 +443,11 @@ class Solver(object):
 
                 operation.calc_type = CLCalc
 
-            self.integrator_type = self.cl_integrator_types[
-                self.integrator_type]
+            # HACK. THE ONLY CL INTEGRATOR IS EULERINTEGRATOR
+
+            #self.integrator_type = self.cl_integrator_types[
+            #    self.integrator_type]
+            self.integrator_type = CLEulerIntegrator
 
             # Setup the OpenCL context
             self.setup_cl()

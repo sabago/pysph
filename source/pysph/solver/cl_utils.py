@@ -71,8 +71,8 @@ def get_cl_include():
 
     PYSPH_ROOT = get_pysph_root()
 
-    inc_dir = ['-I'+path.join(PYSPH_ROOT, 'base'),
-               '-I'+path.join(PYSPH_ROOT, 'solver'), ]
+    inc_dir = '-I'+path.join(PYSPH_ROOT, 'base') + " " + \
+              '-I'+path.join(PYSPH_ROOT, 'solver')
 
     return inc_dir
 
