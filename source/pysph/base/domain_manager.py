@@ -10,6 +10,9 @@ if HAS_CL:
 # Cython functions for neighbor list construction
 from linked_list_functions import cbin
 
+from point import Point
+from cell import py_find_cell_id
+
 class DomainManagerType:
     DomainManager = 0
     LinkedListManager = 1
@@ -306,15 +309,19 @@ class LinkedListManager(DomainManager):
 
         """
 
-        min_cid_x = min_cid_y = min_cid_z = 0
+        max_pnt = Point(self.Mx, self.My, self.Mz)
+        max_cid = py_find_cell_id(max_pnt, self.cell_size)
 
-        max_cid_x = numpy.int32( (self.Mx - self.mx)/self.cell_size )
-        max_cid_y = numpy.int32( (self.My - self.my)/self.cell_size )
-        max_cid_z = numpy.int32( (self.Mz - self.mz)/self.cell_size )
+        min_pnt = Point(self.mx, self.my, self.mz)
+        min_cid = py_find_cell_id(min_pnt, self.cell_size)
 
-        self.ncx = max_cid_x + numpy.int32(1)
-        self.ncy = max_cid_y + numpy.int32(1)
-        self.ncz = max_cid_z + numpy.int32(1)
+        self.ncx = numpy.int32(max_cid.x - min_cid.x + 1)
+        self.ncy = numpy.int32(max_cid.y - min_cid.y + 1)
+        self.ncz = numpy.int32(max_cid.z - min_cid.z + 1)
+
+        self.mcx = numpy.int32(min_cid.x)
+        self.mcy = numpy.int32(min_cid.y)
+        self.mcz = numpy.int32(min_cid.z)
 
         self.ncells = numpy.int32(self.ncx * self.ncy * self.ncz)
 
@@ -478,7 +485,8 @@ class LinkedListManager(DomainManager):
                   self.next[pa.name],
                   mx, my, mz,
                   numpy.int32(ncx), numpy.int32(ncy), numpy.int32(ncz),
-                  cell_size, numpy.int32(np)
+                  cell_size, numpy.int32(np),
+                  self.mcx, self.mcy, self.mcz
                   )
 
 
@@ -507,7 +515,10 @@ class LinkedListManager(DomainManager):
                            self.ncx,
                            self.ncy,
                            self.ncz,
-                           self.cell_size
+                           self.cell_size,
+                           self.mcx,
+                           self.mcy,
+                           self.mcz
                            ).wait()
 
             self.prog.construct_neighbor_list(self.queue,
@@ -518,7 +529,6 @@ class LinkedListManager(DomainManager):
                                               self.dnext[pa.name],
                                               self.dlocks[pa.name]
                                               ).wait()
-
     def update(self):
         """ Update the linked list """
 
