@@ -1,6 +1,7 @@
 """ Test the CLParticles class """
 
-from pysph.base.particles import CLParticles, get_particle_array
+from pysph.base.particles import CLParticles
+from pysph.base.particle_array import get_particle_array
 from pysph.base.locator import OpenCLNeighborLocatorType
 from pysph.base.domain_manager import DomainManagerType, LinkedListManager
 

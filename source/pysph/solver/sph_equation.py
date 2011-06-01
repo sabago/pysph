@@ -120,11 +120,13 @@ class SPHOperation(object):
         
         """ 
         
-        #if issubclass(self.function.get_func_class(), sph.SPHFunctionParticle):
-        #    # all nbr requiring funcs are subclasses of SPHFunctionParticle
-        #    self.nbr_info = True
-        #else:
-        #    self.nbr_info = False
+        if issubclass(self.function.get_func_class(), SPHFunctionParticle):
+           # all nbr requiring funcs are subclasses of SPHFunctionParticle
+           self.nbr_info = True
+        else:
+           self.nbr_info = False
+           if self.from_types != []:
+               raise ValueError, 'Only Subclasses of SPHFunctionParticle need neighbors, %s should not provide `from_types` to operation'%(self.function.get_func_class())
         
         arrays = particles.arrays
         narrays = len(arrays)
