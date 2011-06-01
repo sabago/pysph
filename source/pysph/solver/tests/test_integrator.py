@@ -63,11 +63,11 @@ class IntegratorTestCase(unittest.TestCase):
         self.kernel = base.CubicSplineKernel(dim=2)
         
         circlex = solver.SPHIntegration(sph.MoveCircleX, 
-                                      from_types=[Fluids], on_types=[Fluids],
+                                      on_types=[Fluids],
                                       updates=['x','y'], id = 'circlex')
 
         circley = solver.SPHIntegration(sph.MoveCircleY, 
-                                      from_types=[Fluids], on_types=[Fluids],
+                                      on_types=[Fluids],
                                       updates=['x','y'], id = 'circley')
         
         self.calcx = circlex.get_calcs(particles, self.kernel)
