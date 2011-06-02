@@ -73,6 +73,29 @@ cdef class BulkModulusPEqn(SPHFunction):
 cdef class MonaghanEOS(SPHFunction):
     cdef double gamma
 
+cdef class MonaghanArtStressD(SPHFunction):
+    cdef public str stress
+    cdef public list d_s
+    cdef double * _d_s[3][3]
+
+    cdef double eps
+
+cdef class MonaghanArtStressS(SPHFunction):
+    cdef public str stress
+    cdef public list d_s
+    cdef double * _d_s[3][3]
+
+    cdef double eps
+
+cdef class MonaghanArtStressAcc(SPHFunctionParticle):
+    cdef double eps, n, rho0
+    cdef public str R
+    cdef public list d_R
+    cdef public list s_R
+    cdef double * _d_R[3][3]
+    cdef double * _s_R[3][3]
+
+
 cdef class MonaghanArtStress(StressFunction):
     cdef double rho0, eps, n
     cdef int dim
