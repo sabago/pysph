@@ -32,6 +32,7 @@ cpdef double py_det(diag, side):
 
 cdef cPoint get_eigenvalues(cPoint d, cPoint s):
     ''' eigenvalues of symmetric matrix '''
+    cdef cPoint ret
     cdef double m = (d.x+d.y+d.z)/3
     cdef cPoint Kd = cPoint_sub(d, cPoint_new(m,m,m)) # M-m*eye(3);
     cdef cPoint Ks = s
@@ -45,22 +46,54 @@ cdef cPoint get_eigenvalues(cPoint d, cPoint s):
     p /= 6.0
     cdef double pi = acos(-1.0)
     cdef double phi = 0.5*pi
-    if p != 0 != q:
-        phi = acos(q/p**(3.0/2))/3.0
-    
-    # NOTE: q/p^(3/2) should be in range of [1,-1], but because of numerical errors,
-    # it must be checked and in case abs(q) >= abs(p^(3/2)), set phi = 0
-    if fabs(q) >= fabs(p**(3.0/2)):
+
+    if q == 0 and p == 0:
+        # singular zero matrix
+        ret.x = ret.y = ret.z = m
+        return ret
+    elif fabs(q) >= fabs(p**(3.0/2)): # eliminate roundoff error
         phi = 0
-    
-    if phi<0:
-        phi += pi/3
-    
-    cdef cPoint ret
+    else:
+        phi = atan2(sqrt(p**3 - q**2), q)/3.0
+    if phi == 0 and q < 0:
+        phi = pi
+
     ret.x = m + 2*sqrt(p)*cos(phi)
     ret.y = m - sqrt(p)*(cos(phi) + sqrt(3)*sin(phi))
     ret.z = m - sqrt(p)*(cos(phi) - sqrt(3)*sin(phi))
     
+    return ret
+
+cdef cPoint get_eigenvalues_trig(cPoint d, cPoint s):
+    ''' eigenvalues of symmetric non-singular matrix '''
+    cdef cPoint ret
+    # characteristic equation is: ax^3+bx^2+cx+d=0
+    cdef double A = 1.0
+    cdef double B = -(d.x+d.y+d.z)
+    cdef double C = d.x*d.y + d.x*d.z + d.y*d.z -s.x**2 - s.y**2 - s.z**2
+    cdef double D = d.x*s.x**2 + d.y*s.y**2 + d.z*s.z**2 - d.x*d.y*d.z - 2*s.x*s.y*s.z
+    print 'ABCD:', A, B, C, D
+
+    cdef double m = -B/3/A
+    cdef double p = ((3*C/A) - (B**2/A**2))/3
+    cdef double q = ((2*B**3/A**3) - (9*B*C/A**2) + (27*D/A))/27
+    
+    if p==0==q:
+        ret.x = ret.y = ret.z = m
+        return ret
+
+    cdef double z = q**2/4 + p**3/27
+ 
+    cdef double u = 2*sqrt(-3/p)
+    cdef double k = acos(3*q*u/4/p)/3
+
+    cdef double pi = acos(-1.0)
+    
+    # Define Eig1, Eig2, Eig3
+    ret.x = m + u*cos(k)
+    ret.y = m + u*cos(k-2*pi/3)
+    ret.z = m + u*cos(k-4*pi/3)
+
     return ret
 
 cpdef py_get_eigenvalues(diag, side):
@@ -122,6 +155,40 @@ cpdef py_get_eigenvector(diag, side, double r):
     cdef cPoint ret = get_eigenvector(d, s, r)
     return ret.x, ret.y, ret.z
 
+cdef cPoint get_eigenvalvec_np(cPoint d, cPoint s, double * R):
+    cdef int i,j
+    cdef numpy.ndarray[ndim=2,dtype=numpy.float64_t] mat=empty((3,3)), evec
+    cdef numpy.ndarray[ndim=1, dtype=numpy.float64_t] evals
+
+    mat[0,0] = d.x
+    mat[1,1] = d.y
+    mat[2,2] = d.z
+    mat[0,1] = mat[1,0] = s.z
+    mat[0,2] = mat[2,0] = s.y
+    mat[2,1] = mat[1,2] = s.x
+    try:
+        evals, evec = eigh(mat)
+    except numpy.linalg.linalg.LinAlgError, e:
+        print mat
+        raise
+
+    for i in range(3):
+        for j in range(3):
+            R[i*3+j] = evec[i,j]
+
+    cdef cPoint ret
+    ret.x = evals[0]
+    ret.y = evals[1]
+    ret.z = evals[2]
+    return ret
+
+cdef cPoint get_eigenvalvec(cPoint d, cPoint s, double * R=<double *>0):
+    if not R: # no need to calculate eigenvectors
+        return get_eigenvalues(d, s)
+    else:
+        # FIXME: implement fast version
+        return get_eigenvalvec_np(d, s, R)
+
 cdef void transform(double A[3][3], double P[3][3], double res[3][3]):
     ''' compute the transformation P.T*A*P and add it into result '''
     for i in range(3):
@@ -143,6 +210,18 @@ cdef void transform2(cPoint A, double P[3][3], double res[3][3]):
                 #for l in range(3):
                 res[i][j] += P[k][i]*(&A.x)[k]*P[k][j] # P.T*A*P
 
+cdef void transform2inv(cPoint A, double P[3][3], double res[3][3]):
+    ''' compute the transformation P*A*P.T and add it into result
+    
+    A is diagonal '''
+    for i in range(3):
+        for j in range(3):
+            #res[i][j] = 0
+            for k in range(3):
+                # l = k
+                #for l in range(3):
+                res[i][j] += P[i][k]*(&A.x)[k]*P[j][k] # P.T*A*P
+
 def py_transform2(A, P):
     cdef double res[3][3]
     cdef double cP[3][3]
@@ -153,6 +232,22 @@ def py_transform2(A, P):
     cdef Point cA = Point(*A)
     
     transform2(cA.data, cP, res)
+    ret = empty((3,3))
+    for i in range(3):
+        for j in range(3):
+            ret[i][j] = res[i][j]
+    return ret
+
+def py_transform2inv(A, P):
+    cdef double res[3][3]
+    cdef double cP[3][3]
+    for i in range(3):
+        for j in range(3):
+            res[i][j] = 0
+            cP[i][j] = P[i][j]
+    cdef Point cA = Point(*A)
+    
+    transform2inv(cA.data, cP, res)
     ret = empty((3,3))
     for i in range(3):
         for j in range(3):
@@ -208,7 +303,10 @@ cdef class StressFunction(SPHFunctionParticle):
                                 setup_arrays=setup_arrays)
 
     def set_src_dst_reads(self):
-        stress = [[self.stress+str(i)+str(j) for j in range(i)] for i in range(3)]
+        stress = []
+        for i in range(3):
+            for j in range(i+1):
+                stress.append(self.stress+str(j)+str(i))
         self.src_reads = stress
         self.dst_reads = stress
 
@@ -364,11 +462,15 @@ cdef class StressRateD(DivVStressFunction):
 
     def __init__(self, ParticleArray source, ParticleArray dest, setup_arrays=True,
                  str stress='sigma', str shear_mod='G', xsph=True, dim=3, *args, **kwargs):
-        DivVStressFunction.__init__(self, source, dest,
-                                    setup_arrays, stress, *args, **kwargs)
         self.G = shear_mod
         self.xsph = xsph
         self.dim = dim
+        DivVStressFunction.__init__(self, source, dest,
+                                    setup_arrays, stress, *args, **kwargs)
+        self.id = 'stress_rate_d'
+
+    cpdef setup_arrays(self):
+        StressFunction.setup_arrays(self)
         if self.xsph:
             self.s_ubar = self.source.get_carray('ubar')
             self.s_vbar = self.source.get_carray('vbar')
@@ -417,17 +519,15 @@ cdef class StressRateD(DivVStressFunction):
                                gV, kernel, nbrs.data, nnbrs)
 
         cdef double * res = [0., 0., 0.]
+        cdef double tr = (gV[0][0] + gV[1][1] + gV[2][2])/3.0
         for p in range(3): # result
             j = i = p
-            res[p] += 2*self.s_G/3.0*(2*gV[i][j])
+            res[p] += 2*self.s_G*(gV[i][j]-tr)
             for k in range(3): # i==j stress term
                 res[p] += self._d_s[i][j][dest_pid]*(gV[i][k]-gV[k][j])
 
-        cdef double tr = (res[0] + res[1] + res[2])/self.dim
-        for p in range(self.dim):
-            result[p] = res[p] - tr
-        for p in range(self.dim, 3):
-            result[p] = 0
+        for p in range(3):
+            result[p] = res[p]
 
     
 cdef class StressRateS(DivVStressFunction):
@@ -435,10 +535,14 @@ cdef class StressRateS(DivVStressFunction):
     
     def __init__(self, ParticleArray source, ParticleArray dest, setup_arrays=True,
                  str stress='sigma', str shear_mod='G', xsph=True, *args, **kwargs):
-        DivVStressFunction.__init__(self, source, dest,
-                                    setup_arrays, stress, *args, **kwargs)
         self.G = shear_mod
         self.xsph = xsph
+        DivVStressFunction.__init__(self, source, dest,
+                                    setup_arrays, stress, *args, **kwargs)
+        self.id = 'stress_rate_s'
+
+    cpdef setup_arrays(self):
+        StressFunction.setup_arrays(self)
         if self.xsph:
             self.s_ubar = self.source.get_carray('ubar')
             self.s_vbar = self.source.get_carray('vbar')
@@ -534,6 +638,232 @@ cdef class MonaghanEOS(SPHFunction):
         cdef double rho0 = self.dest.constants['rho0']
         for i in range(self.d_p.length):
             output1.data[i] = rho0 * c_s2 * ((self.d_rho.data[i]/rho0)**self.gamma-1)/self.gamma
+
+cdef class MonaghanArtStressD(SPHFunction):
+    
+    def __init__(self, ParticleArray source, ParticleArray dest, setup_arrays=True,
+                 str stress='sigma', double eps=0.3, *args, **kwargs):
+        self.stress = stress
+        SPHFunction.__init__(self, source, dest,
+                             setup_arrays, stress, *args, **kwargs)
+        self.eps = eps
+        self.id = 'monaghan_art_stress_d'
+
+    def set_src_dst_reads(self):
+        stress = []
+        for i in range(3):
+            for j in range(i+1):
+                stress.append(self.stress+str(j)+str(i))
+        self.src_reads = stress + ['rho']
+        self.dst_reads = []
+
+    cpdef setup_arrays(self):
+        SPHFunction.setup_arrays(self)
+        self.d_s = [[None for j in range(3)] for i in range(3)]
+        for i in range(3):
+            for j in range(i+1):
+                self.d_s[i][j] = self.d_s[j][i] = self.dest.get_carray(
+                                                self.stress + str(j) + str(i))
+
+    cpdef setup_iter_data(self):
+        """Setup data before each iteration"""
+        cdef DoubleArray tmp
+        for i in range(3):
+            for j in range(i+1):
+                tmp = self.d_s[j][i]
+                self._d_s[i][j] = self._d_s[j][i] = tmp.data
+
+    cdef void eval_single(self, size_t dest_pid, KernelBase kernel,
+                          double * result):
+        cdef int i, j
+        cdef double R_a_b[3][3], R[3][3]
+        cdef double rho = self.d_rho[dest_pid]
+        
+        cdef cPoint sd, ss, Rd
+        for i in range(3):
+            for j in range(3):
+                R_a_b[i][j] = 0
+        
+        symm_to_points(self._d_s, dest_pid, sd, ss)
+        # add the pressure term
+        for i in range(3):
+            (&sd.x)[i] += self.d_p[dest_pid]
+
+        # compute principal stresses
+        cdef cPoint S = get_eigenvalvec(sd, ss, &R[0][0])
+        #print 'stress:', sd, ss
+        #print 'principal stress:', dest_pid, ':', S.x, S.y, S.z
+
+        for i in range(3):
+            if (&S.x)[i] > 0:
+                (&Rd.x)[i] = -self.eps * (&S.x)[i]/(rho*rho)
+            else:
+                (&Rd.x)[i] = 0.0
+        #print 'principal art stress', Rd.x, Rd.y, Rd.z
+
+        transform2inv(Rd, R, R_a_b)
+
+        # for i in range(3):
+        #     for j in range(3):
+        #         print R[i][j],
+        #     print
+
+        # for i in range(3):
+        #     for j in range(3):
+        #         print R_a_b[i][j],
+        #     print
+
+        for p in range(3):
+            result[p] = R_a_b[p][p]
+
+cdef class MonaghanArtStressS(SPHFunction):
+    
+    def __init__(self, ParticleArray source, ParticleArray dest, setup_arrays=True,
+                 str stress='sigma', double eps=0.3, *args, **kwargs):
+        self.stress = stress
+        SPHFunction.__init__(self, source, dest,
+                             setup_arrays, stress, *args, **kwargs)
+        self.eps = eps
+        self.id = 'monaghan_art_stress_s'
+
+    def set_src_dst_reads(self):
+        stress = []
+        for i in range(3):
+            for j in range(i+1):
+                stress.append(self.stress+str(j)+str(i))
+        self.src_reads = stress + ['rho']
+        self.dst_reads = []
+
+    cpdef setup_arrays(self):
+        SPHFunction.setup_arrays(self)
+        self.d_s = [[None for j in range(3)] for i in range(3)]
+        for i in range(3):
+            for j in range(i+1):
+                self.d_s[i][j] = self.d_s[j][i] = self.dest.get_carray(
+                                                self.stress + str(j) + str(i))
+
+    cpdef setup_iter_data(self):
+        """Setup data before each iteration"""
+        cdef DoubleArray tmp
+        for i in range(3):
+            for j in range(i+1):
+                tmp = self.d_s[j][i]
+                self._d_s[i][j] = self._d_s[j][i] = tmp.data
+
+    cdef void eval_single(self, size_t dest_pid, KernelBase kernel,
+                          double * result):
+        cdef int i, j
+        cdef double R_a_b[3][3], R[3][3]
+        cdef double rho = self.d_rho[dest_pid]
+        
+        cdef cPoint sd, ss, Rd
+        for i in range(3):
+            for j in range(3):
+                R_a_b[i][j] = 0
+        
+        symm_to_points(self._d_s, dest_pid, sd, ss)
+        # add the pressure term
+        for i in range(3):
+            (&sd.x)[i] += self.d_p[dest_pid]
+
+        # compute principal stresses
+        cdef cPoint S = get_eigenvalvec(sd, ss, &R[0][0])
+        #print 'principal stress:', dest_pid, ':', S.x, S.y, S.z
+
+        for i in range(3):
+            if (&S.x)[i] > 0:
+                (&Rd.x)[i] = -self.eps * (&S.x)[i]/(rho*rho)
+            else:
+                (&Rd.x)[i] = 0.0
+        #print 'principal art stress', Rd.x, Rd.y, Rd.z
+
+        transform2inv(Rd, R, R_a_b)
+
+        for p in range(3):
+            i = (p==0)
+            j = 2 - (p==2)
+            result[p] = R_a_b[i][j]
+
+
+cdef class MonaghanArtStressAcc(SPHFunctionParticle):
+    def __init__(self, ParticleArray source, ParticleArray dest, 
+                 bint setup_arrays=True, str R='MArtStress',
+                 double n=4, **kwargs):
+
+        self.R = R
+        self.n = n
+
+        SPHFunctionParticle.__init__(self, source, dest, setup_arrays, **kwargs)
+
+        self.id = 'monaghan_art_stress_acc'
+        self.tag = 'velocity'
+
+    def set_src_dst_reads(self):
+        R = [self.R+'%d%d'%(j,i) for i in range(3) for j in range(i+1)]
+        self.src_reads = R
+        self.dst_reads = R
+        self.src_reads += ['x','y','z','h','rho','m']
+        self.dst_reads += ['x','y','z','h','rho','m']
+
+    cpdef setup_arrays(self):
+        SPHFunctionParticle.setup_arrays(self)
+        self.d_R = [[None for j in range(3)] for i in range(3)]
+        self.s_R = [[None for j in range(3)] for i in range(3)]
+        for i in range(3):
+            for j in range(i+1):
+                self.d_R[i][j] = self.d_R[j][i] = self.dest.get_carray(
+                                                      self.R + str(j) + str(i))
+                self.s_R[i][j] = self.s_R[j][i] = self.source.get_carray(
+                                                      self.R + str(j) + str(i))
+
+    cpdef setup_iter_data(self):
+        SPHFunctionParticle.setup_iter_data(self)
+        self.rho0 = self.dest.constants['rho0']
+        cdef DoubleArray tmp
+        for i in range(3):
+            for j in range(i+1):
+                tmp = self.d_R[j][i]
+                self._d_R[i][j] = self._d_R[j][i] = tmp.data
+                tmp = self.s_R[j][i]
+                self._s_R[i][j] = self._s_R[j][i] = tmp.data
+    
+    cdef void eval_nbr(self, size_t source_pid, size_t dest_pid,
+                       KernelBase kernel, double *result):
+        cdef double R_a_b[3][3]
+        cdef double s_m = self.s_m.data[source_pid]
+        cdef double rho_ab = 0.5*(self.d_rho.data[dest_pid] +
+                                  self.s_rho.data[source_pid])
+        # cdef double s_rho = self.s_rho.data[source_pid]
+        
+        for i in range(3):
+            for j in range(3):
+                R_a_b[i][j] = self._s_R[i][j][source_pid] + self._d_R[i][j][dest_pid]
+
+        cdef double h = 0.5*(self.s_h.data[source_pid] +
+                             self.d_h.data[dest_pid])
+
+        self._src.x = self.s_x.data[source_pid]
+        self._src.y = self.s_y.data[source_pid]
+        self._src.z = self.s_z.data[source_pid]
+
+        self._dst.x = self.d_x.data[dest_pid]
+        self._dst.y = self.d_y.data[dest_pid]
+        self._dst.z = self.d_z.data[dest_pid]
+
+        cdef cPoint grad = kernel.gradient(self._dst, self._src, h)
+        
+        if self.bonnet_and_lok_correction:
+            self.bonnet_and_lok_gradient_correction(dest_pid, &grad)
+        
+        cdef double * dgrad = [grad.x, grad.y, grad.z]
+        cdef double f = kernel.function(cPoint_new(h*(self.rho0/rho_ab)**(1.0/kernel.dim),0,0),
+                                        cPoint_new(0,0,0), h)
+        f = kernel.function(self._dst, self._src, h) / f
+        
+        for i in range(3): # result
+            for j in range(3): # stress term
+                result[i] += s_m * R_a_b[i][j] * dgrad[j] * f**self.n
+
 
 
 cdef class MonaghanArtStress(StressFunction):
@@ -683,7 +1013,7 @@ cdef class MonaghanArtStress(StressFunction):
         for i in range(3):
             if (&S.x)[i] > 0:
                 (&Rd.x)[i] -= self.eps * (&S.x)[i]*(&S.x)[i]/(rhob*rhob)
-        transform2(Rd, R, R_a_b)
+        transform2inv(Rd, R, R_a_b)
         
         # for self point
         Rd = cPoint_new(0,0,0)
@@ -699,7 +1029,7 @@ cdef class MonaghanArtStress(StressFunction):
         for i in range(3):
             if (&S.x)[i] > 0:
                 (&Rd.x)[i] -= self.eps * (&S.x)[i]*(&S.x)[i]/(rhob*rhob)
-        transform2(Rd, R, R_a_b)
+        transform2inv(Rd, R, R_a_b)
         
         cdef double h = 0.5*(self.s_h.data[source_pid] +
                              self.d_h.data[dest_pid])
