@@ -4,6 +4,9 @@ import pysph.base.api as base
 import pysph.solver.api as solver
 import pysph.sph.api as sph
 
+import tempfile
+import shutil
+
 import unittest
 import numpy
 
@@ -272,5 +275,44 @@ class SolverTestCase(unittest.TestCase):
 
         self.assertEqual(len(pcalcs), 2)
 
+    def test_load_output(self):
+        
+        self.setup_solver()
+        s = self.solver
+        s.particles = self.particles
+        d = tempfile.mkdtemp()
+        s.output_directory = d
+        s.fname = 'temp_solver'
+        s.dt = 0
+
+        x = numpy.arange(10)
+        pa = base.get_particle_array(name='pa', x=x)
+        #pa = base.ParticleArray(name='pa')
+        pa.add_property(dict(name='q', data=-x))
+        s.particles.arrays[0] = pa
+        
+        old_props = {}
+        for name,prop in s.particles.arrays[0].properties.iteritems():
+            old_props[name] = prop.get_npy_array().copy()
+
+        s.dump_output()
+        pa.q = pa.x = pa.z
+        s.load_output('*')
+
+        try:
+            for name,prop in s.particles.arrays[0].properties.iteritems():
+                self.assertTrue(numpy.allclose(prop,old_props[name]),
+                                msg='prop:%s\nold:%s, new:%s'%(name,old_props[name], pa.get(name)))
+
+            pa = s.particles.arrays[0] = base.get_particle_array(name='pa', x=[], q=[])
+            s.load_output('*')
+            for name,prop in pa.properties.iteritems():
+                self.assertTrue(numpy.allclose(prop,old_props[name]),
+                                msg='prop:%s\nold:%s,new:%s'%(name,old_props[name], pa.get(name)))
+        finally:
+            shutil.rmtree(d, True)
+
+
 if __name__ == '__main__':
     unittest.main()
+
