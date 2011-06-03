@@ -587,7 +587,6 @@ class Solver(object):
                 if val.ndim==0: # constants become 0 dim arrays
                     pa.constants[prop] = val
                 else:
-                    # this is so that life
                     if not cleared and len(val) != pa.get_number_of_particles():
                         idx = base.LongArray(pa.get_number_of_particles())
                         idxn = idx.get_npy_array()

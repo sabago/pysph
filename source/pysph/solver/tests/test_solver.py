@@ -282,6 +282,7 @@ class SolverTestCase(unittest.TestCase):
         s.particles = self.particles
         d = tempfile.mkdtemp()
         s.output_directory = d
+        s.detailed_output = True
         s.fname = 'temp_solver'
         s.dt = 0
 
@@ -306,9 +307,9 @@ class SolverTestCase(unittest.TestCase):
 
             pa = s.particles.arrays[0] = base.get_particle_array(name='pa', x=[], q=[])
             s.load_output('*')
-            for name,prop in pa.properties.iteritems():
-                self.assertTrue(numpy.allclose(prop,old_props[name]),
-                                msg='prop:%s\nold:%s,new:%s'%(name,old_props[name], pa.get(name)))
+            for name,prop in old_props.iteritems():
+                self.assertTrue(numpy.allclose(prop,pa.get(name)),
+                                msg='prop:%s\nold:%s,new:%s'%(name,prop,pa.get(name)))
         finally:
             shutil.rmtree(d, True)
 
