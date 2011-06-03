@@ -836,7 +836,12 @@ cdef class ParticleArray:
                     arr = self.properties[prop]
                     arr.resize(len(data))
                     arr.get_npy_array()[:] = self.default_values[prop]
-                
+                if prop_name == 'tag':
+                    arr = numpy.asarray(data)
+                    self.num_real_particles = numpy.sum(arr==LocalReal)
+                else:
+                    self.num_real_particles = len(data)
+
                 if self.properties.has_key(prop_name):
                     # just add the particles to the already existing array.
                     d_type = self.properties[prop_name].get_npy_array().dtype
