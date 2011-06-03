@@ -687,7 +687,7 @@ cdef class MonaghanArtStressD(SPHFunction):
         symm_to_points(self._d_s, dest_pid, sd, ss)
         # add the pressure term
         for i in range(3):
-            (&sd.x)[i] += self.d_p[dest_pid]
+            (&sd.x)[i] -= self.d_p[dest_pid]
 
         # compute principal stresses
         cdef cPoint S = get_eigenvalvec(sd, ss, &R[0][0])
@@ -764,7 +764,7 @@ cdef class MonaghanArtStressS(SPHFunction):
         symm_to_points(self._d_s, dest_pid, sd, ss)
         # add the pressure term
         for i in range(3):
-            (&sd.x)[i] += self.d_p[dest_pid]
+            (&sd.x)[i] -= self.d_p[dest_pid]
 
         # compute principal stresses
         cdef cPoint S = get_eigenvalvec(sd, ss, &R[0][0])
