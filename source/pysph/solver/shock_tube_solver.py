@@ -11,14 +11,14 @@ from sph_equation import SPHOperation, SPHIntegration
 Fluids = base.ParticleType.Fluid
 Solids = base.ParticleType.Solid
 
-def standard_shock_tube_data(name="", type=0, cl_precision="single",
+def standard_shock_tube_data(name="", type=0, cl_precision="double",
                              **kwargs):
     """ Standard 400 particles shock tube problem """
     
     dxl = 0.001875
     dxr = dxl*4
     
-    x = numpy.ones(400, float)
+    x = numpy.ones(400)
     x[:320] = numpy.arange(-0.6, -dxl+1e-4, dxl)
     x[320:] = numpy.arange(dxr, 0.6+1e-4, dxr)
 

@@ -17,6 +17,8 @@ if HAS_CL:
 Fluid = ParticleType.Fluid
 Solid = ParticleType.Solid
 Probe = ParticleType.Probe
+DummyFluid = ParticleType.DummyFluid
+Boundary = ParticleType.Boundary
 
 SPHNeighborLocator = NeighborLocatorType.SPHNeighborLocator
 
@@ -214,14 +216,12 @@ class Particles(object):
         for func in self.misc_prop_update_functions:
             func.eval()
 
-    def add_misc_function(self, func, operation, kernel):
+    def add_misc_function(self, func):
         """ Add a function to be performed when particles are updated
 
         Parameters:
         -----------
-        func -- The function to perform. Defined in sph.update_functions
-        operation -- the calc operation that is required for the function
-        kernel -- the kernel used to setup the calcs.
+        func -- The function to perform.
 
         Example:
         --------
@@ -232,8 +232,8 @@ class Particles(object):
 
         """
 
-        calcs = operation.get_calcs(self, kernel)
-        self.misc_prop_update_functions.append(func(calcs))
+        #calcs = operation.get_calcs(self, kernel)
+        self.misc_prop_update_functions.append(func)
 
     def get_named_particle_array(self, name):
         """ Return the named particle array if it exists """
@@ -530,7 +530,9 @@ def get_particle_array(cl_precision="double", **props):
 
     if props.has_key("type"):
         particle_type = props["type"]
-        assert particle_type in [Fluid, Solid, Probe], 'Type not understood!'
+        assert particle_type in [Fluid, Solid,
+                                 Probe, DummyFluid,
+                                 Boundary], 'Type not understood!'
 
     pa = ParticleArray(name=name, particle_type=particle_type,
                        cl_precision=cl_precision, **prop_dict)

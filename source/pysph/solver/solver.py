@@ -103,6 +103,9 @@ class Solver(object):
 
         self.position_stepping_operations = {}
 
+        # the arrays to print
+        self.arrays_to_print = []
+
         self.print_properties = ['x','u','m','h','p','rho',]
 
         if self.dim > 1:
@@ -394,6 +397,21 @@ class Solver(object):
         """ Set the output print frequency """
         self.pfreq = n
 
+    def set_arrays_to_print(self, array_names=None):
+
+        available_arrays = [array.name for array in self.particles.arrays]
+        
+        if array_names:
+            for name in array_names:
+
+                if not name in available_arrays:
+                    raise RuntimeError("Array %s not availabe"%(name))
+                
+                array = self.particles.get_named_particle_array(name)
+                self.arrays_to_print.append(array)
+        else:
+            self.arrays_to_print = self.particles.arrays
+
     def set_output_fname(self, fname):
         """ Set the output file name """
         self.fname = fname    
@@ -534,7 +552,12 @@ class Solver(object):
         if not self.with_cl:
             cell_size = self.particles.cell_manager.cell_size
 
-        for pa in self.particles.arrays:
+        if self.t == 0:
+            arrays_to_print = self.particles.arrays
+        else:
+            arrays_to_print = self.arrays_to_print
+
+        for pa in arrays_to_print:
             name = pa.name
             _fname = os.path.join(self.output_directory,
                                   fname + name + '_' + str(self.t) + '.npz')
