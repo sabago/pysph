@@ -182,6 +182,7 @@ class MayaviViewer(HasTraits):
     ########################################
     # Solver info/control.
     current_time = Float(0.0, desc='the current time in the simulation')
+    time_step = Float(0.0, desc='the time-step of the solver')
     iteration = Int(0, desc='the current iteration number')
     pause_solver = Bool(False, desc='if the solver should be paused')
 
@@ -197,6 +198,7 @@ class MayaviViewer(HasTraits):
                           ),
                     Group(
                           Item(name='current_time'),
+                          Item(name='time_step'),
                           Item(name='iteration'),
                           Item(name='pause_solver'),
                           Item(name='interval'),
@@ -240,6 +242,7 @@ class MayaviViewer(HasTraits):
             return
         
         self.current_time = controller.get_t()
+        self.time_step = controller.get_dt()
         for idx, name in enumerate(self.pa_names):
             pa = controller.get_named_particle_array(name)
             self.particle_arrays[idx].particle_array = pa
