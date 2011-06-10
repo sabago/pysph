@@ -489,7 +489,7 @@ class Solver(object):
             # perform any pre step functions
             
             for func in self.pre_step_functions:
-                func.eval(self, self.count)
+                func.eval(self)
 
             # perform the integration 
 
@@ -500,7 +500,7 @@ class Solver(object):
             # perform any post step functions
             
             for func in self.post_step_functions:
-                func.eval(self, self.count)
+                func.eval(self)
 
             # dump output
 
