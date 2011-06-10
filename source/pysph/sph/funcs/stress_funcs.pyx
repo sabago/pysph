@@ -456,6 +456,30 @@ cdef class DivVStressFunction(StressFunction):
                     sub = mb/rhob*(d_V[i]-s_V[i][source_pid])*(&grad.x)[j]
                     result[i][j] -= sub
 
+    def eval_vel_grad_py(self, kernel):
+        cdef LongArray nbrs
+        cdef double gV[3][3]
+        ret = numpy.empty((3,3,self.dest.num_real_particles))
+        for dest_pid in range(self.dest.num_real_particles):
+            nbrs = self.nbr_locator.get_nearest_particles(dest_pid)
+            nnbrs = nbrs.length - 1 # self not needed to find V gradient
+
+            for i in range(3):
+                for j in range(3):
+                    gV[i][j] = 0
+
+            self.eval_vel_grad(dest_pid, self.d_u.data[dest_pid],
+                               self.d_v.data[dest_pid], self.d_w.data[dest_pid],
+                               self.s_u.data, self.s_v.data, self.s_w.data,
+                               gV, kernel, nbrs.data, nnbrs)
+            
+            for i in range(3):
+                for j in range(3):
+                    ret[i,j,dest_pid] = gV[i][j]
+
+        return ret
+        
+
 
 cdef class StressRateD(DivVStressFunction):
     ''' evaluate diagonal terms of deviatoric stress rate '''
@@ -504,7 +528,6 @@ cdef class StressRateD(DivVStressFunction):
         for i in range(3):
             for j in range(3):
                 gV[i][j] = 0
-        v = self.d_v.get_npy_array()
 
         #result[0] = result[1] = result[2] = 0.0
 
@@ -524,9 +547,9 @@ cdef class StressRateD(DivVStressFunction):
             j = i = p
             res[p] += 2*self.s_G*(gV[i][j]-tr)
             for k in range(3): # i==j stress term
-                res[p] += self._d_s[i][j][dest_pid]*(gV[i][k]-gV[k][j])
+                res[p] += self._d_s[i][k][dest_pid]*(gV[i][k]-gV[k][j])
 
-        for p in range(3):
+        for p in range(self.dim):
             result[p] = res[p]
 
     
@@ -578,7 +601,6 @@ cdef class StressRateS(DivVStressFunction):
             for j in range(3):
                 gV[i][j] = 0
 
-        result[0] = result[1] = result[2] = 0.0
         self.eval_vel_grad(dest_pid, self.d_u.data[dest_pid],
                            self.d_v.data[dest_pid], self.d_w.data[dest_pid],
                            self.s_u.data, self.s_v.data, self.s_w.data,
@@ -592,9 +614,9 @@ cdef class StressRateS(DivVStressFunction):
         for p in range(3): # result
             j = 2 - (p==2)
             i = (p==0)
-            result[p] += self.s_G*(gV[i][j]+gV[j][i])
+            result[p] = self.s_G*(gV[i][j]+gV[j][i])
             for k in range(3):
-                result[p] += 0.5*(self._d_s[i][k][dest_pid]*(gV[j][k]-gV[k][j]) + self._d_s[k][j][dest_pid]*(gV[i][k]-gV[k][i]))
+                result[p] += 0.5*(self._d_s[i][k][dest_pid]*(gV[j][k]-gV[k][j]) + self._d_s[j][k][dest_pid]*(gV[i][k]-gV[k][i]))
 
 
 cdef class BulkModulusPEqn(SPHFunction):
@@ -702,16 +724,6 @@ cdef class MonaghanArtStressD(SPHFunction):
         #print 'principal art stress', Rd.x, Rd.y, Rd.z
 
         transform2inv(Rd, R, R_a_b)
-
-        # for i in range(3):
-        #     for j in range(3):
-        #         print R[i][j],
-        #     print
-
-        # for i in range(3):
-        #     for j in range(3):
-        #         print R_a_b[i][j],
-        #     print
 
         for p in range(3):
             result[p] = R_a_b[p][p]
@@ -826,6 +838,7 @@ cdef class MonaghanArtStressAcc(SPHFunctionParticle):
                 self._d_R[i][j] = self._d_R[j][i] = tmp.data
                 tmp = self.s_R[j][i]
                 self._s_R[i][j] = self._s_R[j][i] = tmp.data
+        self.dr0 = self.dest.constants['dr0']
     
     cdef void eval_nbr(self, size_t source_pid, size_t dest_pid,
                        KernelBase kernel, double *result):
@@ -856,7 +869,7 @@ cdef class MonaghanArtStressAcc(SPHFunctionParticle):
             self.bonnet_and_lok_gradient_correction(dest_pid, &grad)
         
         cdef double * dgrad = [grad.x, grad.y, grad.z]
-        cdef double f = kernel.function(cPoint_new(h*(self.rho0/rho_ab)**(1.0/kernel.dim),0,0),
+        cdef double f = kernel.function(cPoint_new(self.dr0*(self.rho0/rho_ab)**(1.0/kernel.dim),0,0),
                                         cPoint_new(0,0,0), h)
         f = kernel.function(self._dst, self._src, h) / f
         

@@ -8,6 +8,7 @@ import pysph.sph.api as sph
 from pysph.sph.funcs import stress_funcs 
 
 from solver import Solver
+from post_step_functions import CFLTimeStepFunction
 from sph_equation import SPHOperation, SPHIntegration
 from pysph.sph.funcs.arithmetic_funcs import PropertyGet, PropertyAdd
 from pysph.sph.funcs.basic_funcs import KernelSum
@@ -62,7 +63,8 @@ def get_circular_patch(name="", type=1, dx=0.25):
     return pa
 
 class StressSolver(Solver):
-    def __init__(self, dim, integrator_type, xsph=0.5, mart_eps=0.3, mart_n=4):
+    def __init__(self, dim, integrator_type, xsph=0.5, mart_eps=0.3, mart_n=4,
+                 CFL=None):
         ''' constructor
         
         Parameters
@@ -81,6 +83,7 @@ class StressSolver(Solver):
         self.xsph = xsph
         self.mart_eps = mart_eps
         self.mart_n = mart_n
+        self.cfl = CFL
         Solver.__init__(self, dim, integrator_type)
 
     def initialize(self):
@@ -135,7 +138,6 @@ class StressSolver(Solver):
                     id='mart_stressacc')
                                )
 
-
         if self.xsph:
             self.add_operation(SPHIntegration(
                     sph.XSPHDensityRate.withargs(hks=False),
@@ -143,10 +145,17 @@ class StressSolver(Solver):
                     updates=['rho'],
                     id='density')
                                )
+        else:
+            self.add_operation(SPHIntegration(
+                    sph.SPHDensityRate.withargs(hks=False),
+                    from_types=[Solids], on_types=[Solids],
+                    updates=['rho'],
+                    id='density')
+                               )
 
 
         self.add_operation(SPHIntegration(
-                stress_funcs.StressAcceleration,
+                stress_funcs.SimpleStressAcceleration,
                 from_types=[Fluids, Solids], on_types=[Solids],
                 updates=['u','v','w'],
                 id='stressacc')
@@ -186,14 +195,16 @@ class StressSolver(Solver):
         if self.xsph:
             # xsph correction to position stepping
             self.add_operation(SPHIntegration(
-                    PropertyGet.withargs(prop_names=['ubar','vbar','wbar']),
+                    PropertyGet.withargs(prop_names=['ubar','vbar','wbar'][:self.dim]),
                     on_types=[Solids],
-                    updates=['x','y','z'],
+                    updates=['x','y','z'][:self.dim],
                     id='xsph_pos')
                                )
 
-
         #self.add_operation_step([Solids])
         #self.add_operation_xsph(eps=0.5, hks=False)
+
+        if self.cfl:
+            self.pre_step_functions.append(CFLTimeStepFunction(self.cfl))
 
 #############################################################################
