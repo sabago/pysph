@@ -32,7 +32,7 @@ cdef class StressFunction(SPHFunctionParticle):
     cdef double * _d_s[3][3]
     cdef double * _s_s[3][3]
 
-cdef class StressAcceleration(StressFunction):
+cdef class SimpleStressAcceleration(StressFunction):
     """ SPH function to compute acceleration due to stress """
     pass
 
@@ -88,7 +88,7 @@ cdef class MonaghanArtStressS(SPHFunction):
     cdef double eps
 
 cdef class MonaghanArtStressAcc(SPHFunctionParticle):
-    cdef double eps, n, rho0
+    cdef double eps, n, rho0, dr0
     cdef public str R
     cdef public list d_R
     cdef public list s_R
