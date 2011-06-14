@@ -253,7 +253,8 @@ class CommandManager(object):
         # TODO: first synchronize all the controllers in different processes
         # using mpi
         self.sync_commands()
-        self.run_queued_commands()
+        with self.qlock:
+            self.run_queued_commands()
         logger.info('control handler: count=%d'%solver.count)
         
         for interval in self.func_dict:
