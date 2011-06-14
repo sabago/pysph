@@ -7,7 +7,6 @@ dt = 1e-4
 tf = 0.00076
 
 app = solver.Application()
-app.process_command_line()
 
 particles = app.create_particles(
     False,

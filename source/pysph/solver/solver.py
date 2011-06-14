@@ -74,7 +74,6 @@ class Solver(object):
         self.default_kernel = base.CubicSplineKernel(dim=dim)
 
         self.initialize()
-        self.setup_solver()
 
         self.with_cl = False
         self.cl_integrator_types = {EulerIntegrator:CLEulerIntegrator}
@@ -604,7 +603,11 @@ class Solver(object):
         if HAS_CL:
             self.cl_context = create_some_context()
 
-    def setup_solver(self):
+    def get_options(self, opt_parser):
+        """ Implement this to add additional options for the application """
+        pass
+
+    def setup_solver(self, options=None):
         """ Implement the basic solvers here 
 
         All subclasses of Solver may implement this function to add the 
@@ -612,6 +615,11 @@ class Solver(object):
 
         Look at solver/fluid_solver.py for an example.
 
+        Parameters
+        ----------
+        options : dict
+            options set by the user using commandline (there is no guarantee
+            of existence of any key)
         """
         pass 
 

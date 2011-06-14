@@ -76,6 +76,8 @@ class StressSolver(Solver):
             (0=disabled, default=0.3)
         mart_n : float
             correction factor kernel exponent for Monaghan's artificial stress term
+        CFL : float or None
+            the CFL number if time-step is to be based on CFL (use < 0.3)
 
         dim, integrator_type : see :py:meth:`Solver.__init__`
 
@@ -96,7 +98,13 @@ class StressSolver(Solver):
         self.print_properties.extend(['MArtStress02', 'MArtStress12', 'MArtStress22'])
         
 
-    def setup_solver(self):
+    def setup_solver(self, options=None):
+        
+        options = options or {}
+        xsph = options.get('xsph', self.xsph)
+        mart_eps = options.get('mart_eps', self.mart_eps)
+        mart_n = options.get('mart_n', self.mart_n)
+        cfl = options.get('cfl', self.cfl)
 
         #create the sph operation objects
 
@@ -107,38 +115,38 @@ class StressSolver(Solver):
                 id='eos')
             )
 
-        if self.xsph:
+        if xsph:
             self.add_operation(SPHOperation(
-                    sph.XSPHCorrection.withargs(eps=self.xsph, hks=False),
+                    sph.XSPHCorrection.withargs(eps=xsph, hks=False),
                     from_types=[Solids], on_types=[Solids],
                     updates=['ubar','vbar','wbar'],
                     id='xsphcorr')
                                )
 
-        if self.mart_eps:
+        if mart_eps:
             # Monaghan Artificial Stress operations
             self.add_operation(SPHOperation(
-                    stress_funcs.MonaghanArtStressD.withargs(eps=self.mart_eps),
+                    stress_funcs.MonaghanArtStressD.withargs(eps=mart_eps),
                     on_types=[Solids],
                     updates=['MArtStress00','MArtStress11','MArtStress22'],
                     id='mart_stress_d')
                                )
             
             self.add_operation(SPHOperation(
-                    stress_funcs.MonaghanArtStressS.withargs(eps=self.mart_eps),
+                    stress_funcs.MonaghanArtStressS.withargs(eps=mart_eps),
                     on_types=[Solids],
                     updates=['MArtStress12','MArtStress02','MArtStress01'],
                     id='mart_stress_s')
                                )
             
             self.add_operation(SPHIntegration(
-                    stress_funcs.MonaghanArtStressAcc.withargs(n=self.mart_n),
+                    stress_funcs.MonaghanArtStressAcc.withargs(n=mart_n),
                     from_types=[Fluids, Solids], on_types=[Solids],
                     updates=['u','v','w'],
                     id='mart_stressacc')
                                )
 
-        if self.xsph:
+        if xsph:
             self.add_operation(SPHIntegration(
                     sph.XSPHDensityRate.withargs(hks=False),
                     from_types=[Solids], on_types=[Solids],
@@ -170,14 +178,14 @@ class StressSolver(Solver):
             )
         
         self.add_operation(SPHIntegration(
-                stress_funcs.StressRateD.withargs(xsph=True),
+                stress_funcs.StressRateD.withargs(xsph=bool(xsph)),
                 from_types=[Fluids, Solids], on_types=[Solids],
                 updates=['sigma00','sigma11','sigma22'],
                 id='stressD')
             )
         
         self.add_operation(SPHIntegration(
-                stress_funcs.StressRateS.withargs(xsph=True),
+                stress_funcs.StressRateS.withargs(xsph=bool(xsph)),
                 from_types=[Fluids, Solids], on_types=[Solids],
                 updates=['sigma12','sigma02','sigma01'],
                 id='stressS')
@@ -192,7 +200,7 @@ class StressSolver(Solver):
                 id='pos')
                            )
 
-        if self.xsph:
+        if xsph:
             # xsph correction to position stepping
             self.add_operation(SPHIntegration(
                     PropertyGet.withargs(prop_names=['ubar','vbar','wbar'][:self.dim]),
@@ -204,7 +212,7 @@ class StressSolver(Solver):
         #self.add_operation_step([Solids])
         #self.add_operation_xsph(eps=0.5, hks=False)
 
-        if self.cfl:
-            self.pre_step_functions.append(CFLTimeStepFunction(self.cfl))
+        if cfl:
+            self.pre_step_functions.append(CFLTimeStepFunction(cfl))
 
 #############################################################################

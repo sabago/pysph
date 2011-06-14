@@ -28,7 +28,6 @@ def get_particles(**kwargs):
     return pa
 
 app = solver.Application()
-app.process_command_line()
 
 particles = app.create_particles(
     variable_h=False, callable=get_particles,
