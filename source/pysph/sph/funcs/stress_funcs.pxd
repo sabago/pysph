@@ -12,14 +12,6 @@ from pysph.base.kernels cimport KernelBase
 from pysph.sph.sph_func cimport SPHFunctionParticle, SPHFunction
 from pysph.sph.funcs.pressure_funcs cimport MomentumEquation
 
-# d,s are diagonal and off-diagonal elements of a symmetric 3x3 matrix
-# d:11,22,33; s:23,13,12
-cdef double det(cPoint d, cPoint s)
-cpdef double py_det(diag, side)
-cdef cPoint get_eigenvalues(cPoint d, cPoint s)
-cdef cPoint get_eigenvector(cPoint d, cPoint s, double r)
-cpdef py_get_eigenvalues(diag, side)
-cpdef py_get_eigenvector(diag, side, double r)
 cdef void symm_to_points(double * mat[3][3], long idx, cPoint& d, cPoint& s)
 cdef void points_to_symm(mat, idx, d, s)
 
@@ -59,7 +51,6 @@ cdef class StressRateD(DivVStressFunction):
     cdef double s_G
     cdef DoubleArray s_ubar, s_vbar, s_wbar, d_ubar, d_vbar, d_wbar
     cdef bint xsph
-    cdef int dim
 
 cdef class StressRateS(DivVStressFunction):
     cdef str G
@@ -95,14 +86,6 @@ cdef class MonaghanArtStressAcc(SPHFunctionParticle):
     cdef double * _d_R[3][3]
     cdef double * _s_R[3][3]
 
-
-cdef class MonaghanArtStress(StressFunction):
-    cdef double rho0, eps, n
-    cdef int dim
-    cdef void eval_nbr_2D(self, size_t source_pid, size_t dest_pid,
-                          KernelBase kernel, double *result)
-    cdef void eval_nbr_gen(self, size_t source_pid, size_t dest_pid,
-                           KernelBase kernel, double *result)
     
 
 cdef class PressureStress(SPHFunction):

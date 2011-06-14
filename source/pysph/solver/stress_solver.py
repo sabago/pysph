@@ -170,7 +170,7 @@ class StressSolver(Solver):
             )
         
         self.add_operation(SPHIntegration(
-                stress_funcs.StressRateD.withargs(xsph=True, dim=self.dim),
+                stress_funcs.StressRateD.withargs(xsph=True),
                 from_types=[Fluids, Solids], on_types=[Solids],
                 updates=['sigma00','sigma11','sigma22'],
                 id='stressD')
