@@ -46,7 +46,7 @@ def standard_shock_tube_data(name="", type=0, cl_precision="single",
 
 class ShockTubeSolver(Solver):
     
-    def setup_solver(self):
+    def setup_solver(self, options=None):
 
         kernel = base.CubicSplineKernel(dim=1)
 

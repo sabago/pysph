@@ -196,6 +196,25 @@ class Application(object):
                                 'available times')
                           )
 
+    def _process_command_line(self):
+        """Parse any command line arguments.  Add any new options before
+        this is called.  This also sets up the logging automatically.
+        """
+        (options, args) = self.opt_parse.parse_args(args)
+        self.options = options
+        self.args = args
+        
+        # Setup logging based on command line options.
+        level = self._log_levels[options.loglevel]
+
+        #save the path where we want to dump output
+        self.path = os.path.abspath(options.output_dir)
+        mkdir(self.path)
+
+        if level is not None:
+            self._setup_logging(options.logfile, level,
+                                options.print_log)
+
     def _setup_logging(self, filename=None, 
                       loglevel=logging.WARNING,
                       stream=True):
@@ -229,24 +248,19 @@ class Application(object):
     ######################################################################
     # Public interface.
     ###################################################################### 
-    def process_command_line(self, args=None):
-        """Parse any command line arguments.  Add any new options before
-        this is called.  This also sets up the logging automatically.
-        """
-        (options, args) = self.opt_parse.parse_args(args)
-        self.options = options
+    def set_args(self, args):
         self.args = args
-        
-        # Setup logging based on command line options.
-        level = self._log_levels[options.loglevel]
 
-        #save the path where we want to dump output
-        self.path = os.path.abspath(options.output_dir)
-        mkdir(self.path)
-
-        if level is not None:
-            self._setup_logging(options.logfile, level,
-                                options.print_log)
+    def add_option(self, opt):
+        """ Add an Option/OptionGroup or their list to OptionParser """
+        if isinstance OptionGroup:
+            self.opt_parse.add_option_group(opt)
+        elif isinstance Option:
+            self.opt_parse.add_option(opt)
+        else:
+            # assume a list of Option/OptionGroup
+            for o in opt:
+                self.add_option(opt)
 
     def create_particles(self, variable_h, callable, min_cell_size=-1,
                          *args, **kw):        
@@ -348,6 +362,12 @@ class Application(object):
 
         """
         self._solver = solver
+        solver_opts = solver.get_options(self.opt_parse.__dict__)
+        if solver_opts is not None:
+            self.add_option(solver_opts)
+        self._process_command_line(self.args)
+        self._solver.setup_solver(self.options)
+
         dt = self.options.time_step
         if dt is not None:
             solver.set_time_step(dt)

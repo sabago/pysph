@@ -54,7 +54,7 @@ def get_circular_patch(name="", type=0, dx=0.025,
 
 class FluidSolver(Solver):
 
-    def setup_solver(self):
+    def setup_solver(self, options=None):
         
         #create the sph operation objects
 
