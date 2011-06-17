@@ -43,6 +43,8 @@ class Application(object):
 
         self.fname = fname
 
+        self.args = sys.argv[1:]
+
         # MPI related vars.
         self.comm = None
         self.num_procs = 1
@@ -200,9 +202,8 @@ class Application(object):
         """Parse any command line arguments.  Add any new options before
         this is called.  This also sets up the logging automatically.
         """
-        (options, args) = self.opt_parse.parse_args(args)
+        (options, args) = self.opt_parse.parse_args(self.args)
         self.options = options
-        self.args = args
         
         # Setup logging based on command line options.
         level = self._log_levels[options.loglevel]
@@ -253,9 +254,9 @@ class Application(object):
 
     def add_option(self, opt):
         """ Add an Option/OptionGroup or their list to OptionParser """
-        if isinstance OptionGroup:
+        if isinstance(opt, OptionGroup):
             self.opt_parse.add_option_group(opt)
-        elif isinstance Option:
+        elif isinstance(opt, Option):
             self.opt_parse.add_option(opt)
         else:
             # assume a list of Option/OptionGroup
@@ -362,11 +363,11 @@ class Application(object):
 
         """
         self._solver = solver
-        solver_opts = solver.get_options(self.opt_parse.__dict__)
+        solver_opts = solver.get_options(self.opt_parse)
         if solver_opts is not None:
             self.add_option(solver_opts)
-        self._process_command_line(self.args)
-        self._solver.setup_solver(self.options)
+        self._process_command_line()
+        self._solver.setup_solver(self.options.__dict__)
 
         dt = self.options.time_step
         if dt is not None:

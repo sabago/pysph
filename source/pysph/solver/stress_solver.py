@@ -2,6 +2,8 @@
 
 import numpy
 
+from optparse import OptionGroup
+
 import pysph.base.api as base
 
 import pysph.sph.api as sph
@@ -96,7 +98,18 @@ class StressSolver(Solver):
         self.print_properties.append('MArtStress00')
         self.print_properties.extend(['MArtStress01', 'MArtStress11'])
         self.print_properties.extend(['MArtStress02', 'MArtStress12', 'MArtStress22'])
+
+    def get_options(self, opt_parser):
+        opt = OptionGroup(opt_parser, "Stress Solver Options")
         
+        opt.add_option('--xsph_fac', action='store',
+                       dest='xsph_fac',
+                       help='set the XSPH correction weight factor (default=0.5)')
+        opt.add_option('--mart_eps', dest='mart_eps',
+                       help='set the Monaghan artificial stress weight factor (0.3)')
+        opt.add_option('--mart_n', dest='mart_n',
+                       help='set the Monaghan artificial stress exponent (4)')
+        return opt
 
     def setup_solver(self, options=None):
         
