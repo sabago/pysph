@@ -138,10 +138,10 @@ class StressSolver(Solver):
     def setup_solver(self, options=None):
         
         options = options or {}
-        xsph = options.get('xsph', self.xsph)
-        mart_eps = options.get('mart_eps', self.mart_eps)
-        mart_n = options.get('mart_n', self.mart_n)
-        cfl = options.get('cfl', self.cfl)
+        xsph = options.get('xsph') or  self.xsph
+        mart_eps = options.get('mart_eps') or self.mart_eps
+        mart_n = options.get('mart_n') or self.mart_n
+        cfl = options.get('cfl') or self.cfl
 
         #create the sph operation objects
 
