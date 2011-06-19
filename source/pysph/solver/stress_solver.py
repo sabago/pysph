@@ -18,6 +18,30 @@ from pysph.sph.funcs.basic_funcs import KernelSum
 Fluids = base.ParticleType.Fluid
 Solids = base.ParticleType.Solid
 
+
+def get_particle_array(xsph=True, mart_stress=True, **kwargs):
+    kwargs.setdefault('type', 1)
+    kwargs.setdefault('name', 'solid')
+    
+    pa = base.get_particle_array(**kwargs)
+    
+    for i in range(3):
+        for j in range(i+1):
+            pa.add_property(dict(name='sigma%d%d'%(j,i)))
+
+    if xsph:
+        pa.add_property(dict(name='ubar'))
+        pa.add_property(dict(name='vbar'))
+        pa.add_property(dict(name='wbar'))
+
+    if mart_stress:        
+        for i in range(3):
+            for j in range(i+1):
+                pa.add_property(dict(name='MArtStress%d%d'%(j,i)))
+
+    return pa
+
+
 def get_circular_patch(name="", type=1, dx=0.25):
     
     x,y = numpy.mgrid[-1.05:1.05+1e-4:dx, -1.05:1.05+1e-4:dx]

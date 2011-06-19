@@ -246,25 +246,8 @@ class Application(object):
         if stream:
             logger.addHandler(logging.StreamHandler())
 
-    ######################################################################
-    # Public interface.
-    ###################################################################### 
-    def set_args(self, args):
-        self.args = args
-
-    def add_option(self, opt):
-        """ Add an Option/OptionGroup or their list to OptionParser """
-        if isinstance(opt, OptionGroup):
-            self.opt_parse.add_option_group(opt)
-        elif isinstance(opt, Option):
-            self.opt_parse.add_option(opt)
-        else:
-            # assume a list of Option/OptionGroup
-            for o in opt:
-                self.add_option(opt)
-
-    def create_particles(self, variable_h, callable, min_cell_size=-1,
-                         *args, **kw):        
+    def _create_particles(self, variable_h, callable, min_cell_size=-1,
+                         *args, **kw):
         """ Create particles given a callable and any arguments to it.
         This will also automatically distribute the particles among
         processors if this is a parallel run.  Returns the `Particles`
@@ -337,7 +320,24 @@ class Application(object):
 
         return self.particles
 
-    def set_solver(self, solver):
+    ######################################################################
+    # Public interface.
+    ###################################################################### 
+    def set_args(self, args):
+        self.args = args
+
+    def add_option(self, opt):
+        """ Add an Option/OptionGroup or their list to OptionParser """
+        if isinstance(opt, OptionGroup):
+            self.opt_parse.add_option_group(opt)
+        elif isinstance(opt, Option):
+            self.opt_parse.add_option(opt)
+        else:
+            # assume a list of Option/OptionGroup
+            for o in opt:
+                self.add_option(opt)
+
+    def set_solver(self, solver, create_particles=None, var_h=False, min_cell_size=-1):
         """Set the application's solver.  This will call the solver's
         `setup_integrator` method.
 
@@ -361,12 +361,26 @@ class Application(object):
 
         with_cl -- OpenCL related initializations
 
+        Parameters
+        ----------
+        create_particles : callable or None
+            If supplied, particles will be created for the solver using the
+            particle arrays returned by the callable. Else particles for the
+            solver need to be set before calling this method
+        var_h : bool
+            If the particles created using create_particles have variable h
+        min_cell_size : float
+            minimum cell size for particles created using min_cell_size
         """
         self._solver = solver
         solver_opts = solver.get_options(self.opt_parse)
         if solver_opts is not None:
             self.add_option(solver_opts)
         self._process_command_line()
+
+        if create_particles:
+            self._create_particles(var_h, create_particles, min_cell_size)
+
         self._solver.setup_solver(self.options.__dict__)
 
         dt = self.options.time_step
