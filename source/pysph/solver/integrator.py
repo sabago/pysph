@@ -831,12 +831,11 @@ class LeapFrogIntegrator(Integrator):
         pos_calc_pa = self.arrays[pos_calc.dnum]
         pos_calc_updates = pos_calc.updates
         
-        for i in range(ncalcs):
-            calc = self.icalcs[i]
+        for calc in self.icalcs:
 
             if calc.tag == "velocity":
                 
-                pa = self.particles.arrays[calc.dnum]
+                pa = calc.dest
                 
                 updates = calc.updates
                 for j in range(calc.nupdates):
@@ -848,12 +847,12 @@ class LeapFrogIntegrator(Integrator):
 
                     # the current position
 
-                    current_arr = pos_calc_pa.get(update_prop)
+                    current_arr = pa.get(update_prop)
 
                     step_array = pa.get(k1_prop)
 
                     updated_array = current_arr + 0.5*dt*dt*step_array
-                    pos_calc_pa.set(**{update_prop:updated_array})            
+                    pos_calc_pa.set(**{update_prop:updated_array})
 
     def final_step(self, calc, dt):
         pa = self.arrays[calc.dnum]
