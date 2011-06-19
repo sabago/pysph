@@ -422,17 +422,18 @@ class CommandManager(object):
                     raise RuntimeError('Invalid dispatch on method: %s with '
                                        'non-existant property: %s '%(meth,prop))
             lock = threading.Lock()
-            lock_id = id(lock)
-            self.queue_lock_map[lock_id] = lock
-            self.queue_dict[lock_id] = (meth, args, kwargs)
-            self.queue.append(lock_id)
             lock.acquire()
-            logger.info('controller: dispatch(%d): %s %s %s'%(
-                                            lock_id, meth, args, kwargs))
-            if block or meth=='get' or meth in self.active_methods:
-                return self.dispatch_dict[meth](self, *args, **kwargs)
-            else:
-                return str(lock_id)
+            lock_id = id(lock)
+            with self.qlock:
+                self.queue_lock_map[lock_id] = lock
+                self.queue_dict[lock_id] = (meth, args, kwargs)
+                self.queue.append(lock_id)
+                logger.info('controller: dispatch(%d): %s %s %s'%(
+                        lock_id, meth, args, kwargs))
+                if block or meth=='get' or meth in self.active_methods:
+                    return self.dispatch_dict[meth](self, *args, **kwargs)
+                else:
+                    return str(lock_id)
         else:
             raise RuntimeError('Invalid dispatch on method: '+meth)
     
