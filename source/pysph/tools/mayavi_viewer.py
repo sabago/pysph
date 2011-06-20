@@ -219,7 +219,7 @@ class MayaviViewer(HasTraits):
                          height=480, width=500, show_label=False),
                       ),
                 resizable=True,
-                title='Mayavi Particle Viewer'
+                title='PySPH Particle Viewer'
                 )
 
     ######################################################################
