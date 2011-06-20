@@ -308,7 +308,7 @@ def py_transform2inv(A, P):
 
 
 
-cdef void tred2(double V[n][n], double d[n], double e[n]):
+cdef double * tred2(double V[n][n], double * d, double e[n]):
     ''' Symmetric Householder reduction to tridiagonal form '''
 
     #  This is derived from the Algol procedures tred2 by
@@ -333,7 +333,7 @@ cdef void tred2(double V[n][n], double d[n], double e[n]):
             scale += fabs(d[k])
     
         if (scale == 0.0):
-            e[i] = d[i-1];
+            e[i] = d[i-1]
             for j in range(i):
                 d[j] = V[i-1][j]
                 V[i][j] = 0.0
@@ -421,6 +421,7 @@ cdef void tred2(double V[n][n], double d[n], double e[n]):
     V[n-1][n-1] = 1.0
     e[0] = 0.0
 
+    return d
 
 
 cdef void tql2(double V[n][n], double d[n], double e[n]):
@@ -522,7 +523,7 @@ cdef void tql2(double V[n][n], double d[n], double e[n]):
 
             
         
-        d[l] = d[l] + f
+        d[l] += f
         e[l] = 0.0
     
         
@@ -555,7 +556,7 @@ cdef void eigen_decomposition(double A[n][n], double V[n][n], double d[n]):
         for j in range(n):
             V[i][j] = A[i][j]
     
-    tred2(V, d, e)
+    d = tred2(V, d, e)
     tql2(V, d, e)
 
 
