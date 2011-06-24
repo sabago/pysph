@@ -436,7 +436,7 @@ class Application(object):
         self.command_manager = CommandManager(solver, self.comm)
         solver.set_command_handler(self.command_manager.execute_commands)
 
-        if comm.Get_rank() == 0:
+        if self.rank == 0:
             # commandline interface
             if self.options.cmd_line:
                 from pysph.solver.solver_interfaces import CommandlineInterface
