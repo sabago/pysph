@@ -1,6 +1,6 @@
 # Standard imports.
 import logging, os
-from optparse import OptionParser, OptionGroup
+from optparse import OptionParser, OptionGroup, Option
 from os.path import basename, splitext
 import sys
 
@@ -335,7 +335,7 @@ class Application(object):
         else:
             # assume a list of Option/OptionGroup
             for o in opt:
-                self.add_option(opt)
+                self.add_option(o)
 
     def set_solver(self, solver, create_particles=None, var_h=False, min_cell_size=-1):
         """Set the application's solver.  This will call the solver's

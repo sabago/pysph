@@ -2,7 +2,7 @@
 
 import numpy
 
-from optparse import OptionGroup
+from optparse import OptionGroup, Option
 
 import pysph.base.api as base
 
@@ -126,14 +126,19 @@ class StressSolver(Solver):
     def get_options(self, opt_parser):
         opt = OptionGroup(opt_parser, "Stress Solver Options")
         
-        opt.add_option('--xsph_fac', action='store',
+        opt.add_option('--xsph_fac', action='store', type='float',
                        dest='xsph_fac',
                        help='set the XSPH correction weight factor (default=0.5)')
-        opt.add_option('--mart_eps', dest='mart_eps',
+        opt.add_option('--mart_eps', dest='mart_eps', type='float',
                        help='set the Monaghan artificial stress weight factor (0.3)')
-        opt.add_option('--mart_n', dest='mart_n',
+        opt.add_option('--mart_n', dest='mart_n', type='float',
                        help='set the Monaghan artificial stress exponent (4)')
-        return opt
+        
+        cfl_opt = Option('--cfl', dest='cfl', type='float',
+                         help='set the cfl number for '
+                         'determining the timestep of simulation')
+        
+        return opt, cfl_opt
 
     def setup_solver(self, options=None):
         
