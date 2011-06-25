@@ -729,7 +729,7 @@ class RK4Integrator(Integrator):
         self.particles.update()
 
 ##############################################################################
-#`RK4Integrator` class 
+#`PredictorCorrectorIntegrator` class 
 ##############################################################################
 class PredictorCorrectorIntegrator(Integrator):
     """ Predictor Corrector Integration of a system X' = F(X) using the scheme
@@ -911,3 +911,12 @@ class LeapFrogIntegrator(Integrator):
         self.cstep = 1
         
 ############################################################################## 
+
+
+integration_methods = [('Euler', EulerIntegrator),
+                       ('LeapFrog', LeapFrogIntegrator),
+                       ('RK2', RK2Integrator),
+                       ('RK4', RK4Integrator),
+                       ('PredictorCorrector', PredictorCorrectorIntegrator),
+                       ]
+
