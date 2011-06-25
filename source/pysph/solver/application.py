@@ -9,6 +9,7 @@ from utils import mkdir
 # PySPH imports.
 from pysph.base.particles import Particles, CLParticles, ParticleArray
 from pysph.solver.controller import CommandManager
+from pysph.solver.integrator import integration_methods
 from pysph.base.nnps import NeighborLocatorType as LocatorType
 
 # MPI conditional imports
@@ -149,6 +150,13 @@ class Application(object):
                                   0 - Bonnet and Lok correction
                                   1 - RKPM first order correction""")
 
+        # --integration
+        parser.add_option("--integration", action="store",
+                          dest="integration", type="int",
+                          help="The integration method to use:"+' '*24+
+                          (' '*34).join(['%d - %-20s'%(d,s[0]) for d,s in
+                                     enumerate(integration_methods)]))
+
         # --xsph
         parser.add_option("--xsph", action="store", dest="eps", type="float",
                           default=None, 
@@ -156,7 +164,7 @@ class Application(object):
 
         # --cl
         parser.add_option("--cl", action="store_true", dest="with_cl",
-                          default=False, help=""" Use OpenCL to run the
+                          default=False, help="""Use OpenCL to run the
                           simulation on an appropriate device """)
         
         # solver interfaces
@@ -361,6 +369,8 @@ class Application(object):
 
         with_cl -- OpenCL related initializations
 
+        integration_type -- The integration method
+
         Parameters
         ----------
         create_particles : callable or None
@@ -429,6 +439,9 @@ class Application(object):
                 print 'available times for resume:'
                 print r
                 sys.exit(0)
+
+        if self.options.integration is not None:
+            solver.integrator_type = integration_methods[self.options.integration][1]
         
         solver.setup_integrator(self.particles)
 

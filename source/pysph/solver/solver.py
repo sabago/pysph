@@ -472,15 +472,17 @@ class Solver(object):
 
         """
         self.count = 0
-        maxval = int((self.tf - self.t)/self.dt +1)
-        bar = PBar(maxval, show=show_progress)
+
+        bt = (self.tf - self.t)/1000.0
+        bcount = 0.0
+        bar = PBar(1000, show=show_progress)
 
         self.dump_output(*self.print_properties)
 
         while self.t < self.tf:
             self.t += self.dt
             self.count += 1
-            
+
             #update the particles explicitly
 
             self.particles.update()
@@ -506,7 +508,10 @@ class Solver(object):
             if self.count % self.pfreq == 0:
                 self.dump_output(*self.print_properties)
 
-            bar.update()
+            bcount += self.dt/bt
+            while bcount > 0:
+                bar.update()
+                bcount -= 1
         
             if self.execute_commands is not None:
                 if self.count % self.command_interval == 0:
