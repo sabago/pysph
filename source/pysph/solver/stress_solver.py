@@ -89,18 +89,18 @@ def get_circular_patch(name="", type=1, dx=0.25):
     return pa
 
 class StressSolver(Solver):
-    def __init__(self, dim, integrator_type, xsph=0.5, mart_eps=0.3, mart_n=4,
-                 CFL=None):
+    def __init__(self, dim, integrator_type, xsph=0.5, marts_eps=0.3, marts_n=4,
+                 CFL=None, martv_alpha=1.0, martv_beta=2.0):
         ''' constructor
         
         Parameters
         ----------
         xsph : float
             correction factor for xsph (0=disabled, default=0.5)
-        mart_eps : float
+        marts_eps : float
             correction factor epsilon for Monaghan's artificial stress term
             (0=disabled, default=0.3)
-        mart_n : float
+        marts_n : float
             correction factor kernel exponent for Monaghan's artificial stress term
         CFL : float or None
             the CFL number if time-step is to be based on CFL (use < 0.3)
@@ -108,10 +108,13 @@ class StressSolver(Solver):
         dim, integrator_type : see :py:meth:`Solver.__init__`
 
         '''
-        self.xsph = xsph
-        self.mart_eps = mart_eps
-        self.mart_n = mart_n
-        self.cfl = CFL
+        self.defaults = dict(xsph=xsph,
+                             marts_eps=marts_eps,
+                             marts_n=marts_n,
+                             martv_alpha=martv_alpha,
+                             martv_beta=martv_beta,
+                             cfl=CFL
+                             )
         Solver.__init__(self, dim, integrator_type)
 
     def initialize(self):
@@ -127,26 +130,39 @@ class StressSolver(Solver):
         opt = OptionGroup(opt_parser, "Stress Solver Options")
         
         opt.add_option('--xsph_fac', action='store', type='float',
-                       dest='xsph_fac',
+                       dest='xsph_fac', default=self.defaults['xsph'],
                        help='set the XSPH correction weight factor (default=0.5)')
-        opt.add_option('--mart_eps', dest='mart_eps', type='float',
+        opt.add_option('--marts_eps', dest='marts_eps', type='float',
+                       default=self.defaults['marts_eps'],
                        help='set the Monaghan artificial stress weight factor (0.3)')
-        opt.add_option('--mart_n', dest='mart_n', type='float',
+        opt.add_option('--marts_n', dest='marts_n', type='float',
+                       default=self.defaults['marts_n'],
                        help='set the Monaghan artificial stress exponent (4)')
+
+        opt.add_option('--martv_alpha', dest='martv_alpha', type='float',
+                       default=self.defaults['martv_alpha'],
+                       help='set the Monaghan artificial viscosity alpha (1)')
+        opt.add_option('--martv_beta', dest='martv_beta', type='float',
+                       default=self.defaults['martv_beta'],
+                       help='set the Monaghan artificial viscosity beta (2)')
         
         cfl_opt = Option('--cfl', dest='cfl', type='float',
-                         help='set the cfl number for '
-                         'determining the timestep of simulation')
+                         default=self.defaults['cfl'],
+                         help='set the cfl number for determining the timestep '
+                         'of simulation')
         
         return opt, cfl_opt
 
     def setup_solver(self, options=None):
         
-        options = options or {}
-        xsph = options.get('xsph') or  self.xsph
-        mart_eps = options.get('mart_eps') or self.mart_eps
-        mart_n = options.get('mart_n') or self.mart_n
-        cfl = options.get('cfl') or self.cfl
+        options = options or self.defaults
+        xsph = options.get('xsph')
+        marts_eps = options.get('marts_eps')
+        marts_n = options.get('marts_n')
+        martv_alpha = options.get('martv_alpha')
+        martv_beta = options.get('martv_beta')
+
+        cfl = options.get('cfl')
 
         #create the sph operation objects
 
@@ -165,24 +181,24 @@ class StressSolver(Solver):
                     id='xsphcorr')
                                )
 
-        if mart_eps:
+        if marts_eps:
             # Monaghan Artificial Stress operations
             self.add_operation(SPHOperation(
-                    stress_funcs.MonaghanArtStressD.withargs(eps=mart_eps),
+                    stress_funcs.MonaghanArtStressD.withargs(eps=marts_eps),
                     on_types=[Solids],
                     updates=['MArtStress00','MArtStress11','MArtStress22'],
                     id='mart_stress_d')
                                )
             
             self.add_operation(SPHOperation(
-                    stress_funcs.MonaghanArtStressS.withargs(eps=mart_eps),
+                    stress_funcs.MonaghanArtStressS.withargs(eps=marts_eps),
                     on_types=[Solids],
                     updates=['MArtStress12','MArtStress02','MArtStress01'],
                     id='mart_stress_s')
                                )
             
             self.add_operation(SPHIntegration(
-                    stress_funcs.MonaghanArtStressAcc.withargs(n=mart_n),
+                    stress_funcs.MonaghanArtStressAcc.withargs(n=marts_n),
                     from_types=[Fluids, Solids], on_types=[Solids],
                     updates=['u','v','w'],
                     id='mart_stressacc')
@@ -213,7 +229,9 @@ class StressSolver(Solver):
 
 
         self.add_operation(SPHIntegration(
-                stress_funcs.PressureAcceleration,
+                stress_funcs.PressureAcceleration.withargs(alpha=martv_alpha,
+                                                           beta=martv_beta,
+                                                           eta=0.0),
                 from_types=[Fluids, Solids], on_types=[Solids],
                 updates=['u','v','w'],
                 id='pacc')
