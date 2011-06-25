@@ -146,7 +146,8 @@ class FixedBoundary(SPHFunction):
 
 # use the solvers default cubic spline kernel
 # s = StressSolver(dim=2, integrator_type=solver.RK2Integrator)
-s = StressSolver(dim=dim, integrator_type=solver.LeapFrogIntegrator, xsph=0.5, marts_eps=0.3, marts_n=4, CFL=CFL)
+# FIXME: LeapFrog Integrator does not work
+s = StressSolver(dim=3, integrator_type=solver.EulerIntegrator, xsph=0.5, marts_eps=0.3, marts_n=4, CFL=CFL)
 
 
 # can be overriden by commandline arguments

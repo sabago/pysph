@@ -441,13 +441,13 @@ class Application(object):
         solver.set_kernel_correction(self.options.kernel_correction)
 
         # XSPH operation
-        if self.options.eps:
-            solver.set_xsph(self.options.eps)
+        if self.options.eps is not None:
+            solver.eps = self.options.eps
 
         # OpenCL setup for the solver
         solver.set_cl(self.options.with_cl)
         
-        if self.options.resume:
+        if self.options.resume is not None:
             solver.particles = self.particles # needed to be able to load particles
             r = solver.load_output(self.options.resume)
             if r is not None:
