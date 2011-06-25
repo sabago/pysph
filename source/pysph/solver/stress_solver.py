@@ -90,7 +90,7 @@ def get_circular_patch(name="", type=1, dx=0.25):
 
 class StressSolver(Solver):
     def __init__(self, dim, integrator_type, xsph=0.5, marts_eps=0.3, marts_n=4,
-                 CFL=None, martv_alpha=1.0, martv_beta=2.0):
+                 CFL=None, martv_alpha=1.0, martv_beta=1.0):
         ''' constructor
         
         Parameters
@@ -144,7 +144,7 @@ class StressSolver(Solver):
                        help='set the Monaghan artificial viscosity alpha (1)')
         opt.add_option('--martv_beta', dest='martv_beta', type='float',
                        default=self.defaults['martv_beta'],
-                       help='set the Monaghan artificial viscosity beta (2)')
+                       help='set the Monaghan artificial viscosity beta (1)')
         
         cfl_opt = Option('--cfl', dest='cfl', type='float',
                          default=self.defaults['cfl'],
