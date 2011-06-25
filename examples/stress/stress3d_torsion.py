@@ -15,6 +15,7 @@ app = solver.Application()
 
 #dt = app.options.time_step if app.options.time_step else 1e-8
 CFL = 0.1
+dim = 3
 #tf = app.options.final_time if app.options.final_time else 1e-2
 
 class PrintPos(object):
@@ -40,7 +41,6 @@ class PrintPos(object):
 
 def create_particles():
     #x,y = numpy.mgrid[-1.05:1.05+1e-4:dx, -0.105:0.105+1e-4:dx]
-    dim = 3
     dx = 0.002 # 2mm
     R = 0.02
     xl = -0.05
@@ -146,7 +146,7 @@ class FixedBoundary(SPHFunction):
 
 # use the solvers default cubic spline kernel
 # s = StressSolver(dim=2, integrator_type=solver.RK2Integrator)
-s = StressSolver(dim=2, integrator_type=solver.LeapFrogIntegrator, xsph=0.5, marts_eps=0.3, marts_n=4, CFL=CFL)
+s = StressSolver(dim=dim, integrator_type=solver.LeapFrogIntegrator, xsph=0.5, marts_eps=0.3, marts_n=4, CFL=CFL)
 
 
 # can be overriden by commandline arguments
