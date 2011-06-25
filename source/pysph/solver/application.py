@@ -11,6 +11,7 @@ from pysph.base.particles import Particles, CLParticles, ParticleArray
 from pysph.solver.controller import CommandManager
 from pysph.solver.integrator import integration_methods
 from pysph.base.nnps import NeighborLocatorType as LocatorType
+import pysph.base.kernels as kernels
 
 # MPI conditional imports
 HAS_MPI = True
@@ -142,6 +143,13 @@ class Application(object):
                          dest="output_dir", default=self.fname+'_output',
                          help="Dump output in the specified directory.")
 
+        # --kernel
+        parser.add_option("--kernel", action="store",
+                          dest="kernel", type="int",
+                          help="%-55s"%"The kernel function to use:"+
+                          ''.join(['%d - %-51s'%(d,s) for d,s in
+                                     enumerate(kernels.kernel_names)]))
+
         # -k/--kernel-correction
         parser.add_option("-k", "--kernel-correction", action="store",
                           dest="kernel_correction", type="int",
@@ -153,8 +161,8 @@ class Application(object):
         # --integration
         parser.add_option("--integration", action="store",
                           dest="integration", type="int",
-                          help="The integration method to use:"+' '*24+
-                          (' '*34).join(['%d - %-20s'%(d,s[0]) for d,s in
+                          help="%-55s"%"The integration method to use:"+
+                          ''.join(['%d - %-51s'%(d,s[0]) for d,s in
                                      enumerate(integration_methods)]))
 
         # --xsph
@@ -371,6 +379,8 @@ class Application(object):
 
         integration_type -- The integration method
 
+        default_kernel -- the default kernel to use for operations
+
         Parameters
         ----------
         create_particles : callable or None
@@ -421,6 +431,11 @@ class Application(object):
 
         # output directory
         solver.set_output_directory(self.options.output_dir)
+
+        # default kernel
+        if self.options.kernel is not None:
+            solver.default_kernel = getattr(kernels,
+                      kernels.kernel_names[self.options.kernel])(dim=solver.dim)
 
         # Hernquist and Katz kernel correction
         solver.set_kernel_correction(self.options.kernel_correction)
