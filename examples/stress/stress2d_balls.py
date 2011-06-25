@@ -40,7 +40,7 @@ def create_particles(two_arr=False):
 
     #print bdry, numpy.flatnonzero(bdry)
     m = numpy.ones_like(x)*dx*dx
-    h = numpy.ones_like(x)*1.5*dx
+    h = numpy.ones_like(x)*1.4*dx
     rho = numpy.ones_like(x)
     z = numpy.zeros_like(x)
 
@@ -68,9 +68,10 @@ def create_particles(two_arr=False):
 
     pa.constants['E'] = 1e7
     pa.constants['nu'] = 0.3975
-    pa.constants['G'] = pa.constants['E']/(2.0*1+pa.constants['nu'])
+    pa.constants['G'] = pa.constants['E']/(2.0*(1+pa.constants['nu']))
     pa.constants['K'] = stress_funcs.get_K(pa.constants['G'], pa.constants['nu'])
     pa.constants['rho0'] = 1.0
+    pa.constants['dr0'] = dx
     pa.constants['c_s'] = (pa.constants['K']/pa.constants['rho0'])**0.5
     pa.cs = numpy.ones_like(x) * pa.constants['c_s']
     print 'c_s:', pa.c_s
@@ -95,7 +96,7 @@ def create_particles(two_arr=False):
                                      #bdry=bdry
                                      )
 
-        pb.constants['E'] = 1e9
+        pb.constants['E'] = 1e7
         pb.constants['nu'] = 0.3975
         pb.constants['G'] = pb.constants['E']/(2.0*1+pb.constants['nu'])
         pb.constants['K'] = stress_funcs.get_K(pb.constants['G'], pb.constants['nu'])
@@ -104,6 +105,7 @@ def create_particles(two_arr=False):
         pb.cs = numpy.ones_like(x) * pb.constants['c_s']
         print 'c_s:', pb.c_s
         print 'G:', pb.G/pb.c_s**2/pb.rho0
+        print 'G_mu', pa.G/pa.K
         pa.u = pa.c_s*u_f*(2*(x<0)-1)
         print 'u_f:', pb.u[-1]/pb.c_s, '(%s)'%pb.u[-1]
         
@@ -116,10 +118,10 @@ def create_particles(two_arr=False):
 
 
 
-
+cfl = 0.1
 # use the solvers default cubic spline kernel
 # s = StressSolver(dim=2, integrator_type=solver.RK2Integrator)
-s = StressSolver(dim=2, integrator_type=solver.LeapFrogIntegrator, xsph=0.5, mart_eps=0.1, mart_n=4)
+s = StressSolver(dim=2, integrator_type=solver.LeapFrogIntegrator, xsph=0.5, marts_eps=0.3, marts_n=4, CFL=cfl)
 #s = StressSolver(dim=2, integrator_type=solver.LeapFrogIntegrator)
 
 

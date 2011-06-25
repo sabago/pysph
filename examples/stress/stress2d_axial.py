@@ -41,7 +41,7 @@ def create_particles():
     dx = 0.1
 
     #x,y = numpy.mgrid[-1.05:1.05+1e-4:dx, -0.105:0.105+1e-4:dx]
-    x,y = numpy.mgrid[-0.1:5.01:dx, -0.2:0.21:dx]
+    x,y = numpy.mgrid[-0.2:5.01:dx, -0.2:0.21:dx]
     x = x.ravel()
     y = y.ravel()
     bdry = (x<0.01)*1.0
@@ -57,21 +57,23 @@ def create_particles():
     cs = numpy.ones_like(x) * 10000.0
 
     u = -x
-    u *= 1e-1
+    u *= 1e0
     h *= 1
     v = 0.0*y
     p *= 0.0
 
     pa = get_particle_array(x=x, y=y, m=m, rho=rho, h=h, p=p, u=u, v=v, z=z,w=z,
                                  bdry=bdry)
-    pa.constants['E'] = 1e7
+    pa.constants['E'] = 1e9
     pa.constants['nu'] = 0.3
-    pa.constants['G'] = pa.constants['E']/(2.0*1+pa.constants['nu'])
+    pa.constants['G'] = pa.constants['E']/(2.0*(1+pa.constants['nu']))
     pa.constants['K'] = stress_funcs.get_K(pa.constants['G'], pa.constants['nu'])
     pa.constants['rho0'] = 1.
+    pa.constants['dr0'] = dx
     pa.constants['c_s'] = numpy.sqrt(pa.constants['K']/pa.constants['rho0'])
     pa.cs = numpy.ones_like(x) * pa.constants['c_s']
     pa.set(idx=numpy.arange(len(pa.x)))
+    print 'G_mu', pa.G/pa.K
     print 'Number of particles: ', len(pa.x)
     
     return pa
@@ -94,12 +96,12 @@ class FixedBoundary(SPHFunction):
             p[self.indices] = self.values[i]
 
 
-
+CFL=None
 # use the solvers default cubic spline kernel
-s = StressSolver(dim=2, integrator_type=solver.LeapFrogIntegrator)
+s = StressSolver(dim=2, integrator_type=solver.LeapFrogIntegrator, xsph=0.5, marts_eps=0.3, marts_n=4, CFL=CFL)
 
-dt = 1e-6
-tf = 1e-1
+dt = 1e-8
+tf = 1e-3
 s.set_time_step(dt)
 s.set_final_time(tf)
 s.pfreq = 100

@@ -137,7 +137,7 @@ def create_particles():
 
     pb.constants['E'] = 1e7
     pb.constants['nu'] = 0.25
-    pb.constants['G'] = pb.constants['E']/(2.0*1+pb.constants['nu'])
+    pb.constants['G'] = pb.constants['E']/(2.0*(1+pb.constants['nu']))
     pb.constants['K'] = stress_funcs.get_K(pb.constants['G'], pb.constants['nu'])
     pb.constants['rho0'] = 1.0
     pb.constants['dr0'] = dx
@@ -170,7 +170,7 @@ class FixedBoundary(SPHFunction):
 
 # use the solvers default cubic spline kernel
 # s = StressSolver(dim=2, integrator_type=solver.RK2Integrator)
-s = StressSolver(dim=2, integrator_type=solver.LeapFrogIntegrator, xsph=0.5, mart_eps=0.3, mart_n=4, CFL=CFL)
+s = StressSolver(dim=2, integrator_type=solver.LeapFrogIntegrator, xsph=0.5, marts_eps=0.3, marts_n=4, CFL=CFL)
 
 
 # can be overriden by commandline arguments
