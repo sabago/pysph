@@ -12,15 +12,20 @@ Boundary = base.ParticleType.Boundary
 
 # Shock tube parameters
 
-dxl = 0.6/320
+nl = int(320 * 7.5)
+nr = int(80 * 7.5)
+
+dxl = 0.6/nl
 dxr = 4*dxl
 
 h0 = 2*dxr
 eps = 0.4
 k = 0.7
 
-g1 = 0.5
+g1 = 0.02
 g2 = 0.5
+
+hks = False
 
 class UpdateBoundaryParticles:
     def __init__(self, particles):
@@ -36,7 +41,8 @@ class UpdateBoundaryParticles:
         right.h[:] = fluid.h[-1]
 
 def get_fluid_particles(**kwargs):
-    pa = solver.shock_tube_solver.standard_shock_tube_data(name="fluid")
+    pa = solver.shock_tube_solver.standard_shock_tube_data(
+        name="fluid", nl=nl, nr=nr)
 
     pa.add_property({'name':'rhop','type':'double'})
     pa.add_property({'name':'div', 'type':'double'})
@@ -58,7 +64,8 @@ def get_boundary_particles(**kwargs):
     e = numpy.ones_like(x) * 2.5
 
     p = (0.4) * rho * e
-    cs = numpy.sqrt(1.4*p/rho)
+    #cs = numpy.sqrt(0.4 * e)
+    cs = numpy.sqrt( 1.4*p/rho )
     q = g1 * h * cs
 
     left = base.get_particle_array(name="left", type=Boundary,
@@ -76,7 +83,8 @@ def get_boundary_particles(**kwargs):
     e = numpy.ones_like(x) * 1.795
 
     p = (0.4) * rho * e
-    cs = numpy.sqrt(1.4*p/rho)
+    #cs = numpy.sqrt(0.4*e)
+    cs = numpy.sqrt( 1.4*p/rho )
     q = g1 * h * cs
 
     right = base.get_particle_array(name="right", type=Boundary,
@@ -99,9 +107,8 @@ app = solver.Application()
 app.process_command_line()
 
 particles = app.create_particles(
-    variable_h=True, callable=get_particles, 
-    name='fluid', type=Fluid,
-    locator_type=base.NeighborLocatorType.SPHNeighborLocator)
+    variable_h=False, callable=get_particles,
+    locator_type=base.NeighborLocatorType.NSquareNeighborLocator)
 
 # add the boundary update function to the particles
 particles.add_misc_function( UpdateBoundaryParticles(particles) )
@@ -125,7 +132,7 @@ s.add_operation(solver.SPHOperation(
 # smoothing length update
 s.add_operation(solver.SPHOperation(
 
-    sph.ADKESmoothingUpdate.withargs(h0=h0, k=k, eps=eps),
+    sph.ADKESmoothingUpdate.withargs(h0=h0, k=k, eps=eps, hks=hks),
     on_types=[Fluid], updates=['h'], id='adke'),
                 
                 )
@@ -133,7 +140,7 @@ s.add_operation(solver.SPHOperation(
 # summation density
 s.add_operation(solver.SPHOperation(
 
-    sph.SPHRho.withargs(),
+    sph.SPHRho.withargs(hks=hks),
     from_types=[Fluid, Boundary], on_types=[Fluid], 
     updates=['rho'], id = 'density')
                 
@@ -150,13 +157,13 @@ s.add_operation(solver.SPHOperation(
 # velocity divergence
 s.add_operation(solver.SPHOperation(
 
-    sph.VelocityDivergence.withargs(),
+    sph.VelocityDivergence.withargs(hks=hks),
     on_types=[Fluid], from_types=[Fluid, Boundary],
     updates=['div'], id='vdivergence'),
 
                 )
 
-# conduction coefficient update
+#conduction coefficient update
 s.add_operation(solver.SPHOperation(
 
     sph.ADKEConductionCoeffUpdate.withargs(g1=g1, g2=g2),
@@ -165,11 +172,10 @@ s.add_operation(solver.SPHOperation(
 
                 )
 
-
 # momentum equation
 s.add_operation(solver.SPHIntegration(
     
-    sph.MomentumEquation.withargs(),
+    sph.MomentumEquation.withargs(alpha=1, beta=1, hks=hks),
     from_types=[Fluid, Boundary], on_types=[Fluid], 
     updates=['u'], id='mom')
                 
@@ -178,7 +184,7 @@ s.add_operation(solver.SPHIntegration(
 # energy equation
 s.add_operation(solver.SPHIntegration(
     
-    sph.EnergyEquation.withargs(hks=False),
+    sph.EnergyEquation.withargs(hks=True,),
     from_types=[Fluid, Boundary],
     on_types=[Fluid], updates=['e'], id='enr')
 
@@ -187,7 +193,7 @@ s.add_operation(solver.SPHIntegration(
 # artificial heat 
 s.add_operation(solver.SPHIntegration(
 
-   sph.ArtificialHeat.withargs(eta=0.1),
+   sph.ArtificialHeat.withargs(eta=0.1, hks=True),
    on_types=[Fluid], from_types=[Fluid,Boundary],
    updates=['e'], id='aheat'),
 

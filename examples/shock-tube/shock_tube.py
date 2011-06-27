@@ -19,6 +19,9 @@ CLDomain = base.DomainManagerType
 CLLocator = base.OpenCLNeighborLocatorType
 Locator = base.NeighborLocatorType
 
+nl = 320
+nr = 80
+
 # Create the application, do this first so the application sets up the
 # logging and also gets all command line arguments.
 app = solver.Application()
@@ -27,12 +30,14 @@ app.process_command_line()
 
 # Create the particles automatically, the application calls a supplied
 # function which generates the particles.
-particles = app.create_particles(False,
+particles = app.create_particles(
+    False,
     solver.shock_tube_solver.standard_shock_tube_data,
     name='fluid', type=0,
     locator_type=Locator.SPHNeighborLocator,
     cl_locator_type=CLLocator.AllPairNeighborLocator,
-    domain_manager_type=CLDomain.DomainManager)
+    domain_manager_type=CLDomain.DomainManager,
+    nl=nl, nr=nr, smoothing_length=None)
     
 pa = particles.arrays[0]
 
