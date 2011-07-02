@@ -99,6 +99,7 @@ class ParticleArrayCLTestCase(unittest.TestCase):
                 if dtype == "double":
                     _array = _array.astype(numpy.float32)
                     pysph_arr = pysph_arr.astype(numpy.float32)
+
                 if dtype == "long":
                     _array = _array.astype(numpy.int32)
                     pysph_arr = pysph_arr.astype(numpy.int32)
