@@ -229,7 +229,9 @@ cdef class SPHCalc:
         cdef DoubleArray output2 = self.dest.get_carray(output_array2)
         cdef DoubleArray output3 = self.dest.get_carray(output_array3)
 
-        self.reset_output_arrays(output1, output2, output3)
+        if not self.integrates:
+            self.reset_output_arrays(output1, output2, output3)
+
         self.sph_array(output1, output2, output3, exclude_self)
 
         # call an update on the particles if the destination pa is dirty
@@ -516,7 +518,8 @@ class CLCalc(SPHCalc):
         if output2 is None: output2 = '_tmpy'
         if output3 is None: output3 = '_tmpz'
 
-        self.cl_reset_output_arrays(output1, output2, output3)
+        if not self.integrates:
+            self.cl_reset_output_arrays(output1, output2, output3)
 
         for func in self.funcs:
             func.cl_eval(self.queue, self.context, output1, output2, output3)

@@ -1117,6 +1117,37 @@ cdef class ParticleArray:
             if src_array != None and dst_array != None:
                 dst_array.copy_subset(src_array, start_index, end_index)
 
+    cpdef copy_over_properties(self, dict props):
+        """ Copy the properties from one set to another.
+
+        Parameters:
+        -----------
+
+        props : dict
+            A mapping between the properties to be copied.
+
+        Example:
+        --------
+
+        To save the properties 'x' and 'y' to say 'x0' and 'y0':
+
+        pa.copy_over_properties(props = {'x':'x0', 'y':'y0'}
+
+        """
+        cdef DoubleArray dst, src
+        cdef str prop
+
+        cdef long np = self.get_number_of_particles()
+        cdef long a
+
+        for prop in props:
+
+            src = self.get_carray( prop )
+            dst = self.get_carray( props[prop] )
+
+            for a in range( np ):
+                dst.data[ a ] = src.data[ a ]
+
     cpdef remove_property(self, str prop_name):
         """ Removes property prop_name from the particle array """
 
