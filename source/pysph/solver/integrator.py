@@ -1,6 +1,8 @@
-import logging
 from pysph.sph.sph_calc import SPHCalc
 from pysph.sph.funcs.arithmetic_funcs import PropertyGet
+
+import numpy
+import logging
 logger = logging.getLogger()
 
 #############################################################################
@@ -16,12 +18,13 @@ class Integrator(object):
     (d) Predictor Corrector Integrator
     (e) Leap Frog Integrator
 
-    The integrator operates on a list of SPHCalc objects which define the 
-    interaction between a single destination particle array and a list of 
-    source particle arrays.
+    The integrator operates on a list of SPHCalc objects which define
+    the interaction between a single destination particle array and a
+    list of source particle arrays. 
 
     An instance of SPHCalc is called a `calc` and thus, the integrator
-    operates on a list of calcs.
+    operates on a list of calcs. The calcs serve as the functions to
+    be evaluated for the integrator.
 
     A calc can be integrating or non integrating depending on the
     operation it represents. For example, the summation density and
@@ -29,416 +32,255 @@ class Integrator(object):
     and integrating respectively. Note that both of them operate on
     the same LHS variable, namely the density.
 
-    In addition, the integrator differentiates between a calc that
-    steps position and calcs that step other physical variables. This
-    is because in an SPH operation, the position of the particles is
-    updated after the primitive variables (rho, p, v) are stepped.
+    Example:
+    =========
 
-    Each of the integrators thus step the primitive variables prior to
-    stepping of the position.
-
-    Data Attributes:
-    ================
-
-    particles:
-    ----------
-    The manager for the particle arrays used in the simulation.
-
-    calcs:
-    ------
-    The list of SPHCalc operations (calcs) that is used for stepping.
-
-    icalcs:
-    -------
-    An internal list of integrating and non position calcs. 
-
-    pcalcs:
-    -------
-    An internal list of position calcs. Used for stepping particle positions.
-
-    nsteps:
-    -------
-    The number of steps for the integrator. Eg: RK2 has nsteps=2
-
-    cstep:
-    ------
-    Current step. Used for storing intermediate step values.
-
-    
-    The following example is applicable to the description of
-    'initial_props', 'step_props' and 'k_props' to follow:
-
-    Consider a dam break simulation using an RK2 integrator. The
-    operations are
+    Consider a dam break simulation with two particle arrays, fluid
+    and boundary. The operations are
 
     (a) Tait equation (updates=['p','cs'])
     (b) Density Rate (updates=['rho'])
     (c) Momentum equation with avisc  (updates = ['u','v'])
     (d) Gravity force (updates = ['u','v'])
     (e) Position Stepping (updates=['x','y'])
-    (f) XSPH Correction (updates=['x','y'])    
+    (f) XSPH Correction (updates=['x','y'])
 
-    initial_props:
-    --------------
-    The initial property names for the LHS in the system of equations.
 
-    The structure is a dictionary indexed by the calc id (which must
-    be unique) with the value being a list of strings, one for each
-    update property of the calc. 
+    Integration of this system relies on the use of two dictionaries:
 
-    For the example simulation the intitial_props would look like:
+    (1) initial_properties
 
-    {'eos':['p_0','cs_0'], 'density_rate':['rho_0'], 
+    The initial_properties for the integrator would look like:
 
-    'mom':['u_0','v_0'], 'gravity':['u_0','v_0'], 
+    {
+    'fluid': {'x':'_x0', 'y':'_y0', 'u':'_u0', 'v':'_v0', ...},
+    'boundary':{'rho':'_rho0'}
+    }
 
-    'step':['x_0','y_0'], 'xsph':['x_0','y_0']}
+    that is, the initial_properties serves as a mapping between names
+    of particle properties that need to be stepped and their initial
+    values, per particle array. This is needed for multi-step
+    integrators since we need the final step is with respect to the
+    initial properties. The initial_properties is used to save out the
+    properties once at the start of the integration step.
 
-    For each calc, these subscripted variables are added to the
-    particle arrays.
+    (2) step_props
 
-    step_props:
-    -----------
-    The property names for the result of an RHS evaluation.
-   
-    The order of the calcs define the integration sequence. Any calc that
-    does not integrate is evaluated and the value set immediately. 
-    The stepping for the properties, that is, the integrating phase 
-    is done after all the calcs are evaluated.
+    The step_props dictionary looks like:
 
-    For each calc and each update, the integrator creates a unique property 
-    name for the particle array. This prop name is used when the calc's sph
-    function is called. In this way, no overwriting of data occurs as each 
-    separate call to sph stores the result with a unique property name.
-    
-    An example is the shock tube problem which uses 4 calcs, summation 
-    density, equation of state, momentum equation and energy equation which
-    update 'rho', 'p', ('u' ,'v') and 'e' respectively. The unique property 
-    arrays created, and stored for reference in `calling_sequence` are:
+    {
+    'fluid':{1:{ 'x':['_x0', '_a_x_1'], 'rho':['_rho0', '_a_rho_1'] ... }
+    'boundary':{1: {'rho':['_rho0', '_a_rho_1']} }
+    }
 
-    [['rho_00'], ['p_10'], ['u_20', 'v_21'], ['e_30']]
+    that is, for each stage of the integration (k1, k2..) a dictionary
+    is stored. This dictionary is keyed on the property to be stepped
+    and has as value, a list of two strings. The first string is the
+    name of the intial array for this property to be stepped and the
+    second is the name of the variable in which the acceleration for
+    this property is stored.
 
-    We can see that the first subscript corresponds to the calc number while
-    the second subscript to the calc's update number.
+    The initial_properties and step_props dicts are constructed at
+    setup time while examining the calcs for their update
+    properties. A single acceleration variable is used for each
+    property that needs to be stepped.
 
-    The list is stored in a data attribute `calling_sequence`. This makes it 
-    easy to call the calc's sph function with the list corresponding to this
-    calc. For example, the momentum equation (calc 2) call to sph 
-    would be:
+    The naming convention for the acceleration variable is
+    '_a_<prop_name>_<stage>', thus, the acceleration variable for
+    velocity at the 2nd stage of an integrator would be '_a_u_2'
 
-    momentum_equation.sph(*calling_sequence[2]),
+    Using these two dictionaries, a typical step for the integrator is
+    the following:
 
-    to store the result in `u_20` and `v_20`.
+    (a) Save Intial Arrays:
+    ------------------------
 
-    initial_arrays:
-    ===============
-    The initial arrays are required in multi step integrators to get to the
-    final step. These are stored as follows:
+    This is easily done using the initial_properties dict. A call is
+    made to the particle array to copy over the values as represented
+    by the mapping.
 
-    momentum_equation updates 'u' and 'v' and so, the initial values are
-    u_0 and v_0 which are stored in the particle array.
-    
-    During the final integration step, care must be taken to ensure that the
-    initial arrays are also stepped. This would be necessary since multiple
-    calcs could be updating the same property and we want the cumulative 
-    result of these.
+    (b) Reset Accelerations.
+    ------------------------
 
-    The `k` list
-    ===================
-    Consider the integration of a system X' = F(X) using an RK4 scheme.
-    The scheme reads:
-    
-    X(t + h) = h/6 * (K1 + 2K2 + 2K3 + K4)
+    Since one acceleration variable is used per property to be
+    stepped, the accelerations must be set to zero before the eval
+    phase of the integrator. This is because the accelerations will be
+    appended at each call to the underlying SPHFuncton.
 
-    where, `h` is the time step and K's are defined as 
-    
-    K1 = F(X)
-    K2 = F(X + 0.5*h*K1)
-    K3 = F(X + 0.5*h*K2)
-    K4 = F(X + h*K3)
+    (c) Evaluate the RHS.
+    -----------------------
 
-    the `k` data attribute stores the K vectors for each calc and each 
-    update property. The list is indexed by the step number with
-    the value a dictionary indexed on the calc number and the value of that
-    being a dictionary indexed on the update property. The result of this is
-    the calc's eval that is set.
+    Each calc calls it's eval method with appropriate arguments to
+    store the results of the evaluation.
 
-    The k dictionary is used in the final step to update the property for the
-    particles.
+    For integrating calcs, the argument is the acceleration variable
+    for that property and that stage of the integration. This is where
+    the step_props dict comes in.
 
-    The do_step
-    =====================
-    Each calc must define the property it is concerned with and also if this
-    property is required to be integrated. The need for differentiating 
-    these cases arises from the nature of the SPH process.
+    For non integrating calcs, the argument are the update properties
+    for that calc. 
 
-    Consider the evolution of density by summation and by the continuity 
-    equation. In the summation density approach, the result is simply 
-    assigned to the particles density. Moreover, the density is 
-    updated (along with pressure) before stepping of any other property.
-    In the continuity equation approach, the result is used to integrate the
-    density along with all other properties.
+    (d) Step
+    ---------
 
-    The do step iterates over each calc and calls it's eval function with
-    the appropriate calling sequence which should be set by a call to 
-    `setup_integrator`. If the calc is non integrating, the evaluated value
-    is assigned to the calc's update property. The result for each integrating
-    calc is stored in the `k` dictionary.
+    Once the calcs have been evaluated in order, the accelerations are
+    stored in the appropriate variables for each particle array.
+    Using the step_props dict, we can step the properties for that
+    stage.
 
-    After all the evals have been called, we are ready for integrating step.
-    The result of all the integrating calcs have been stored in the `k` 
-    dictionary. The current array is retrieved via the calc's update property
-    and the step array is retrieved through the k dictionary. Stepping is
-    as simple as `updated_array = current_array + step_array*dt`
+    (e) Update particles
+    ---------------------
 
-    The integrate step
-    ===================
-    This is the function to be called while integrating an SPH system.
-    
-    Notes:
-    ======
-    The position stepping calcs are evaluated after all the other calcs, and
-    smoothing length (h) updating calcs are evaluated in the defined sequence
-    but the updated smoothing length value is set only at the end of a step
-    (just before particles.update() calls) since it would invalidate the
-    neighbor locators
+    Typically, the positions of the particles will be updated in (d)
+    and this means that the indexing scheme is outdated. This
+    necessitates an update to recompute the neighbor information.
 
     """
 
     def __init__(self, particles=None, calcs=[], pcalcs = []):
         self.particles = particles
 
+        # the calcs used for the RHS evaluations
         self.calcs = calcs
-        self.icalcs = []
-        self.pcalcs = []
 
+        # the number of steps for the integrator. Typically equal to
+        # the number of k arrays required.
         self.nsteps = 1
+
+        # counter for the current stage of the integrator.
         self.cstep = 1
 
-        self.initial_props = {}
-        self.k_props = {}
-
-        self.setup_done = False
-
+        # list of particle properties to be updated across processors.
         self.rupdate_list = []
 
+        # mapping between names of step properties and accelerations
+        # per stage, per particle array
+        self.step_props = {}
+
+        # mapping between step prop name and it's initial prop name
+        # per particle array
+        self.initial_properties = {}
+
     def set_rupdate_list(self):
+        """ Generate the remote update list.
+
+        The format of this list is tied to ParallelCellManager.
+
+        """
         for i in range(len(self.particles.arrays)):
             self.rupdate_list.append([])
 
-    def setup_integrator(self):
-        """ Setup the information required for the stepping
-        
-        Notes:
-        ------
-        A call to this function must be done before any integration begins.
-        This function sets up the properties required for storing the results
-        of the calc operation as well as setting the calling_sequence variable.
+    def setup_integrator( self ):
+        """ Setup the integrator.
 
-        Algorithm:
-        ----------
-        initialize calling_sequence to []
-        initialize k to []
-        for each step in the integrator
-           append a dictionary to k
-        for each calc in the calcs
-            append an empty list to calling_sequence
-            append a dictionary to k corresponding to the calc number
-            for each prop in update of the calc
-                assign a unique prop name based on calc and update number
-                add the property to the particle array
-                append to the newly appended list this prop in calling_sequence
-                set the value for k[<nstep>][<ncalc>][update_prop] to None
+        This function sets up the initial_properties and step_props
+        dicts which are used extensively for the integration.
 
-                
-        Example:
-        --------
-        For the shock tube problem with summation density, equation of state, 
-        momentum equation and energy equation updating 'rho', 'p', 'u', and 'e'
-        respectively, the calling sequence looks like:
-        
-        [['rho_00'], ['p_10'], ['u_20'], ['e_30']]
-        
+        A non-integrating calc is used to update the property of some
+        variable as a function of other variables ( eg p = f(rho)
+        ).
+
+        An integrating calc computes the accelerations for some LHS
+        property.
+
+        During the eval phase, a calc must pass in a string defining
+        the output arrays to append the RHS result to. For a
+        non-integrating calc this is simply the calc's update
+        property. For an integrating calc, the arguments must be the
+        accelerations for that property.
         """
-        
+
+        # save the arrays for easy reference
         self.arrays = self.particles.arrays
 
-        self.initial_props = {}
-        self.k_props = {}
+        # intialize the step_props and initial_properties.
+        for array in self.arrays:
+            self.step_props[array.name] = {}
+            self.initial_properties[array.name] = {}
 
-        calcs = self.calcs
+            # step props needs a dict per stage of the integration as well
+            for k in range(self.nsteps):
+                k_num = k + 1
+                self.step_props[array.name][k_num] = {}
+        
+        for calc in self.calcs:
 
-        # non-integrating calc which sets the new smoothing length
-
-        self.pcalcs = [calc for calc in calcs if calc.tag == 'position']
-        self.ncalcs = [calc for calc in calcs if not calc.tag == 'position']
-        self.icalcs = [calc for calc in calcs if not calc.tag == 'position'
-                       and calc.integrates==True]
-
-        ncalcs = len(calcs)
-
-        for i in range(ncalcs):
-            
-            calc = calcs[i]
-
-            #get the destination particle array for this calc
-            
-            pa = self.arrays[calc.dnum]
+            # get the destination particle array for the calc
+            dest = calc.dest
 
             updates = calc.updates
             nupdates = len(updates)
 
-            # make an entry in the step and k array for this calc
+            # the initial properties and accelerations need to be
+            # defined in the case of integrating calcs
+            if calc.integrates:
 
-            self.initial_props[calc.id] = []
-            self.k_props[calc.id] = {}
+                for j in range(nupdates):
+                    update_prop = updates[j]
 
-            for j in range(nupdates):
-                prop = updates[j]
+                    # define and add the property to the destination array
+                    initial_prop = '_' + update_prop + '0'
+                    dest.add_property( {"name":initial_prop} )
 
-                # define and add the initial and step properties
+                    # save the intial property
+                    self.initial_properties[dest.name][update_prop]=initial_prop
 
-                prop_initial = '_'+prop+'_0'
+                    # an acceleration needs to be defined for every stage.
+                    for k in range(self.nsteps):
+                        k_num = k + 1
 
-                if calc.integrates:             
-                    pa.add_property({'name':prop_initial})
-                    calc.initial_props.append(prop_initial)
+                        # define and add the acceleration variable
+                        step_prop = '_a_' + update_prop + '_' + str(k_num)
+                        dest.add_property( {"name":step_prop} )
 
-                # set the step array and initial array
+                        # save the acceleration variable
+                        self.step_props[dest.name][k_num][update_prop] = \
+                                                       [initial_prop, step_prop]
 
-                self.initial_props[calc.id].append(prop_initial)
-
-                # set the step properties for non integrating calcs
-
-                for l in range(self.nsteps):
-                    k_num = 'k'+str(l+1)
-
-                    if calc.integrates:
-
-                        if not self.k_props[calc.id].has_key(k_num):
-                            self.k_props[calc.id][k_num] = []
-                        
-                        # add the k array name 
-                        
-                        k_name = '_'+k_num + '_' + prop + str(i) + str(j)
-                        pa.add_property({'name':k_name})
-
+                        # tell the calc to use this acceleration
+                        # variable as the argument for the eval phase
                         dst_writes = calc.dst_writes.get(k_num)
                         if not dst_writes:
                             calc.dst_writes[k_num] = []
 
-                        calc.dst_writes[k_num].append(k_name)
-
-                        self.k_props[calc.id][k_num].append(k_name)
-
-        #indicate that the setup is complete
+                        calc.dst_writes[k_num].append( step_prop )
 
         self.set_rupdate_list()
-        self.setup_done = True
 
-    def set_initial_arrays(self):
-        """ Set the initial arrays for each calc
+    def reset_accelerations(self, step):
+        """ Reset the accelerations.
 
-        The initial array is the update property of a calc appended with _0
-        Note that multiple calcs can update the same property and this 
-        will not replicate the creation of the initial arrays. 
-        
-        """        
-        if logger.level < 30:
-            logger.info("Integrator: Set initial arrays called")
+        Parameters:
+        -----------
+
+        step : int
+            The stage of the integrator for which to reset the accelerations.
             
-        calcs = self.calcs
-
-        ncalcs = len(calcs)
-        for i in range(ncalcs):
-            calc = calcs[i]
-
-            if calc.integrates:
-                updates = calc.updates
-                nupdates = len(updates)
-
-                pa = self.arrays[calc.dnum]
-
-                for j in range(nupdates):
-                    prop = updates[j]
-
-                    prop_initial = self.initial_props[calc.id][j]
-                    
-                    pa.set(**{prop_initial:pa.get(prop)})
-
-    def reset_current_arrays(self, calcs):
-        """ Reset the current arrays """
-        
-        if logger.level < 30:
-            logger.info("Integrator: Setting current arrays")
-
-        ncalcs = len(calcs)
-        for i in range(ncalcs):
-            calc = calcs[i]
-
-            if calc.integrates:
-
-                updates = calc.updates
-                nupdates = len(updates)
-
-                pa = self.arrays[calc.dnum]
-            
-                for j in range(nupdates):
-                    prop = updates[j]
-
-                    # reset the current property to the initial array
-                    
-                    initial_prop = self.initial_props[calc.id][j]
-                    pa.set(**{prop:pa.get(initial_prop)})
-
-    def do_step(self, calcs, dt):
-        """ Perform one step for the integration
-        
-        This is an intermediate step in a multi step integrator wherein 
-        the step arrays are set in the `k` list. First, each eval is 
-        called and the step arrays are stored in the `k` list and then
-        for each integrating calc, the current state of the particles is
-        advanced with respect to the initial position and the `k` value 
-        from a previous step.
-
         """
-        particles = self.particles
 
-        if logger.level < 30:
-            logger.info("Integrator:do_step")
+        for array in self.arrays:
 
+            zeros = numpy.zeros( array.get_number_of_particles() )
+            
+            for step_prop in self.step_props[ array.name ][step]:
+                acc_prop = self.step_props[array.name][step][step_prop][1]
+
+                array.set(**{acc_prop:zeros} )
+
+    def save_initial_arrays(self):
+        """ Save the initial arrays. """
+        for array in self.arrays:
+            array.copy_over_properties( self.initial_properties[array.name] )
+
+    def eval(self):
+        """ Evaluate the LHS as defined by the calcs. """
+
+        calcs = self.calcs
         ncalcs = len(calcs)
-        
-        # Evaluate the RHS
 
-        self.eval(calcs)
-
-        # ensure that the eval phase is completed for all processes
-
-        particles.barrier()
-
-        # Reset the current arrays (Required for multi step integrators)
-
-        self.reset_current_arrays(calcs)
-    
-        # Step the LHS
-
-        self.step(calcs, dt)
-
-        # ensure that all processors have stepped the local particles
-
-        particles.barrier()
-
-    def eval(self, calcs):
-        """ Evaluate each calc and store in the k list if necessary """
-
-        if logger.level < 30:
-            logger.info("Integrator:eval")
-
-        ncalcs = len(calcs)
         particles = self.particles
         
-        k_num = 'k' + str(self.cstep)
+        k_num = self.cstep
         for i in range(ncalcs):
             calc = calcs[i]
 
@@ -448,76 +290,55 @@ class Integrator(object):
 
             # Evaluate the calc
             if calc.integrates:
-                calc.sph(*calc.dst_writes[k_num])
+                calc.sph( *calc.dst_writes[k_num] )
 
             else:
-                calc.sph(*calc.updates)
+                calc.sph( *calc.updates )
 
                 # ensure all processes have reached this point
                 particles.barrier()
 
-                # update the remote particle properties
-
-                self.rupdate_list[calc.dnum] = [calc.updates]
-
                 if logger.level < 30:
                     logger.info("""Integrator:eval: updating remote particle
                     properties %s"""%(self.rupdate_list))
- 
+
+                # update the properties for remote particles
+                self.rupdate_list[calc.dnum] = [calc.updates]
+
                 particles.update_remote_particle_properties(
                     self.rupdate_list)                
-            
+
+        # ensure that all processors have evaluated the RHS's
+        # not likely that this is necessary.
         particles.barrier()
+        
+    def step(self, dt):
+        """ Step the particle properties. """
 
-    def step(self, calcs, dt):
-        """ Perform stepping for the integrating calcs """
+        # get the current stage of the integration
+        k_num = self.cstep
 
-        ncalcs = len(calcs)
+        for array in self.arrays:
 
-        k_num = 'k' + str(self.cstep)
-        for i in range(ncalcs):
-            calc = calcs[i]
+            # get the mapping for this array and this stage
+            to_step = self.step_props[ array.name ][k_num]
 
-            if calc.integrates:
-                
-                updates = calc.updates
-                nupdates = calc.nupdates
+            for prop in to_step:
 
-                # get the destination particle array for this calc
-            
-                pa = self.arrays[calc.dnum]
+                initial_prop = to_step[ prop ][0]
+                step_prop = to_step[ prop ][1]
 
-                for j in range(nupdates):
-                    update_prop = updates[j]
-                    k_prop = self.k_props[calc.id][k_num][j]
-                    initial_prop = self.initial_props[calc.id][j]
+                initial_arr = array.get( initial_prop )
+                step_arr = array.get( step_prop )
+                updated_array = initial_arr + step_arr * dt
 
-                    initial_array = pa.get(initial_prop)
-                    current_arr = pa.get(update_prop)
-                    
-                    step_array = pa.get(k_prop)
-
-                    if logger.level < 30:
-                        k_name = k_num + '_' + update_prop + str(i) + str(j)
-                        logger.info("""Integrator:do_step: Updating the k array
-                                    %s """%(k_name))
-
-                    updated_array = current_arr + step_array*dt
-                  
-                    pa.set(**{update_prop:updated_array})
-
-                pass
-            pass
+                array.set( **{prop:updated_array} )
 
         # Increment the step by 1
-
         self.cstep += 1
 
-    def integrate(self, dt, count):
+    def integrate(self, dt):
         raise NotImplementedError
-
-##############################################################################
-
 
 ##############################################################################
 #`EulerIntegrator` class 
@@ -532,47 +353,20 @@ class EulerIntegrator(Integrator):
         Integrator.__init__(self, particles, calcs)
         self.nsteps = 1
 
-    def final_step(self, calc, dt):
-        """ Perform the final step for the integrating calc """
-        updates = calc.updates
-        nupdates = calc.nupdates
-
-        pa = self.arrays[calc.dnum]
-
-        for i in range(nupdates):
-            initial_prop = self.initial_props[calc.id][i]
-            k_prop = self.k_props[calc.id]['k1'][i]
-            update_prop = updates[i]
-
-            initial_array = pa.get(initial_prop)
-            k1_arr = pa.get(k_prop)
-            
-            updated_array = initial_array + k1_arr * dt
-
-            pa.set(**{update_prop:updated_array})
-            pa.set(**{initial_prop:updated_array})
-
     def integrate(self, dt):
 
-        # set the initial arrays for the calcs
+        # set the initial properties
+        self.save_initial_arrays()      # X0 = X(t)
 
-        self.set_initial_arrays()
+        # Euler step
+        self.reset_accelerations(step=1)
 
-        # evaluate the calcs
+        self.eval()                    # F(X) = k1
+        self.step( dt )                # X(t + h) = X0 + h*k1
 
-        self.eval(self.calcs)
-
-        # step the update properties for each integrating calc
-
-        for calc in self.calcs:
-            if calc.integrates:
-                self.final_step(calc, dt)
-                
-        # update the partilces
-        
         self.particles.update()
 
-#############################################################################
+        self.cstep = 1
 
 
 ##############################################################################
@@ -581,68 +375,48 @@ class EulerIntegrator(Integrator):
 class RK2Integrator(Integrator):
     """ RK2 Integration for the system X' = F(X) with the formula:
 
-    X(t + h) = h/2 * (K1 + K2)
-
-    where,
-    
+    # Stage 1
     K1 = F(X)
-    K2 = F(X + h*K1)
+    X(t + h/2) = X0 + h/2*K1
+
+    # Stage 2
+    K1 = F( X(t+h/2) )
+    X(t + h) = X0 + h * K1
 
     """
 
     def __init__(self, particles, calcs):
         Integrator.__init__(self, particles, calcs)
-        self.nsteps = 2
-
-    def final_step(self, calc, dt):
-        """ Perform the final step for the RK2 integration """
-
-        pa = self.arrays[calc.dnum]
-        nupdates = calc.nupdates
-        updates = calc.updates
-        
-        for j in range(nupdates):
-
-            initial_prop = self.initial_props[calc.id][j]
-            k1_prop = self.k_props[calc.id]['k1'][j]
-            k2_prop = self.k_props[calc.id]['k2'][j]
-
-            update_prop = updates[j]
-            
-            initial_arr = pa.get(initial_prop)
-            k1_arr = pa.get(k1_prop)
-            k2_arr = pa.get(k2_prop)            
-
-            updated_array = initial_arr + 0.5 * dt * (k1_arr + k2_arr)
-
-            pa.set(**{update_prop:updated_array})
-            pa.set(**{initial_prop:updated_array})
+        self.nsteps = 1
 
     def integrate(self, dt):
 
         # set the initial arrays
+        self.save_initial_arrays()  # X0 = X(t)
 
-        self.set_initial_arrays()
+        #############################################################
+        # Stage 1
+        #############################################################
+        self.reset_accelerations(step=1)
 
-        # evaluate the k1 arrays and step to (X + h*k1)
+        self.eval()                # K1 = F(X)
+        self.step(dt/2)            # F(X+h/2) = X0 + h/2*K1
 
-        self.do_step(self.calcs, dt)
         self.particles.update()
 
-        # eavluate the k2 arrays
-
-        self.eval(self.calcs)
-
-        # step the integrating calcs
-
-        for calc in self.calcs:
-            if calc.integrates:
-                self.final_step(calc, dt)
-                
-        # update the partilces
-        
         self.cstep = 1
+
+        #############################################################
+        # Stage 2
+        #############################################################
+        self.reset_accelerations(step=1)
+
+        self.eval()                # K1 = F( X(t+h/2) )
+        self.step(dt)              # F(X+h) = X0 + h*K1
+
         self.particles.update()
+
+        self.cstep = 1
 
 ##############################################################################
 #`RK4Integrator` class 
@@ -650,14 +424,21 @@ class RK2Integrator(Integrator):
 class RK4Integrator(Integrator):
     """ RK4 Integration of a system X' = F(X) using the scheme
     
-    X(t + h) = h/6 * (K1 + 2K2 + 2K3 + K4)
-
-    where, `h` is the time step and K's are defined as 
-    
+    # Stage 1
     K1 = F(X)
-    K2 = F(X + 0.5*K1)
-    K3 = F(X + 0.5*K2)
-    K4 = F(X + K3)
+    X(t + h/2) = X0 + h/2*K1
+
+    # Stage 2
+    K2 = F( X(t + h/2) )
+    X(t + h/2) = X0 + h/2*K2
+
+    # Stage 3
+    K3 = F( X(t + h/2) )
+    X(t + h) = X0 + h*K3
+
+    # Stage 4
+    K4 = F( X(t + h) )
+    X(t + h) = X0 + h/6 * ( K1 + 2*K2 + 2*K3 + K4 )
 
     """
 
@@ -665,135 +446,149 @@ class RK4Integrator(Integrator):
         Integrator.__init__(self, particles, calcs)
         self.nsteps = 4
 
-    def final_step(self, calc, dt):
+    def final_step(self, dt):
         """ Perform the final step for RK4 integration """
-        pa = self.arrays[calc.dnum]
-        updates = calc.updates
-        
-        
-        for j in range(calc.nupdates):
-            initial_prop = self.initial_props[calc.id][j]
-            update_prop = updates[j]
-            
-            k1_prop = self.k_props[calc.id]['k1'][j]
-            k2_prop = self.k_props[calc.id]['k2'][j]
-            k3_prop = self.k_props[calc.id]['k3'][j]
-            k4_prop = self.k_props[calc.id]['k4'][j]
 
-            initial_array = pa.get(initial_prop)
-            k1_array = pa.get(k1_prop)
-            k2_array = pa.get(k2_prop)
-            k3_array = pa.get(k3_prop)
-            k4_array = pa.get(k4_prop)
+        fac = 1.0/6.0
+        for array in self.arrays:
 
-            updated_array = initial_array + (dt/6.0) *\
-                (k1_array + 2*k2_array + 2*k3_array + k4_array)
-                    
-            pa.set(**{update_prop:updated_array})
-            pa.set(**{initial_prop:updated_array})
+            to_step_k1 = self.step_props[array.name][1]
+            to_step_k2 = self.step_props[array.name][2]
+            to_step_k3 = self.step_props[array.name][3]
+            to_step_k4 = self.step_props[array.name][4]
+
+            for prop in to_step_k1:
+
+                initial_array = array.get( to_step_k1[prop][0] )
+
+                k1_array = array.get( to_step_k1[prop][1] )
+                k2_array = array.get( to_step_k2[prop][1] )
+                k3_array = array.get( to_step_k3[prop][1] )
+                k4_array = array.get( to_step_k4[prop][1] )
+
+                updated_array = initial_array + fac*dt*(k1_array + \
+                                                        2*k2_array + \
+                                                        2*k3_array + \
+                                                        k4_array)
+
+                array.set( **{prop:updated_array} )   
 
     def integrate(self, dt):
 
-        # set the initial arrays
+        # save the initial arrays
+        self.save_initial_arrays()   # X0 = X(t)
 
-        self.set_initial_arrays()
+        #############################################################
+        # Stage 1
+        #############################################################
+        self.reset_accelerations(step=1)
 
-        ################ K1 #################################w
+        self.eval()                 # K1 = F(X)
+        self.step(dt/2)             # X(t + h/2) = X0 + h/2*K1
 
-        self.do_step(self.calcs, 0.5*dt)
         self.particles.update()
 
-        ################ K2 #################################
+        #############################################################
+        # Stage 2
+        #############################################################
+        self.reset_accelerations(step=2)
 
-        self.do_step(self.calcs, 0.5*dt)
+        self.eval()                 # K2 = F( X(t+h/2) )
+        self.step(dt/2)             # X(t+h/2) = X0 + h/2*K2
+
         self.particles.update()
 
-        ################ K3 #################################
+        #############################################################
+        # Stage 3
+        #############################################################
+        self.reset_accelerations(step=3)
 
-        self.do_step(self.calcs, dt)
+        self.eval()                 # K3 = F( X(t+h/2) )
+        self.step(dt)               # X(t+h) = X0 + h*K3
+
         self.particles.update()
 
-        ################ K4 #################################
+        #############################################################
+        # Stage 4
+        #############################################################
+        self.reset_accelerations(step=4)
 
-        self.eval(self.calcs)
+        self.eval()                 # K4 = F( X(t+h) )
+        self.final_step(dt)          # X(t + h) = X0 + h/6(K1 + 2K2 + 2K3 + K4)
 
-        # step the variables
-        
-        for calc in self.calcs:
-            if calc.integrates:
-                self.final_step(calc, dt)
+        self.particles.update()
 
-        # reset the step counter and update the particles
-
+        # reset the step counter
         self.cstep = 1
-        self.particles.update()
 
 ##############################################################################
-#`RK4Integrator` class 
+#`PredictorCorrectorIntegrator` class 
 ##############################################################################
 class PredictorCorrectorIntegrator(Integrator):
     """ Predictor Corrector Integration of a system X' = F(X) using the scheme
     
-    the prediction step:
-    
-    X(t + h/2) = X + h/2 * F(X)
+    Predict:
+    X(t + h/2) = X0 + h/2 * F(X)
 
-    the correction step
-    
-    X(t + h/2) = X + h/2 * F(X(t + h/2))
+    Correct:    
+    X(t + h/2) = X0 + h/2 * F( X(t + h/2) )
 
-    the final step:
-    
-    X(t + h) = 2*X(t + h/2) - X
-
-    where, `h` is the time step 
+    Step:
+    X(t + h) = 2*X(t + h/2) - X0
 
     """
 
     def __init__(self, particles, calcs):
         Integrator.__init__(self, particles, calcs)
-        self.nsteps = 2
+        self.nsteps = 1
 
-    def final_step(self, calc, dt):
+    def final_step(self, dt):
         """ Perform the final step in the PC integration method """
-        pa = self.arrays[calc.dnum]
-        updates = calc.updates
-        
-        for j in range(calc.nupdates):
-            initial_prop = self.initial_props[calc.id][j]
-            update_prop = updates[j]
-            
-            initial_array = pa.get(initial_prop)
-            current_array = pa.get(update_prop)
-            
-            updated_array = 2*current_array - initial_array
 
-            pa.set(**{update_prop:updated_array})
-            pa.set(**{initial_prop:updated_array})
+        for array in self.arrays:
 
+            to_step = self.step_props[array.name][1]
+            for prop in to_step:
+
+                current_array = array.get( prop )
+                initial_array = array.get( to_step[prop][0] )
+
+                updated_array = 2*current_array - initial_array
+                array.set( **{prop:updated_array} )
+                              
     def integrate(self, dt):
 
-        # set the initial arrays
+        # save the initial arrays
+        self.save_initial_arrays()    # X0 = X(t)
 
-        self.set_initial_arrays()
+        ############################################################
+        # Predict
+        ############################################################
+        self.reset_accelerations(step=1)
 
-        ################### Predict #################################
-
-        self.do_step(self.calcs, 0.5*dt)
-        self.particles.update()
-
-        ################### Correct #################################
-
-        self.do_step(self.calcs, 0.5*dt)
-        self.particles.update()
-
-        ################### Step #################################        
-        
-        for calc in self.calcs:
-            if calc.integrates:
-                self.final_step(calc, dt)
+        self.eval()                  # K1 = F(X)
+        self.step(dt/2)              # X(t+h/2) = X0 + h/2*K1
 
         self.particles.update()
+
+        self.cstep = 1
+
+        ##############################################################
+        # Correct
+        ##############################################################
+        self.reset_accelerations(step=1)
+
+        self.eval()                  # K1 = F( X(t+h/2) )
+        self.step(dt/2)              # X(t+h/2) = X0 + h/2*K1
+
+        self.particles.update()
+
+        ##############################################################
+        # Step
+        ##############################################################
+        self.final_step(dt)           # X(t+h) = 2*X(t+h/2) - X0
+        self.particles.update()
+
         self.cstep = 1
 
 ##############################################################################

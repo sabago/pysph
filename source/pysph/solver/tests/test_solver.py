@@ -264,13 +264,7 @@ class SolverTestCase(unittest.TestCase):
 
         calcs = i.calcs
 
-        pcalcs = i.pcalcs
-
-        icalcs = i.icalcs
-
         self.assertEqual(len(calcs), 6)
-
-        self.assertEqual(len(pcalcs), 2)
 
 if __name__ == '__main__':
     unittest.main()
