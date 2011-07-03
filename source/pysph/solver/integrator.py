@@ -542,7 +542,7 @@ class PredictorCorrectorIntegrator(Integrator):
         Integrator.__init__(self, particles, calcs)
         self.nsteps = 1
 
-    def final_step(self, dt):
+    def final_step(self):
         """ Perform the final step in the PC integration method """
 
         for array in self.arrays:
@@ -586,7 +586,7 @@ class PredictorCorrectorIntegrator(Integrator):
         ##############################################################
         # Step
         ##############################################################
-        self.final_step(dt)           # X(t+h) = 2*X(t+h/2) - X0
+        self.final_step()           # X(t+h) = 2*X(t+h/2) - X0
         self.particles.update()
 
         self.cstep = 1

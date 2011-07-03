@@ -265,4 +265,119 @@ class CLEulerIntegrator(CLIntegrator):
 
         self.cstep = 1
 
-#############################################################################
+##############################################################################
+#`CLRK2Integrator` class 
+##############################################################################
+class CLRK2Integrator(CLIntegrator):
+    """ RK2 Integration for the system X' = F(X) with the formula:
+
+    # Stage 1
+    K1 = F(X)
+    X(t + h/2) = X0 + h/2*K1
+
+    # Stage 2
+    K1 = F( X(t+h/2) )
+    X(t + h) = X0 + h * K1
+
+    """    
+    def __init__(self, particles, calcs):
+        CLIntegrator.__init__(self, particles, calcs)
+        self.nsteps = 1
+
+    def integrate(self, dt):
+
+        # set the initial arrays
+        self.save_initial_arrays()  # X0 = X(t)
+        
+        #############################################################
+        # Stage 1
+        #############################################################
+        self.reset_accelerations(step=1)
+
+        self.eval()                # K1 = F(X)
+        self.step(dt/2)            # F(X+h/2) = X0 + h/2*K1
+
+        self.particles.update()
+
+        self.cstep = 1
+
+        #############################################################
+        # Stage 2
+        #############################################################
+        self.reset_accelerations(step=1)
+
+        self.eval()                # K1 = F( X(t+h/2) )
+        self.step(dt)              # F(X+h) = X0 + h*K1
+
+        self.particles.update()
+
+        self.cstep = 1
+
+##############################################################################
+#`CLPredictorCorrectorIntegrator` class 
+##############################################################################
+class CLPredictorCorrectorIntegrator(CLIntegrator):
+    """ Predictor Corrector Integration of a system X' = F(X) using the scheme
+    
+    Predict:
+    X(t + h/2) = X0 + h/2 * F(X)
+
+    Correct:    
+    X(t + h/2) = X0 + h/2 * F( X(t + h/2) )
+
+    Step:
+    X(t + h) = 2*X(t + h/2) - X0
+
+    """
+    def __init__(self, particles, calcs):
+        CLIntegrator.__init__(self, particles, calcs)
+        self.nsteps = 1
+
+    def final_step(self):
+
+        for array in self.arrays:
+
+            to_step = self.step_props[array.name][1]
+            for prop in to_step:
+
+                current_buffer = array.get_cl_buffer( prop )
+                initial_buffer = array.get_cl_buffer( to_step[prop][0] )
+
+                self.program.pc_final_step( queue, (np,), (1,),
+                                            current_buffer,
+                                            initial_buffer).wait()
+
+    def integrate(self, dt):
+
+        # save the initial arrays
+        self.save_initial_arrays()    # X0 = X(t)
+
+        ############################################################
+        # Predict
+        ############################################################
+        self.reset_accelerations(step=1)
+
+        self.eval()                  # K1 = F(X)
+        self.step(dt/2)              # X(t+h/2) = X0 + h/2*K1
+
+        self.particles.update()
+
+        self.cstep = 1
+
+        ##############################################################
+        # Correct
+        ##############################################################
+        self.reset_accelerations(step=1)
+
+        self.eval()                  # K1 = F( X(t+h/2) )
+        self.step(dt/2)              # X(t+h/2) = X0 + h/2*K1
+
+        self.particles.update()
+
+        ##############################################################
+        # Step
+        ##############################################################
+        self.final_step(dt)           # X(t+h) = 2*X(t+h/2) - X0
+        self.particles.update()
+
+        self.cstep = 1

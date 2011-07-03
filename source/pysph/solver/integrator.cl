@@ -14,3 +14,11 @@ set_to_zero(__global REAL* array){
   array[gid] = 0.0F;
 }
 
+
+__kernel void
+pc_final_step(__global REAL* current_buffer, 
+	      __global REAL* initial_buffer){
+
+  unsigned int gid = get_global_id(0);
+  current_buffer[gid] = 2.0F * current_buffer[gid] - initial_buffer[gid];
+}
