@@ -345,6 +345,8 @@ dt = 1.25e-4
 s.set_final_time(3.0)
 s.set_time_step(dt)
 
+s.use_variable_time_step(cfl=0.3, co=co)
+
 app.set_solver(s)
 
 app.run()

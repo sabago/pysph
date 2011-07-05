@@ -1,6 +1,7 @@
 """ An implementation of a general solver base class """
 
 import os
+import numpy
 from utils import PBar, savez_compressed, savez
 from cl_utils import get_cl_devices, HAS_CL, create_some_context
 
@@ -114,6 +115,9 @@ class Solver(object):
         if self.dim > 2:
             self.print_properties.extend(['z','w'])
 
+        # variable time step
+        self.variable_dt = False
+
     def switch_integrator(self, integrator_type):
         """ Change the integrator for the solver """
 
@@ -184,7 +188,13 @@ class Solver(object):
             sph.XSPHCorrection.withargs(eps=eps, hks=hks), from_types=types,
             on_types=types, updates=updates, id=id, kernel=self.default_kernel)
 
-                           )        
+                           )
+
+    def use_variable_time_step(self, cfl, co):
+        self.cfl = cfl
+        self.co = co
+
+        self.variable_dt = True
 
     def add_operation(self, operation, before=False, id=None):
         """ Add an SPH operation to the solver.
@@ -495,10 +505,15 @@ class Solver(object):
 
         self.dump_output(*self.print_properties)
 
+        dt = self.dt
+
+        # set the time for the integrator
+        self.integrator.t = self.t
+
         while self.t < self.tf:
-            self.t += self.dt
+            self.t += dt
             self.count += 1
-            
+
             #update the particles explicitly
 
             self.particles.update()
@@ -508,11 +523,14 @@ class Solver(object):
             for func in self.pre_step_functions:
                 func.eval(self, self.count)
 
-            # perform the integration 
+            # compute the time step            
+            dt = self.compute_time_step()
+            logger.info("Time %f, time step %f "%(self.t, dt))
 
-            logger.info("Time %f, time step %f "%(self.t, self.dt))
+            # perform the integration and update the time
 
-            self.integrator.integrate(self.dt)
+            self.integrator.integrate(dt)
+            self.integrator.t += dt            
 
             # perform any post step functions
             
@@ -531,6 +549,27 @@ class Solver(object):
                     self.execute_commands(self)
 
         bar.finish()
+
+    def compute_time_step(self):
+
+        dt = self.dt
+        if self.variable_dt:
+            cfl = self.cfl
+            co = self.co
+            _dt = dt
+
+            arrays = self.particles.arrays
+            for array in arrays:
+                if array.properties.has_key('dt_fac'):
+                        
+                    dt_fac = array.get('h','dt_fac')
+                    _dt = numpy.min( cfl * array.h/(co + numpy.max(dt_fac)) )
+
+                    if (dt < _dt):
+                        dt = _dt
+                    #if _dt < dt:
+                    #    dt = _dt
+        return dt
 
     def dump_output(self, *print_properties):
         """ Print output based on level of detail required
