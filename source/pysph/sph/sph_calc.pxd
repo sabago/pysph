@@ -28,6 +28,10 @@ cdef class SPHCalc:
     cdef public list nbr_locators
     cdef public list sources
 
+    # a list of destination properties that may need to be reset at every
+    # calc invocation. The list is got from the functions.
+    cdef public list to_reset
+
     # properties read of the source and destination arrays
     cdef public list src_reads
     cdef public list dst_reads

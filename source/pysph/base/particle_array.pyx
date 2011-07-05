@@ -1148,6 +1148,20 @@ cdef class ParticleArray:
             for a in range( np ):
                 dst.data[ a ] = src.data[ a ]
 
+    cpdef set_to_zero(self, list props):
+
+        cdef long np = self.get_number_of_particles()
+        cdef long a
+
+        cdef DoubleArray prop_arr
+        cdef str prop
+
+        for prop in props:
+            prop_arr = self.get_carray(prop)
+            
+            for a in range(np):
+                prop_arr.data[a] = 0.0
+
     cpdef remove_property(self, str prop_name):
         """ Removes property prop_name from the particle array """
 

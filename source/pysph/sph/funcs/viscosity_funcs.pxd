@@ -20,6 +20,7 @@ cdef class MonaghanArtificialVsicosity(SPHFunctionParticle):
     cdef public double beta
     cdef public double eta
 
+    cdef DoubleArray d_dt_fac
 
 cdef class MorrisViscosity(SPHFunctionParticle):
     """
@@ -27,3 +28,5 @@ cdef class MorrisViscosity(SPHFunctionParticle):
     """
     cdef str mu
     cdef DoubleArray d_mu, s_mu
+
+    cdef DoubleArray d_dt_fac

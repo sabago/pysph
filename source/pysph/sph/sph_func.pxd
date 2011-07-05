@@ -22,6 +22,9 @@ cdef class SPHFunction:
     cdef public str tmpx, tmpy, tmpz, type
     cdef public str cs
 
+    # a list of destination props that may need resetting at the calc level
+    cdef public list to_reset
+            
     # Lists on a per-function basis indicating which particle
     # arrays from the source and destination arrays are read.
     
