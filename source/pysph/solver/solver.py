@@ -16,6 +16,8 @@ from sph_equation import SPHOperation, SPHIntegration
 from integrator import EulerIntegrator
 from cl_integrator import CLEulerIntegrator
 
+from time_step_functions import TimeStep
+
 if HAS_CL:
     import pyopencl as cl
 
@@ -116,7 +118,7 @@ class Solver(object):
             self.print_properties.extend(['z','w'])
 
         # variable time step
-        self.variable_dt = False
+        self.time_step_function = TimeStep()
 
     def switch_integrator(self, integrator_type):
         """ Change the integrator for the solver """
@@ -189,12 +191,6 @@ class Solver(object):
             on_types=types, updates=updates, id=id, kernel=self.default_kernel)
 
                            )
-
-    def use_variable_time_step(self, cfl, co):
-        self.cfl = cfl
-        self.co = co
-
-        self.variable_dt = True
 
     def add_operation(self, operation, before=False, id=None):
         """ Add an SPH operation to the solver.
@@ -524,7 +520,7 @@ class Solver(object):
                 func.eval(self, self.count)
 
             # compute the time step            
-            dt = self.compute_time_step()
+            dt = self.time_step_function.compute_time_step(dt)
             logger.info("Time %f, time step %f "%(self.t, dt))
 
             # perform the integration and update the time
@@ -549,27 +545,6 @@ class Solver(object):
                     self.execute_commands(self)
 
         bar.finish()
-
-    def compute_time_step(self):
-
-        dt = self.dt
-        if self.variable_dt:
-            cfl = self.cfl
-            co = self.co
-            _dt = dt
-
-            arrays = self.particles.arrays
-            for array in arrays:
-                if array.properties.has_key('dt_fac'):
-                        
-                    dt_fac = array.get('h','dt_fac')
-                    _dt = numpy.min( cfl * array.h/(co + numpy.max(dt_fac)) )
-
-                    if (dt < _dt):
-                        dt = _dt
-                    #if _dt < dt:
-                    #    dt = _dt
-        return dt
 
     def dump_output(self, *print_properties):
         """ Print output based on level of detail required
