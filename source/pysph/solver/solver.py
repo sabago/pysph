@@ -1,6 +1,7 @@
 """ An implementation of a general solver base class """
 
 import os
+import numpy
 from utils import PBar, savez_compressed, savez
 from cl_utils import get_cl_devices, HAS_CL, create_some_context
 
@@ -14,6 +15,8 @@ from sph_equation import SPHOperation, SPHIntegration
 
 from integrator import EulerIntegrator
 from cl_integrator import CLEulerIntegrator
+
+from time_step_functions import TimeStep
 
 if HAS_CL:
     import pyopencl as cl
@@ -114,6 +117,9 @@ class Solver(object):
         if self.dim > 2:
             self.print_properties.extend(['z','w'])
 
+        # variable time step
+        self.time_step_function = TimeStep()
+
     def switch_integrator(self, integrator_type):
         """ Change the integrator for the solver """
 
@@ -184,7 +190,7 @@ class Solver(object):
             sph.XSPHCorrection.withargs(eps=eps, hks=hks), from_types=types,
             on_types=types, updates=updates, id=id, kernel=self.default_kernel)
 
-                           )        
+                           )
 
     def add_operation(self, operation, before=False, id=None):
         """ Add an SPH operation to the solver.
@@ -495,10 +501,15 @@ class Solver(object):
 
         self.dump_output(*self.print_properties)
 
+        dt = self.dt
+
+        # set the time for the integrator
+        self.integrator.t = self.t
+
         while self.t < self.tf:
-            self.t += self.dt
+            self.t += dt
             self.count += 1
-            
+
             #update the particles explicitly
 
             self.particles.update()
@@ -508,11 +519,14 @@ class Solver(object):
             for func in self.pre_step_functions:
                 func.eval(self, self.count)
 
-            # perform the integration 
+            # compute the time step            
+            dt = self.time_step_function.compute_time_step(dt)
+            logger.info("Time %f, time step %f "%(self.t, dt))
 
-            logger.info("Time %f, time step %f "%(self.t, self.dt))
+            # perform the integration and update the time
 
-            self.integrator.integrate(self.dt)
+            self.integrator.integrate(dt)
+            self.integrator.t += dt            
 
             # perform any post step functions
             

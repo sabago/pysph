@@ -345,6 +345,9 @@ dt = 1.25e-4
 s.set_final_time(3.0)
 s.set_time_step(dt)
 
+# this tells the solver to compute the max time step dynamically
+s.time_step_function = solver.ViscousTimeStep(co=co,cfl=0.3,particles=particles)
+
 app.set_solver(s)
 
 app.run()

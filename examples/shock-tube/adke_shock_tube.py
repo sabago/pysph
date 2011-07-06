@@ -22,7 +22,7 @@ h0 = 2*dxr
 eps = 0.4
 k = 0.7
 
-g1 = 0.02
+g1 = 0.2
 g2 = 0.5
 
 hks = False
@@ -107,14 +107,15 @@ app = solver.Application()
 app.process_command_line()
 
 particles = app.create_particles(
-    variable_h=False, callable=get_particles,
-    locator_type=base.NeighborLocatorType.NSquareNeighborLocator)
+    min_cell_size = 4*h0,
+    variable_h=True, callable=get_particles,
+    locator_type=base.NeighborLocatorType.SPHNeighborLocator)
 
 # add the boundary update function to the particles
 particles.add_misc_function( UpdateBoundaryParticles(particles) )
 
 # define the solver and kernel
-s = solver.Solver(dim=1, integrator_type=solver.EulerIntegrator)
+s = solver.Solver(dim=1, integrator_type=solver.RK2Integrator)
 
 #############################################################
 #                     ADD OPERATIONS
@@ -206,5 +207,9 @@ s.set_final_time(0.15)
 s.set_time_step(3e-4)
 
 app.set_solver(s)
+
+output_dir = app.options.output_dir
+numpy.savez(output_dir + "/parameters.npz", eps=eps, k=k, h0=h0,
+            g1=g1, g2=g2, alpha=alpha, beta=beta, hks=hks)
 
 app.run()
