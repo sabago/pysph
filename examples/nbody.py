@@ -11,7 +11,7 @@ Fluid = base.ParticleType.Fluid
 np = 1024
 
 dt = 1e-2
-tf = 1.0
+tf = 10.0
 
 nsteps = tf/dt
 
@@ -20,10 +20,14 @@ def get_particles(**kwargs):
     x = numpy.random.random(np) * 2.0 - 1.0
     y = numpy.random.random(np) * 2.0 - 1.0
     z = numpy.random.random(np) * 2.0 - 1.0
-    m = numpy.random.random(np)
+    u = numpy.random.random(np) * 2.0 - 1.0
+    v = numpy.random.random(np) * 2.0 - 1.0
+    w = numpy.random.random(np) * 2.0 - 1.0
+    m = numpy.random.random(np)*100
 
     pa = base.get_particle_array(name="test", cl_precision="single",
-                                 type=Fluid, x=x, y=y, z=z, m=m)
+                                 type=Fluid, x=x, y=y, z=z, m=m, u=u,
+                                 v=v, w=w)
 
     return pa
 
