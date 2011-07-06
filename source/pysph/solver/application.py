@@ -20,6 +20,12 @@ except ImportError:
 else:
     from pysph.parallel.load_balancer import LoadBalancer
 
+
+def list_option_callback(option, opt, value, parser):
+    val = value.split(',')
+    val.extend( parser.rargs )
+    setattr( parser.values, option.dest, val )
+
 ##############################################################################
 # `Application` class.
 ############################################################################## 
@@ -156,6 +162,14 @@ class Application(object):
         parser.add_option("--cl", action="store_true", dest="with_cl",
                           default=False, help=""" Use OpenCL to run the
                           simulation on an appropriate device """)
+
+        # --arrays_to_print
+        parser.add_option("--arrays_to_print", action="callback",
+                          callback=list_option_callback,
+                          dest="arrays_to_print",
+                          type="string",
+                          help="""Only print solution properties for this list
+                          of arrays""")
         
         # solver commandline interface
         interfaces = OptionGroup(parser, "Interfaces",
@@ -379,7 +393,11 @@ class Application(object):
         # OpenCL setup for the solver
         solver.set_cl(self.options.with_cl)
 
+        # solver setup. Particles will be available now
         solver.setup_integrator(self.particles)
+
+        # print options for the solver
+        solver.set_arrays_to_print(self.options.arrays_to_print)
         
         # add solver interfaces
         self.command_manager = CommandManager(solver, self.comm)

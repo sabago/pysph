@@ -76,6 +76,11 @@ def get_cl_include():
         inc_dir = '-I'+path.join(PYSPH_ROOT, 'base') + " " + \
                   '-I'+path.join(PYSPH_ROOT, 'solver')
 
+    elif cl.version.VERSION_TEXT == "2011.1.1":
+
+        inc_dir = ["-I" + path.join(PYSPH_ROOT, "base"),
+                   "-I" + path.join(PYSPH_ROOT, "solver") ]
+        
     else:
         raise RuntimeWarning("Not supported yet")
 
@@ -217,8 +222,7 @@ def enqueue_copy(queue, src, dst):
 
             cl.enqueue_read_buffer(queue, mem=src, hostbuf=dst)
 
-    else:
-
-        cl.enqueue_copy(queue, src=src, dst=dst)
+    elif cl.version.VERSION_TEXT == "2011.1.1":
+        cl.enqueue_copy(queue, dest=dst, src=src).wait()
 
     queue.finish()

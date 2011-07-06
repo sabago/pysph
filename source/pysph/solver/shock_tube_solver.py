@@ -11,34 +11,37 @@ from sph_equation import SPHOperation, SPHIntegration
 Fluids = base.ParticleType.Fluid
 Solids = base.ParticleType.Solid
 
-def standard_shock_tube_data(name="", type=0, cl_precision="single",
-                             **kwargs):
+def standard_shock_tube_data(name="", type=0, cl_precision="double",
+                             nl=320, nr=80, smoothing_length=None, **kwargs):
     """ Standard 400 particles shock tube problem """
     
-    dxl = 0.001875
+    dxl = 0.6/nl
     dxr = dxl*4
     
-    x = numpy.ones(400, float)
-    x[:320] = numpy.arange(-0.6, -dxl+1e-4, dxl)
-    x[320:] = numpy.arange(dxr, 0.6+1e-4, dxr)
+    x = numpy.ones(nl+nr)
+    x[:nl] = numpy.arange(-0.6, -dxl+1e-10, dxl)
+    x[nl:] = numpy.arange(dxr, 0.6+1e-10, dxr)
 
     m = numpy.ones_like(x)*dxl
     h = numpy.ones_like(x)*2*dxr
 
+    if smoothing_length:
+        h = numpy.ones_like(x) * smoothing_length
+    
     rho = numpy.ones_like(x)
-    rho[320:] = 0.25
+    rho[nl:] = 0.25
     
     u = numpy.zeros_like(x)
     
     e = numpy.ones_like(x)
-    e[:320] = 2.5
-    e[320:] = 1.795
+    e[:nl] = 2.5
+    e[nl:] = 1.795
 
     p = 0.4*rho*e
 
     cs = numpy.sqrt(1.4*p/rho)
 
-    idx = numpy.arange(400)
+    idx = numpy.arange(nl+nr)
     
     return base.get_particle_array(name=name,x=x,m=m,h=h,rho=rho,p=p,e=e,
                                    cs=cs,type=type, idx=idx,
