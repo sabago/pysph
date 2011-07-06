@@ -1,0 +1,56 @@
+$XSPHCorrection
+
+#include "cl_common.cl"
+#include "kernels.h"
+
+__kernel void XSPHCorrection(%(kernel_args)s)
+{
+
+    %(workgroup_code)s
+
+  REAL4 pa = (REAL4)( d_x[dest_id], d_y[dest_id], d_z[dest_id], d_h[dest_id]);
+
+  REAL4 pb, vba;
+  REAL w, dist, dst_rad, src_rad;
+
+  REAL val = 0.0F;
+
+  dst_rad = d_h[dest_id] * kernel_radius;
+  
+    %(neighbor_loop_code_start)s 
+
+       {
+
+	 pb = (REAL4)( s_x[src_id], s_y[src_id], s_z[src_id] , s_h[src_id]);
+
+	 src_rad = s_h[src_id] * kernel_radius;
+	 dist = distance( pa, pb );
+	
+	 if ( (dst_rad > dist) || (src_rad > dist) )
+	   {
+
+	     w = kernel_function(pa, pb, dim, kernel_type);
+	     
+	     vba = (REAL4)( s_u[src_id] - d_u[dest_id],
+			    s_v[src_id] - d_v[dest_id],
+			    s_w[src_id] - d_w[dest_id],
+			    0.0F );
+
+	     val = w * (s_m[src_id] / s_rho[src_id]) * eps;
+	     
+	     tmpx[dest_id] += val * vba.x;
+	     tmpy[dest_id] += val * vba.y;
+	     tmpz[dest_id] += val * vba.z;
+	     
+	   } // if 
+
+	 %(neighbor_loop_code_break)s
+
+	} // neighbor loop
+
+    %(neighbor_loop_code_end)s 
+
+} //kernel
+
+
+$XSPHCorrection
