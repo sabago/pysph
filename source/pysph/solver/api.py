@@ -7,7 +7,7 @@ from sph_equation import SPHIntegration, SPHOperation
 
 from solver import Solver
 
-from shock_tube_solver import ShockTubeSolver
+from shock_tube_solver import ShockTubeSolver, ADKEShockTubeSolver
 from fluid_solver import FluidSolver, get_circular_patch
 import shock_tube_solver, fluid_solver
 
