@@ -5,6 +5,13 @@ from pysph.solver.cl_utils import get_real
 
 cdef extern from "math.h":
     double sqrt(double)
+    double fabs(double)
+
+cdef inline max(double a, double b):
+    if a < b:
+        return b
+    else:
+        return a
 
 ################################################################################
 # `SPHPressureGradient` class.
@@ -133,10 +140,24 @@ cdef class MomentumEquation(SPHFunctionParticle):
         self.cl_kernel_src_file = "pressure_funcs.clt"
         self.cl_kernel_function_name = "MomentumEquation"
 
+        self.to_reset = ['dt_fac']
+
     def set_src_dst_reads(self):
         self.src_reads = ['x','y','z','h','m','rho','p','u','v','w','cs']
         self.dst_reads = ['x','y','z','h','rho','p',
                           'u','v','w','cs','tag']
+
+    cpdef setup_arrays(self):
+        """
+        """
+        SPHFunctionParticle.setup_arrays(self)
+
+        if not self.dest.properties.has_key("dt_fac"):
+            self.dest.add_property( {'name':'dt_fac'} )
+
+        self.d_dt_fac = self.dest.get_carray("dt_fac")
+
+        self.dst_reads.append("dt_fac")
 
     def _set_extra_cl_args(self):
         self.cl_args.append( get_real(self.alpha, self.dest.cl_precision) )
@@ -163,6 +184,7 @@ cdef class MomentumEquation(SPHFunctionParticle):
         cdef DoubleArray xgc, ygc, zgc
 
         cdef double hab = 0.5*(ha + hb)
+        cdef double dt_fac, rab2
 
         self._src.x = self.s_x.data[source_pid]
         self._src.y = self.s_y.data[source_pid]
@@ -186,6 +208,12 @@ cdef class MomentumEquation(SPHFunctionParticle):
         vab.z = self.d_w.data[dest_pid]-self.s_w.data[source_pid]
         
         dot = cPoint_dot(vab, rab)
+
+        # compute the factor used to determine the viscous time step limit
+        rab2 = cPoint_norm(rab)
+        dt_fac = fabs( hab * dot / (rab2) )
+        self.d_dt_fac.data[dest_pid] = max( self.d_dt_fac.data[dest_pid],
+                                            dt_fac )
     
         Pa = self.d_p.data[dest_pid]
         rhoa = self.d_rho.data[dest_pid]        
@@ -208,7 +236,7 @@ cdef class MomentumEquation(SPHFunctionParticle):
             rhoab = 0.5 * (rhoa + rhob)
 
             mu = hab*dot
-            mu /= (cPoint_norm(rab) + eta*eta*hab*hab)
+            mu /= (rab2 + eta*eta*hab*hab)
             
             piab = -alpha*cab*mu + beta*mu*mu
             piab /= rhoab

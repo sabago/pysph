@@ -10,6 +10,7 @@ from sph_equation import SPHOperation, SPHIntegration
 
 Fluids = base.ParticleType.Fluid
 Solids = base.ParticleType.Solid
+Boundary = base.ParticleType.Boundary
 
 def standard_shock_tube_data(name="", type=0, cl_precision="double",
                              nl=320, nr=80, smoothing_length=None, **kwargs):
@@ -94,6 +95,131 @@ class ShockTubeSolver(Solver):
 
 
 #############################################################################
+class ADKEShockTubeSolver(Solver):
+
+    def __init__(self, dim, integrator_type, h0, eps, k, g1, g2, alpha, beta,
+                 kernel = base.CubicSplineKernel, hks=False):
+
+        # solver parameters
+        self.h0 = h0
+        self.adke_eps = eps
+        self.k = k
+        self.g1 = g1
+        self.g2 = g2
+        self.alpha = alpha
+        self.beta = beta
+
+        # Hernquist and Katz normalization
+        self.hks = hks
+
+        # the SPH kernel to use
+        self.kernel = kernel(dim)
+
+        # base class constructor
+        Solver.__init__(self, dim, integrator_type)
+    
+    def setup_solver(self):
+
+        hks = self.hks
+        kernel = self.kernel
+
+        # ADKE parameters
+        h0 = self.h0
+        eps = self.adke_eps
+        k = self.k
+
+        # Artificial heat parameters
+        g1 = self.g1
+        g2 = self.g2
+
+        # Artificial viscosity parameters
+        alpha = self.alpha
+        beta = self.beta
+
+        self.add_operation(SPHOperation(
+
+            sph.ADKEPilotRho.withargs(h0=h0),
+            on_types=[Fluids], from_types=[Fluids,Boundary],
+            updates=['rhop'], id='adke_rho', kernel=kernel),
+
+                        )
+
+        # smoothing length update
+        self.add_operation(SPHOperation(
+            
+            sph.ADKESmoothingUpdate.withargs(h0=h0, k=k, eps=eps, hks=hks),
+            on_types=[Fluids], updates=['h'], id='adke', kernel=kernel),
+                        
+                        )
+
+        # summation density
+        self.add_operation(SPHOperation(
+            
+            sph.SPHRho.withargs(hks=hks),
+            from_types=[Fluids, Boundary], on_types=[Fluids], 
+            updates=['rho'], id = 'density', kernel=kernel)
+                        
+                        )
+
+        # ideal gas equation
+        self.add_operation(SPHOperation(
+            
+            sph.IdealGasEquation.withargs(),
+            on_types = [Fluids], updates=['p', 'cs'], id='eos')
+                        
+                        )
+
+        # velocity divergence
+        self.add_operation(SPHOperation(
+            
+            sph.VelocityDivergence.withargs(hks=hks),
+            on_types=[Fluids], from_types=[Fluids, Boundary],
+            updates=['div'], id='vdivergence'),
+                        
+                    )
+
+        #conduction coefficient update
+        self.add_operation(SPHOperation(
+            
+            sph.ADKEConductionCoeffUpdate.withargs(g1=g1, g2=g2),
+            on_types=[Fluids],
+            updates=['q'], id='qcoeff'),
+                        
+                        )
+
+        # momentum equation
+        self.add_operation(SPHIntegration(
+    
+            sph.MomentumEquation.withargs(alpha=alpha, beta=beta, hks=hks),
+            from_types=[Fluids, Boundary], on_types=[Fluids], 
+            updates=['u'], id='mom')
+                        
+                        )
+
+        # energy equation
+        self.add_operation(SPHIntegration(
+            
+            sph.EnergyEquation.withargs(hks=hks,),
+            from_types=[Fluids, Boundary],
+            on_types=[Fluids], updates=['e'], id='enr')
+                        
+                        )
+
+        # artificial heat 
+        self.add_operation(SPHIntegration(
+            
+            sph.ArtificialHeat.withargs(eta=0.1, hks=hks),
+            on_types=[Fluids], from_types=[Fluids,Boundary],
+            updates=['e'], id='aheat'),
+                        
+                        )
+        
+        # position step
+        self.add_operation_step([Fluids])
+        
+        
+        
+        
     
         
         

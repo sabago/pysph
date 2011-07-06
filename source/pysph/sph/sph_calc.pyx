@@ -194,6 +194,9 @@ cdef class SPHCalc:
         self.tag = self.funcs[0].tag
         self.cl_kernel_function_name = self.funcs[0].cl_kernel_function_name
 
+        # set the list of props to reset from the functions list
+        self.to_reset = self.funcs[0].to_reset
+
         # set the neighbor locators
         for i in range(nsrcs):
             src = self.sources[i]
@@ -229,8 +232,12 @@ cdef class SPHCalc:
         cdef DoubleArray output2 = self.dest.get_carray(output_array2)
         cdef DoubleArray output3 = self.dest.get_carray(output_array3)
 
+        # reset output arays for non integrating calcs
         if not self.integrates:
             self.reset_output_arrays(output1, output2, output3)
+
+        # reset any other destination properties
+        self.dest.set_to_zero(self.to_reset)
 
         self.sph_array(output1, output2, output3, exclude_self)
 
