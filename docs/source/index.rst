@@ -9,9 +9,9 @@ Welcome to PySPH's documentation!
 .. toctree::
    :maxdepth: 3
 
-   install.rst
-   getting_started.rst
-   tutorial.rst
+   install
+   getting_started
+   application
    solver_interfaces
 
 Reference Documentation
