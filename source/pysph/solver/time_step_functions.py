@@ -18,17 +18,18 @@ class ViscousTimeStep(TimeStep):
         cfl = self.cfl
         co = self.co
 
-        _dt = dt
+        # take dt to be some large value
+        dt = 1
 
         arrays = self.particles.arrays
         for array in arrays:
             if array.properties.has_key('dt_fac'):
                         
-                dt_fac = array.get('h','dt_fac')
-                _dt = numpy.min( cfl * array.h/(co + numpy.max(dt_fac)) )
-                
-                if (dt < _dt):
-                    dt = _dt
+                h, dt_fac = array.get('h','dt_fac')
+                _dt = numpy.min( cfl * h/(co + numpy.max(dt_fac)) )
+
+                # choose the minimum time step from all arrays
+                dt = min( _dt, dt )
 
         return dt
     
