@@ -20,11 +20,12 @@ cdef class SPHPressureGradient(SPHFunctionParticle):
 
     # factors to add artificial pressure as suggested by
     # Monaghan ( SPH Without Tension Instability )
-    cdef public double artificial_pressure_factor
-    cdef public double fab
+    cdef public double deltab
     cdef public double n
     cdef public double epsp
     cdef public double epsm
+
+    cdef public bint with_correction
 
 cdef class MomentumEquation(SPHFunctionParticle):
     """ Momentum equation """
@@ -36,10 +37,11 @@ cdef class MomentumEquation(SPHFunctionParticle):
 
     # factors to add artificial pressure as suggested by
     # Monaghan ( SPH Without Tension Instability )
-    cdef public double artificial_pressure_factor
-    cdef public double fab
+    cdef public double deltap
     cdef public double n
     cdef public double epsp
     cdef public double epsm
+
+    cdef public bint with_correction
 
     cdef DoubleArray d_dt_fac

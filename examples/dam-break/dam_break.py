@@ -84,7 +84,7 @@ Fluid = base.ParticleType.Fluid
 Solid = base.ParticleType.Solid
 
 #h = 0.0156
-h = 0.0390
+h = 0.0390322953
 #h = 0.01
 dx = dy = h/1.3
 ro = 1000.0
@@ -285,7 +285,7 @@ s = solver.Solver(dim=2, integrator_type=integrator_type)
 kernel = base.CubicSplineKernel(dim=2)
 
 # define the artificial pressure term for the momentum equation
-fab = kernel.get_artificial_pressure_factor(1.0/1.3)
+deltap = 1/1.3
 n = 4
 
 #Equation of state
@@ -311,7 +311,7 @@ s.add_operation(solver.SPHIntegration(
 s.add_operation(solver.SPHIntegration(
         
     sph.MomentumEquation.withargs(alpha=alpha, beta=0.0, hks=False,
-                                  fab=fab, n=n),
+                                  deltap=deltap, n=n),
     on_types=[Fluid], from_types=[Fluid, Solid],  
     updates=['u','v'], id='mom')
                     

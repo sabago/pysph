@@ -26,18 +26,20 @@ cdef class SPHPressureGradient(SPHFunctionParticle):
     """
 
     def __init__(self, ParticleArray source, ParticleArray dest,
-                 bint setup_arrays=True, double fab=0, double n=1,
+                 bint setup_arrays=True, double deltap=-1, double n=1,
                  double epsp=0.01, double epsm=0.2,
                  **kwargs):
         
         SPHFunctionParticle.__init__(self, source, dest, setup_arrays,
                                      **kwargs)
 
-        self.fab = fab
+        self.deltap = deltap
         self.n = n
-        self.artificial_pressure_factor = pow(fab, n)
         self.epsp = epsp
         self.epsm = epsm
+
+        if deltap > 0:
+            self.with_correction = True
 
         self.id = 'pgrad'
         self.tag = "velocity"
@@ -66,11 +68,14 @@ cdef class SPHPressureGradient(SPHFunctionParticle):
         cdef double h = 0.5*(ha + hb)
 
         cdef double temp = 0.0
-        cdef double Ra, Rb, rhoa2, rhob2
+        cdef double Ra, Rb, rhoa2, rhob2, fab, w, wa, wb
 
         cdef cPoint grad
         cdef cPoint grada
         cdef cPoint gradb
+
+        cdef cPoint _ra, _rb
+        cdef double wdeltap, wdeltap1, wdeltap2
 
         self._src.x = self.s_x.data[source_pid]
         self._src.y = self.s_y.data[source_pid]
@@ -88,21 +93,46 @@ cdef class SPHPressureGradient(SPHFunctionParticle):
         #temp = (pa/(rhoa*rhoa) + pb/(rhob*rhob))
 
         # Artificial pressure
-        if pa > 0:
-            Ra = self.epsp * pa
-        else:
-            Ra = -self.epsm * pa
+        if self.with_correction:
+            if pa > 0:
+                Ra = self.epsp * pa
+            else:
+                Ra = -self.epsm * pa
 
-        Ra = Ra * rhoa2
+            Ra = Ra * rhoa2
 
-        if pb > 0:
-            Rb = self.epsp * pb
-        else:
-            Rb = -self.epsm * pb
+            if pb > 0:
+                Rb = self.epsp * pb
+            else:
+                Rb = -self.epsm * pb
 
-        Rb = Rb * rhob2
+            Rb = Rb * rhob2
 
-        temp = temp + (Ra+Rb)*self.artificial_pressure_factor
+            if self.hks:
+                wa = kernel.function(self._dst, self._src, ha)
+                wb = kernel.function(self._dst, self._src, hb)
+                w = 0.5 * (wa + wb)
+
+                _ra = cPoint_new(ha * self.deltap, 0.0, 0.0)
+                _rb = cPoint_new(0.0, 0.0, 0.0)
+                wdeltap1 = kernel.function(_ra, _rb, ha)
+
+                _ra = cPoint_new(hb * self.deltap, 0.0, 0.0)
+                wdeltap2 = kernel.function(_ra, _rb, hb)
+                
+                wdeltap = 0.5 * (wdeltap1 + wdeltap2)            
+            
+            else:
+                w = kernel.function(self._dst, self._src, h)
+
+                _ra = cPoint(h *self.deltap, 0.0, 0.0)
+                _rb = cPoint(0.0, 0.0, 0.0)
+                wdeltap = kernel.function(_ra, _rb, h)
+                
+                fab = w/wdeltap
+                fab = pow(fab, self.n)
+            
+                temp = temp + (Ra+Rb)*fab
         
         temp *= -mb
 
@@ -157,7 +187,7 @@ cdef class MomentumEquation(SPHFunctionParticle):
 
     def __init__(self, ParticleArray source, ParticleArray dest, 
                  bint setup_arrays=True, alpha=1, beta=1, gamma=1.4,
-                 eta=0.1, double fab=0, double n=1, double epsp=0.01,
+                 eta=0.1, double deltap=-1, double n=1, double epsp=0.01,
                  double epsm=0.2, **kwargs):
 
         SPHFunctionParticle.__init__(self, source, dest, setup_arrays,
@@ -168,11 +198,13 @@ cdef class MomentumEquation(SPHFunctionParticle):
         self.gamma = gamma
         self.eta = eta
     
-        self.fab = fab
+        self.deltap = deltap
         self.n = n
-        self.artificial_pressure_factor = pow(fab, n)
         self.epsp = epsp
         self.epsm = epsm
+
+        if deltap > 0:
+            self.with_correction = True
 
         self.id = 'momentumequation'
         self.tag = "velocity"
@@ -226,7 +258,10 @@ cdef class MomentumEquation(SPHFunctionParticle):
         cdef double hab = 0.5*(ha + hb)
         cdef double dt_fac, rab2
 
-        cdef double rhoa2, rhob2, Ra, Rb
+        cdef double rhoa2, rhob2, Ra, Rb, fab, w, wa, wb
+
+        cdef cPoint _ra, _rb
+        cdef double wdeltap, wdeltap1, wdeltap2
 
         self._src.x = self.s_x.data[source_pid]
         self._src.y = self.s_y.data[source_pid]
@@ -271,21 +306,47 @@ cdef class MomentumEquation(SPHFunctionParticle):
         #tmp = Pa/(rhoa*rhoa) + Pb/(rhob*rhob)
 
         # Artificial pressure
-        if Pa > 0:
-            Ra = self.epsp * Pa
-        else:
-            Ra = -self.epsm * Pa
+        if self.with_correction:
+            if Pa > 0:
+                Ra = self.epsp * Pa
+            else:
+                Ra = -self.epsm * Pa
 
-        Ra = Ra * rhoa2
+            Ra = Ra * rhoa2
 
-        if Pb > 0:
-            Rb = self.epsp * Pb
-        else:
-            Rb = -self.epsm * Pb
+            if Pb > 0:
+                Rb = self.epsp * Pb
+            else:
+                Rb = -self.epsm * Pb
 
-        Rb = Rb * rhob2
+            Rb = Rb * rhob2
 
-        tmp = tmp + (Ra+Rb)*self.artificial_pressure_factor        
+            if self.hks:
+                wa = kernel.function(self._dst, self._src, ha)
+                wb = kernel.function(self._dst, self._src, hb)
+                w = 0.5 * (wa + wb)
+
+                _ra = cPoint_new(ha * self.deltap, 0.0, 0.0)
+                _rb = cPoint_new(0.0,0.0,0.0)
+
+                wdeltap1 = kernel.function(_ra, _rb, ha)
+
+                _ra = cPoint_new(hb * self.deltap, 0.0, 0.0)
+                wdeltap2 = kernel.function(_ra, _rb, hb)
+
+                wdeltap = 0.5 * (wdeltap1 + wdeltap2)
+            
+            else:
+                w = kernel.function(self._dst, self._src, hab)
+
+                _ra = cPoint_new(hab * self.deltap, 0.0, 0.0)
+                _rb = cPoint_new(0.0, 0.0, 0.0)
+
+                wdeltap = kernel.function(_ra, _rb, hab)
+
+            fab = w/wdeltap
+            fab = pow(fab, self.n)
+            tmp = tmp + (Ra+Rb)*fab
         
         piab = 0
         if dot < 0:
