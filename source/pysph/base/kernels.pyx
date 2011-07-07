@@ -110,13 +110,6 @@ cdef class KernelBase:
     cdef double _fac(self, double h):
         raise NotImplementedError, 'KernelBase::_fac'
 
-    cpdef double get_artificial_pressure_factor(self, double q):
-
-        cdef double fac1 = self.function(Point(q).data, Point().data, 1.0)
-        cdef double fac2 = self.function(Point().data, Point().data, 1.0)
-
-        return fac2/fac1
-    
     def py_function(self, Point pa, Point pb, double h):
         return self.function(pa.data, pb.data, h)
 
