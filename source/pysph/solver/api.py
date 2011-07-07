@@ -31,4 +31,4 @@ from cl_utils import HAS_CL, get_cl_devices, get_cl_include, \
      create_context_from_cpu, create_context_from_gpu, create_some_context,\
      enqueue_copy
 
-from time_step_functions import ViscousTimeStep
+from time_step_functions import ViscousTimeStep, ViscousAndForceBasedTimeStep

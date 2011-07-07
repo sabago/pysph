@@ -13,7 +13,7 @@ class ViscousTimeStep(TimeStep):
 
         self.particles = particles
 
-    def compute_time_step(self, dt):
+    def compute_time_step(self, solver):
 
         cfl = self.cfl
         co = self.co
@@ -32,4 +32,26 @@ class ViscousTimeStep(TimeStep):
                 dt = min( _dt, dt )
 
         return dt
+
+class ViscousAndForceBasedTimeStep(ViscousTimeStep):
     
+    def compute_time_step(self, solver):
+
+        # compute the time step based on the viscous criterion
+        dt = ViscousTimeStep.compute_time_step(self, solver)
+
+        # compute the acceleration based time step
+        integrator = solver.integrator
+        arrays = self.particles.arrays
+
+        for array in arrays:
+
+            if array.properties.has_key("_a_u_1"):
+                fmax = integrator.get_max_acceleration(array, solver)
+
+                h = array.get("h")
+                _dt = self.cfl * numpy.min( numpy.sqrt(h/fmax) )
+
+                dt = min( dt, _dt )
+
+        return dt
