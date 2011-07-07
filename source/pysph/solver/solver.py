@@ -499,9 +499,9 @@ class Solver(object):
         maxval = int((self.tf - self.t)/self.dt +1)
         bar = PBar(maxval, show=show_progress)
 
-        self.dump_output(*self.print_properties)
-
         dt = self.dt
+
+        self.dump_output(dt=dt, *self.print_properties)
 
         # set the time for the integrator
         self.integrator.t = self.t
@@ -536,7 +536,7 @@ class Solver(object):
             # dump output
 
             if self.count % self.pfreq == 0:
-                self.dump_output(*self.print_properties)
+                self.dump_output(dt=dt, *self.print_properties)
 
             bar.update()
         
@@ -546,7 +546,7 @@ class Solver(object):
 
         bar.finish()
 
-    def dump_output(self, *print_properties):
+    def dump_output(self, dt, *print_properties):
         """ Print output based on level of detail required
         
         The default detail level (low) is the integrator's calc's update 
@@ -574,16 +574,16 @@ class Solver(object):
         for pa in arrays_to_print:
             name = pa.name
             _fname = os.path.join(self.output_directory,
-                                  fname + name + '_' + str(self.t) + '.npz')
+                                  fname + name + '_' + str(self.count) +'.npz')
             
             if self.detailed_output:
-                savez(_fname, dt=self.dt, **pa.properties)
+                savez(_fname, dt=dt, t=self.t, **pa.properties)
 
             else:
                 for prop in print_properties:
                     props[prop] = pa.get(prop)
 
-                savez(_fname, dt=self.dt, cell_size=cell_size, 
+                savez(_fname, dt=dt, t=self.t, cell_size=cell_size, 
                       np = pa.num_real_particles, **props)
 
     def setup_cl(self):
