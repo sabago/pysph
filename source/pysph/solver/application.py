@@ -361,6 +361,9 @@ class Application(object):
         if tf is not None:
             solver.set_final_time(tf)
 
+        # set the rank for the solver
+        solver.rank = self.rank
+
         #setup the solver output file name
         fname = self.options.output
 
