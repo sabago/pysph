@@ -6,6 +6,7 @@ from pysph.solver.cl_utils import get_real
 cdef extern from "math.h":
     double sqrt(double)
     double fabs(double)
+    double pow(double, double)
 
 cdef inline max(double a, double b):
     if a < b:
@@ -25,10 +26,18 @@ cdef class SPHPressureGradient(SPHFunctionParticle):
     """
 
     def __init__(self, ParticleArray source, ParticleArray dest,
-                 bint setup_arrays=True, **kwargs):
+                 bint setup_arrays=True, double fab=0, double n=1,
+                 double epsp=0.01, double epsm=0.2,
+                 **kwargs):
         
         SPHFunctionParticle.__init__(self, source, dest, setup_arrays,
                                      **kwargs)
+
+        self.fab = fab
+        self.n = n
+        self.artificial_pressure_factor = pow(fab, n)
+        self.epsp = epsp
+        self.epsm = epsm
 
         self.id = 'pgrad'
         self.tag = "velocity"
@@ -57,6 +66,7 @@ cdef class SPHPressureGradient(SPHFunctionParticle):
         cdef double h = 0.5*(ha + hb)
 
         cdef double temp = 0.0
+        cdef double Ra, Rb, rhoa2, rhob2
 
         cdef cPoint grad
         cdef cPoint grada
@@ -70,7 +80,30 @@ cdef class SPHPressureGradient(SPHFunctionParticle):
         self._dst.y = self.d_y.data[dest_pid]
         self._dst.z = self.d_z.data[dest_pid]
 
-        temp = (pa/(rhoa*rhoa) + pb/(rhob*rhob))
+        rhoa2 = 1.0/(rhoa*rhoa)
+        rhob2 = 1.0/(rhob*rhob)
+
+        temp = pa*rhoa2 + pb*rhob2
+
+        #temp = (pa/(rhoa*rhoa) + pb/(rhob*rhob))
+
+        # Artificial pressure
+        if pa > 0:
+            Ra = self.epsp * pa
+        else:
+            Ra = -self.epsm * pa
+
+        Ra = Ra * rhoa2
+
+        if pb > 0:
+            Rb = self.epsp * pb
+        else:
+            Rb = -self.epsm * pb
+
+        Rb = Rb * rhob2
+
+        temp = temp + (Ra+Rb)*self.artificial_pressure_factor
+        
         temp *= -mb
 
         if self.hks:
@@ -123,8 +156,9 @@ cdef class MomentumEquation(SPHFunctionParticle):
     #cdef public double eta
 
     def __init__(self, ParticleArray source, ParticleArray dest, 
-                 bint setup_arrays=True, alpha=1, beta=1, gamma=1.4, 
-                 eta=0.1, **kwargs):
+                 bint setup_arrays=True, alpha=1, beta=1, gamma=1.4,
+                 eta=0.1, double fab=0, double n=1, double epsp=0.01,
+                 double epsm=0.2, **kwargs):
 
         SPHFunctionParticle.__init__(self, source, dest, setup_arrays,
                                      **kwargs)
@@ -133,6 +167,12 @@ cdef class MomentumEquation(SPHFunctionParticle):
         self.beta = beta
         self.gamma = gamma
         self.eta = eta
+    
+        self.fab = fab
+        self.n = n
+        self.artificial_pressure_factor = pow(fab, n)
+        self.epsp = epsp
+        self.epsm = epsm
 
         self.id = 'momentumequation'
         self.tag = "velocity"
@@ -186,6 +226,8 @@ cdef class MomentumEquation(SPHFunctionParticle):
         cdef double hab = 0.5*(ha + hb)
         cdef double dt_fac, rab2
 
+        cdef double rhoa2, rhob2, Ra, Rb
+
         self._src.x = self.s_x.data[source_pid]
         self._src.y = self.s_y.data[source_pid]
         self._src.z = self.s_z.data[source_pid]
@@ -222,7 +264,28 @@ cdef class MomentumEquation(SPHFunctionParticle):
         rhob = self.s_rho.data[source_pid]
         mb = self.s_m.data[source_pid]
 
-        tmp = Pa/(rhoa*rhoa) + Pb/(rhob*rhob)
+        rhoa2 = 1.0/(rhoa*rhoa)
+        rhob2 = 1.0/(rhob*rhob)
+
+        tmp = Pa*rhoa2 + Pb*rhob2        
+        #tmp = Pa/(rhoa*rhoa) + Pb/(rhob*rhob)
+
+        # Artificial pressure
+        if Pa > 0:
+            Ra = self.epsp * Pa
+        else:
+            Ra = -self.epsm * Pa
+
+        Ra = Ra * rhoa2
+
+        if Pb > 0:
+            Rb = self.epsp * Pb
+        else:
+            Rb = -self.epsm * Pb
+
+        Rb = Rb * rhob2
+
+        tmp = tmp + (Ra+Rb)*self.artificial_pressure_factor        
         
         piab = 0
         if dot < 0:
