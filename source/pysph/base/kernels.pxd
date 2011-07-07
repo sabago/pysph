@@ -33,6 +33,9 @@ cdef class KernelBase:
     cpdef int dimension(self)
     cpdef double __gradient(self, Point pa, Point pb, double h)
 
+    # return the factor for artificial pressure
+    cpdef double get_artificial_pressure_factor(self, double q)
+
     cdef interpolate_function(self, double rab)
     cdef interpolate_gradients(self, double rab)
 

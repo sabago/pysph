@@ -258,6 +258,7 @@ def get_particles(**args):
 
     return [fluid, boundary]
 
+
 app = solver.Application()
 app.process_command_line()
 
@@ -281,6 +282,12 @@ particles = app.create_particles(
 
 s = solver.Solver(dim=2, integrator_type=integrator_type)
 
+kernel = base.CubicSplineKernel(dim=2)
+
+# define the artificial pressure term for the momentum equation
+fab = kernel.get_artificial_pressure_factor(1.0/1.3)
+n = 4
+
 #Equation of state
 s.add_operation(solver.SPHOperation(
         
@@ -303,7 +310,8 @@ s.add_operation(solver.SPHIntegration(
 #momentum equation
 s.add_operation(solver.SPHIntegration(
         
-    sph.MomentumEquation.withargs(alpha=alpha, beta=0.0, hks=False),
+    sph.MomentumEquation.withargs(alpha=alpha, beta=0.0, hks=False,
+                                  fab=fab, n=n),
     on_types=[Fluid], from_types=[Fluid, Solid],  
     updates=['u','v'], id='mom')
                     
