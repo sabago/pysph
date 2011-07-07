@@ -85,6 +85,9 @@ class Solver(object):
         self.output_directory = "."
         self.detailed_output = False
 
+        # set the default rank to 0
+        self.rank = 0
+
     def initialize(self):
         """ Perform basic initializations """
 
@@ -501,7 +504,7 @@ class Solver(object):
 
         dt = self.dt
 
-        self.dump_output(dt=dt, *self.print_properties)
+        self.dump_output(dt, *self.print_properties)
 
         # set the time for the integrator
         self.integrator.t = self.t
@@ -519,9 +522,14 @@ class Solver(object):
             for func in self.pre_step_functions:
                 func.eval(self, self.count)
 
-            # compute the time step            
-            dt = self.time_step_function.compute_time_step(dt)
-            logger.info("Time %f, time step %f "%(self.t, dt))
+            # compute the local time step
+            if not self.with_cl:
+                dt = self.time_step_function.compute_time_step(dt)
+
+            # compute the global time step
+            dt = self.compute_global_time_step(dt)
+            logger.info("Time %f, time step %f, rank  %d"%(self.t, dt,
+                                                           self.rank))
 
             # perform the integration and update the time
 
@@ -536,7 +544,7 @@ class Solver(object):
             # dump output
 
             if self.count % self.pfreq == 0:
-                self.dump_output(dt=dt, *self.print_properties)
+                self.dump_output(dt, *self.print_properties)
 
             bar.update()
         
@@ -545,6 +553,15 @@ class Solver(object):
                     self.execute_commands(self)
 
         bar.finish()
+
+    def compute_global_time_step(self, dt):
+
+        if self.particles.in_parallel:
+            props = {'dt':dt}
+            glb_min, glb_max = self.particles.get_global_min_max(props)
+            return glb_min['dt']
+        else:
+            return dt
 
     def dump_output(self, dt, *print_properties):
         """ Print output based on level of detail required

@@ -265,6 +265,29 @@ class Particles(object):
         if self.in_parallel:
             self.cell_manager.barrier()
 
+    def get_global_min_max(self, props):
+        """ Find the global minimum and maximum values.
+
+        Parameters:
+        -----------
+
+        props : dict
+            A dict of local properties for which we want global values.
+
+        """
+
+        data_min = {}
+        data_max = {}
+
+        for prop in props:
+            data_min[prop] = props[prop]
+            data_max[prop] = props[prop]
+
+        pc = self.cell_manager.parallel_controller
+        glb_min, glb_max = pc.get_glb_min_max(data_min, data_max)
+
+        return glb_min, glb_max
+
     @classmethod
     def get_neighbor_particle_locator(self, src, dst, 
                                       locator_type = SPHNeighborLocator,
