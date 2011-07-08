@@ -139,7 +139,7 @@ class SPHOperation(object):
 
             # create an entry in the dict if this is a valid destination array
 
-            if dst.particle_type in self.on_types:
+            if dst.particle_type in self.on_types or dst in self.on_types or dst.name in self.on_types:
                 calc_data[i] = {'sources':[], 'funcs':[], 'dnum':i, 'id':"",
                                 'snum':str(i)}
 
@@ -160,7 +160,7 @@ class SPHOperation(object):
 
                         # check if this is a valid source array
                  
-                        if src.particle_type in self.from_types:
+                        if src.particle_type in self.from_types or src in self.from_types or src.name in self.from_types:
 
                             # get the function with the src dst pair
 
