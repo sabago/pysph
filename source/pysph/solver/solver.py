@@ -524,7 +524,7 @@ class Solver(object):
 
             # compute the local time step
             if not self.with_cl:
-                dt = self.time_step_function.compute_time_step(dt)
+                dt = self.time_step_function.compute_time_step(self)
 
             # compute the global time step
             dt = self.compute_global_time_step(dt)

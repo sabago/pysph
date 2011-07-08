@@ -161,6 +161,9 @@ class Integrator(object):
         # per particle array
         self.initial_properties = {}
 
+        # store the velocity accelerations per array per stage
+        self.velocity_accelerations = {}
+
     def set_rupdate_list(self):
         """ Generate the remote update list.
 
@@ -198,10 +201,15 @@ class Integrator(object):
             self.step_props[array.name] = {}
             self.initial_properties[array.name] = {}
 
+            # Initialize the velocity accelerations dict per array
+            self.velocity_accelerations[array.name] = {}
+
             # step props needs a dict per stage of the integration as well
             for k in range(self.nsteps):
                 k_num = k + 1
                 self.step_props[array.name][k_num] = {}
+
+                self.velocity_accelerations[array.name][k_num] = {}
         
         for calc in self.calcs:
 
@@ -334,8 +342,57 @@ class Integrator(object):
 
                 array.set( **{prop:updated_array} )
 
+                # store the acceleration arrays
+                if prop in ['u','v','w']:
+                    self.velocity_accelerations[array.name][k_num][step_prop] = step_arr
+
         # Increment the step by 1
         self.cstep += 1
+
+    def get_max_acceleration(self, array, solver):
+
+        if solver.count == 1:
+            return solver.dt
+        
+        if not ( array in self.arrays ):
+            raise RuntimeError("Array %s does not belong to me "%array.name)
+
+        acc = -numpy.inf
+
+        if array.properties.has_key("_a_u_1"):
+
+            dim = solver.dim
+            if dim == 1:
+                ax = self.step_props[array.name][1]['u'][1]
+                k1_x = self.velocity_accelerations[array.name][1][ax]
+
+                acc = max( acc, numpy.max(numpy.abs(k1_x)) )
+
+            elif dim == 2:
+                ax = self.step_props[array.name][1]['u'][1]
+                k1_x = self.velocity_accelerations[array.name][1][ax]
+                
+                ay = self.step_props[array.name][1]['v'][1]
+                k1_y = self.velocity_accelerations[array.name][1][ay]
+
+                acc = max( acc, numpy.max(numpy.sqrt(k1_x*k1_x +\
+                                                     k1_y*k1_y)) )
+                                                     
+            elif dim == 3:
+                ax = self.step_props[array.name][1]['u'][1]
+                k1_x = self.velocity_accelerations[array.name][1][ax]
+                
+                ay = self.step_props[array.name][1]['v'][1]
+                k1_y = self.velocity_accelerations[array.name][1][ay]
+                
+                az = self.step_props[array.name][1]['w'][1]
+                k1_z = self.velocity_accelerations[array.name][1][az]
+            
+                acc = max( acc,
+                           numpy.max(numpy.sqrt(k1_x*k1_x + \
+                                                k1_y*k1_y + \
+                                                k1_z*k1_z)) )
+        return acc        
 
     def integrate(self, dt):
         raise NotImplementedError
@@ -367,7 +424,6 @@ class EulerIntegrator(Integrator):
         self.particles.update()
 
         self.cstep = 1
-
 
 ##############################################################################
 #`RK2Integrator` class 
