@@ -95,7 +95,6 @@ Solid = base.ParticleType.Solid
 
 fname = sys.argv[0][:-3]
 app = solver.Application(fname=fname)
-app.process_command_line()
 
 #global variables
 h = 2.097e-2
@@ -123,7 +122,6 @@ boundary.m[:] = 1.0
 
 particles = base.Particles(arrays=[fluid, boundary])
 app.particles = particles
-
 
 kernel = base.HarmonicKernel(dim=2, n=3)
 

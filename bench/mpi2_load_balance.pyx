@@ -21,7 +21,7 @@ from optparse import OptionParser
 # logging imports
 import logging
 
-from pysph.sph.sph_calc import SPHBase
+#from pysph.sph.sph_calc import SPHBase
 from pysph.sph.funcs.density_funcs import SPHRho
 
 from load_balance_helper import parse_options, create_cell_manager, \

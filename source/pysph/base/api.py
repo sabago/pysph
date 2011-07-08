@@ -13,8 +13,8 @@ from nnps import NbrParticleLocatorBase, FixedDestNbrParticleLocator, \
 
 from nnps import NeighborLocatorType
 
-from particle_array import ParticleArray
-from particles import Particles, CLParticles, get_particle_array
+from particle_array import ParticleArray, get_particle_array
+from particles import Particles, CLParticles
 
 from point import Point, IntPoint
 

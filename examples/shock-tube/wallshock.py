@@ -27,8 +27,8 @@ nr = 400
 np = nl + nr
 
 # Time step constants
-dt = 1e-6
-tf = 0.05
+dt = 5e-7
+tf = 0.1
 
 # Artificial Viscosity constants
 alpha = 1.0
@@ -58,20 +58,20 @@ def get_particles(with_boundary=False, **kwargs):
     else:
        return [adke,]
 
-app = solver.Application()
-app.process_command_line()
+adke = get_particles(nl=nl, nr=nr, xl=xl, xr=xr, pl=pl, rhol=rhol,
+                     ul=ul, ur=ur, g1=g1, g2=g2, h0=h0,gamma=1.4)[0]
 
-particles = app.create_particles(
-    min_cell_size=4*h0,
+particles = base.Particles(
+    arrays=[adke,],
     variable_h=True,
-    callable=get_particles,
-    locator_type=Locator.SPHNeighborLocator,
-    cl_locator_type=CLLocator.AllPairNeighborLocator,
-    domain_manager_type=CLDomain.DomainManager,
-    nl=nl, nr=nr)
+    min_cell_size=4*h0,
+    locator_type=Locator.SPHNeighborLocator)   
+
+app = solver.Application()
+app.particles = particles
 
 s = solver.ADKEShockTubeSolver(dim=1,
-                               integrator_type=solver.EulerIntegrator,
+                               integrator_type=solver.RK2Integrator,
                                h0=h0, eps=eps, k=k, g1=g1, g2=g2,
                                alpha=alpha, beta=beta,
                                kernel=kernel, hks=hks)
@@ -79,7 +79,12 @@ s = solver.ADKEShockTubeSolver(dim=1,
 s.set_final_time(tf)
 s.set_time_step(dt)
 
-app.set_solver(s)
+app.set_solver(
+    s,
+    min_cell_size=4*h0,
+    var_h=True,
+    callable=get_particles)
+
 output_dir = app.options.output_dir
 numpy.savez(output_dir + "/parameters.npz", eps=eps, k=k, h0=h0,
             g1=g1, g2=g2, alpha=alpha, beta=beta, hks=hks)

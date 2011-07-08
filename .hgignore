@@ -9,6 +9,7 @@ syntax: glob
 *.orig
 *.swp
 *.log
+*.npz
 docs/build/
 source/build/
 source/PySPH.egg-info/
@@ -17,3 +18,5 @@ build/
 
 syntax: regexp
 ^source/.*\.html$
+^examples/.*_output
+

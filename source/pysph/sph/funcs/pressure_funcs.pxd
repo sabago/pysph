@@ -20,7 +20,7 @@ cdef class SPHPressureGradient(SPHFunctionParticle):
 
     # factors to add artificial pressure as suggested by
     # Monaghan ( SPH Without Tension Instability )
-    cdef public double deltab
+    cdef public double deltap
     cdef public double n
     cdef public double epsp
     cdef public double epsm

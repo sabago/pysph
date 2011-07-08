@@ -2,8 +2,8 @@ import numpy
 
 class TimeStep(object):
 
-    def compute_time_step(self, dt):
-        return dt
+    def compute_time_step(self, solver):
+        return solver.dt
 
 class ViscousTimeStep(TimeStep):
 

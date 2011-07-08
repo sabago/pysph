@@ -70,3 +70,5 @@ cdef class FirstOrderCorrectionMatrixGradient(CSPHFunctionParticle):
 cdef class FirstOrderCorrectionVectorGradient(CSPHFunctionParticle):
     """ Kernel Gradient Correction terms """
     pass		
+cdef class KernelSum(SPHFunctionParticle):
+    pass

@@ -20,6 +20,7 @@ from numpy.distutils.extension import Extension
 
 import numpy
 import sys
+import os
 import multiprocessing
 ncpu = multiprocessing.cpu_count()
 
@@ -50,111 +51,65 @@ except ImportError:
 cy_directives = {'embedsignature':True,
                  }
 
-# base extension modules.
-base = [Extension("pysph.base.carray", 
-                  ["source/pysph/base/carray.pyx"],),
+# cython extension modules (subpackage directory:cython file)
+extensions = {'base': ['carray.pyx',
+                       'point.pyx',
+                       'particle_array.pyx',
+                       'cell.pyx',
+                       'kernels.pyx',
+                       'nnps.pyx',
+                       'plane.pyx',
+                       'polygon_array.pyx',
+                       'geometry.pyx',
+                       'linked_list_functions.pyx',
+                       ],
+              'sph': ['sph_func.pyx',
+                      'sph_calc.pyx',
+                      'kernel_correction.pyx',
+                      ],
+              'sph/funcs': ['basic_funcs.pyx',
+                            'position_funcs.pyx',
+                            'boundary_funcs.pyx',
+                            'external_force.pyx',
+                            'density_funcs.pyx',
+                            'energy_funcs.pyx',
+                            'viscosity_funcs.pyx',
+                            'pressure_funcs.pyx',
+                            'xsph_funcs.pyx',
+                            'eos_funcs.pyx',
+                            'adke_funcs.pyx',
+                            'arithmetic_funcs.pyx',
+                            'stress_funcs.pyx',
+                            #'fracture_funcs.pyx',
+                            'linalg.pyx',
+                            ],
+              'solver': ['particle_generator.pyx',
+                         ],
+              }
 
-        Extension("pysph.base.point",
-                  ["source/pysph/base/point.pyx"],),
+parallel_extensions = {'parallel': ['parallel_controller.pyx',
+                                    'parallel_cell.pyx',
+                                    'fast_utils.pyx',
+                                    ],
+                       }
 
-        Extension("pysph.base.plane",
-                  ["source/pysph/base/plane.pyx"],),
+ext_modules = []
+for subpkg,files in extensions.iteritems():
+    for filename in files:
+        path = 'pysph/' + subpkg + '/' + filename
+        ext_modules.append(Extension(os.path.splitext(path)[0].replace('/','.'),
+                                     ['source/'+path]))
 
-        Extension("pysph.base.particle_array",
-                  ["source/pysph/base/particle_array.pyx"],),
+par_modules = []
+for subpkg,files in parallel_extensions.iteritems():
+    for filename in files:
+        path = 'pysph/' + subpkg + '/' + filename
+        par_modules.append(Extension(os.path.splitext(path)[0].replace('/','.'),
+                                     ['source/'+path]))
 
-        Extension("pysph.base.cell",
-                  ["source/pysph/base/cell.pyx"],),
-
-        Extension("pysph.base.polygon_array",
-                  ["source/pysph/base/polygon_array.pyx"],),
-
-        Extension("pysph.base.nnps",
-                  ["source/pysph/base/nnps.pyx"],),
-
-        Extension("pysph.base.geometry",
-                  ["source/pysph/base/geometry.pyx"],),
-
-        Extension("pysph.base.linked_list_functions",
-                  ["source/pysph/base/linked_list_functions.pyx"],),
-        
-	] 
-
-sph = [
-        Extension("pysph.sph.sph_func",
-                  ["source/pysph/sph/sph_func.pyx"],),
-
-        Extension("pysph.sph.sph_calc",
-                  ["source/pysph/sph/sph_calc.pyx"],),
-
-        Extension("pysph.sph.kernel_correction",
-                  ["source/pysph/sph/kernel_correction.pyx"],),
-
-        Extension("pysph.sph.funcs.basic_funcs",
-                  ["source/pysph/sph/funcs/basic_funcs.pyx"],),
-
-        Extension("pysph.sph.funcs.position_funcs",
-                  ["source/pysph/sph/funcs/position_funcs.pyx"],),
-
-        Extension("pysph.sph.funcs.boundary_funcs",
-                  ["source/pysph/sph/funcs/boundary_funcs.pyx"],),
-
-        Extension("pysph.sph.funcs.external_force",
-                  ["source/pysph/sph/funcs/external_force.pyx"],),
-
-        Extension("pysph.sph.funcs.density_funcs",
-                  ["source/pysph/sph/funcs/density_funcs.pyx"],),
-
-        Extension("pysph.sph.funcs.energy_funcs",
-                  ["source/pysph/sph/funcs/energy_funcs.pyx"],),
-
-        Extension("pysph.sph.funcs.viscosity_funcs",
-                   ["source/pysph/sph/funcs/viscosity_funcs.pyx"],),
-
-        Extension("pysph.sph.funcs.pressure_funcs",
-                  ["source/pysph/sph/funcs/pressure_funcs.pyx"],),
-
-        Extension("pysph.sph.funcs.xsph_funcs",
-                  ["source/pysph/sph/funcs/xsph_funcs.pyx"],),
-
-        Extension("pysph.sph.funcs.eos_funcs",
-                  ["source/pysph/sph/funcs/eos_funcs.pyx"],),
-
-        Extension("pysph.sph.funcs.adke_funcs",
-                  ["source/pysph/sph/funcs/adke_funcs.pyx"],),
-
-        Extension("pysph.sph.funcs.arithmetic_funcs",
-                  ["source/pysph/sph/funcs/arithmetic_funcs.pyx"],),
-
-        ]
-
-parallel = [
-        Extension("pysph.parallel.parallel_controller",
-                  ["source/pysph/parallel/parallel_controller.pyx"],),
-
-        Extension("pysph.parallel.parallel_cell",
-                  ["source/pysph/parallel/parallel_cell.pyx"],),
-
-        Extension("pysph.parallel.fast_utils",
-                  ["source/pysph/parallel/fast_utils.pyx"],),
-        ]
-
-# kernel extension modules.
-kernels = [Extension("pysph.base.kernels",
-                     ["source/pysph/base/kernels.pyx"],),
-           ]
-
-solver = [
-          Extension("pysph.solver.particle_generator",
-                    ["source/pysph/solver/particle_generator.pyx"],),
-          ]
-
-
-# all extension modules.
-ext_modules = base + kernels + sph + solver
 
 if HAS_MPI4PY:
-    ext_modules += parallel
+    ext_modules.extend(par_modules)
 
 for extn in ext_modules:
     extn.include_dirs = inc_dirs
@@ -164,12 +119,15 @@ for extn in ext_modules:
     if USE_CPP:
         extn.language = 'c++'
 
-for extn in parallel:
+for extn in par_modules:
     extn.include_dirs.extend(mpi_inc_dirs)
     extn.extra_compile_args.extend(mpi_compile_args)
     extn.extra_link_args.extend(mpi_link_args)
 
 if 'build_ext' in sys.argv or 'develop' in sys.argv or 'install' in sys.argv:
+    d = {'__file__':'source/pysph/base/generator.py'}
+    execfile('source/pysph/base/generator.py', d)
+    d['main'](None)
     ext_modules = cythonize(ext_modules, nthreads=ncpu, include_path=inc_dirs)
 
 setup(name='PySPH',

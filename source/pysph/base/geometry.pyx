@@ -4,7 +4,7 @@ cimport numpy
 import numpy
 
 from pysph.base.particle_array cimport ParticleArray
-from pysph.base.particles import get_particle_array
+from pysph.base.particle_array import get_particle_array
 from particle_types import ParticleType
 
 Solid = ParticleType.Solid

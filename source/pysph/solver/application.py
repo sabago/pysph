@@ -1,6 +1,6 @@
 # Standard imports.
 import logging, os
-from optparse import OptionParser, OptionGroup
+from optparse import OptionParser, OptionGroup, Option
 from os.path import basename, splitext
 import sys
 
@@ -9,7 +9,9 @@ from utils import mkdir
 # PySPH imports.
 from pysph.base.particles import Particles, CLParticles, ParticleArray
 from pysph.solver.controller import CommandManager
+from pysph.solver.integrator import integration_methods
 from pysph.base.nnps import NeighborLocatorType as LocatorType
+import pysph.base.kernels as kernels
 
 # MPI conditional imports
 HAS_MPI = True
@@ -48,6 +50,8 @@ class Application(object):
             fname = sys.argv[0].split('.')[0]
 
         self.fname = fname
+
+        self.args = sys.argv[1:]
 
         # MPI related vars.
         self.comm = None
@@ -142,8 +146,15 @@ class Application(object):
 
         # --directory
         parser.add_option("--directory", action="store",
-                         dest="output_dir", default=".",
+                         dest="output_dir", default=self.fname+'_output',
                          help="Dump output in the specified directory.")
+
+        # --kernel
+        parser.add_option("--kernel", action="store",
+                          dest="kernel", type="int",
+                          help="%-55s"%"The kernel function to use:"+
+                          ''.join(['%d - %-51s'%(d,s) for d,s in
+                                     enumerate(kernels.kernel_names)]))
 
         # -k/--kernel-correction
         parser.add_option("-k", "--kernel-correction", action="store",
@@ -152,6 +163,13 @@ class Application(object):
                           help="""Use Kernel correction.
                                   0 - Bonnet and Lok correction
                                   1 - RKPM first order correction""")
+
+        # --integration
+        parser.add_option("--integration", action="store",
+                          dest="integration", type="int",
+                          help="%-55s"%"The integration method to use:"+
+                          ''.join(['%d - %-51s'%(d,s[0]) for d,s in
+                                     enumerate(integration_methods)]))
 
         # --xsph
         parser.add_option("--xsph", action="store", dest="eps", type="float",
@@ -171,7 +189,7 @@ class Application(object):
                           help="""Only print solution properties for this list
                           of arrays""")
         
-        # solver commandline interface
+        # solver interfaces
         interfaces = OptionGroup(parser, "Interfaces",
                                  "Add interfaces to the solver")
 
@@ -200,7 +218,33 @@ class Application(object):
                                     "to the solver"))
         
         parser.add_option_group(interfaces)
-    
+        
+        # solver job resume support
+        parser.add_option('--resume', action='store', dest='resume',
+                          metavar='TIME|*|?',
+                          help=('Resume solver from specified time (as stored '
+                                'in the data in output directory); * chooses '
+                                'the latest available time; ? lists all '
+                                'available times')
+                          )
+
+    def _process_command_line(self):
+        """Parse any command line arguments.  Add any new options before
+        this is called.  This also sets up the logging automatically.
+        """
+        (options, args) = self.opt_parse.parse_args(self.args)
+        self.options = options
+        
+        # Setup logging based on command line options.
+        level = self._log_levels[options.loglevel]
+
+        #save the path where we want to dump output
+        self.path = os.path.abspath(options.output_dir)
+        mkdir(self.path)
+
+        if level is not None:
+            self._setup_logging(options.logfile, level,
+                                options.print_log)
 
     def _setup_logging(self, filename=None, 
                       loglevel=logging.WARNING,
@@ -232,30 +276,8 @@ class Application(object):
         if stream:
             logger.addHandler(logging.StreamHandler())
 
-    ######################################################################
-    # Public interface.
-    ###################################################################### 
-    def process_command_line(self, args=None):
-        """Parse any command line arguments.  Add any new options before
-        this is called.  This also sets up the logging automatically.
-        """
-        (options, args) = self.opt_parse.parse_args(args)
-        self.options = options
-        self.args = args
-        
-        # Setup logging based on command line options.
-        level = self._log_levels[options.loglevel]
-
-        #save the path where we want to dump output
-        self.path = os.path.abspath(options.output_dir)
-        mkdir(self.path)
-
-        if level is not None:
-            self._setup_logging(options.logfile, level,
-                                options.print_log)
-
-    def create_particles(self, variable_h, callable, min_cell_size=-1,
-                         *args, **kw):        
+    def _create_particles(self, variable_h, callable, min_cell_size=-1,
+                         *args, **kw):
         """ Create particles given a callable and any arguments to it.
         This will also automatically distribute the particles among
         processors if this is a parallel run.  Returns the `Particles`
@@ -328,7 +350,25 @@ class Application(object):
 
         return self.particles
 
-    def set_solver(self, solver):
+    ######################################################################
+    # Public interface.
+    ###################################################################### 
+    def set_args(self, args):
+        self.args = args
+
+    def add_option(self, opt):
+        """ Add an Option/OptionGroup or their list to OptionParser """
+        if isinstance(opt, OptionGroup):
+            self.opt_parse.add_option_group(opt)
+        elif isinstance(opt, Option):
+            self.opt_parse.add_option(opt)
+        else:
+            # assume a list of Option/OptionGroup
+            for o in opt:
+                self.add_option(o)
+
+    def set_solver(self, solver, create_particles=None, var_h=False, min_cell_size=-1,
+                   **kwargs):
         """Set the application's solver.  This will call the solver's
         `setup_integrator` method.
 
@@ -352,8 +392,32 @@ class Application(object):
 
         with_cl -- OpenCL related initializations
 
+        integration_type -- The integration method
+
+        default_kernel -- the default kernel to use for operations
+
+        Parameters
+        ----------
+        create_particles : callable or None
+            If supplied, particles will be created for the solver using the
+            particle arrays returned by the callable. Else particles for the
+            solver need to be set before calling this method
+        var_h : bool
+            If the particles created using create_particles have variable h
+        min_cell_size : float
+            minimum cell size for particles created using min_cell_size
         """
         self._solver = solver
+        solver_opts = solver.get_options(self.opt_parse)
+        if solver_opts is not None:
+            self.add_option(solver_opts)
+        self._process_command_line()
+
+        if create_particles:
+            self.particles = self._create_particles(var_h, create_particles, min_cell_size, **kwargs)
+
+        self._solver.setup_solver(self.options.__dict__)
+
         dt = self.options.time_step
         if dt is not None:
             solver.set_time_step(dt)
@@ -386,17 +450,32 @@ class Application(object):
         # output directory
         solver.set_output_directory(self.options.output_dir)
 
+        # default kernel
+        if self.options.kernel is not None:
+            solver.default_kernel = getattr(kernels,
+                      kernels.kernel_names[self.options.kernel])(dim=solver.dim)
+
         # Hernquist and Katz kernel correction
         solver.set_kernel_correction(self.options.kernel_correction)
 
         # XSPH operation
-        if self.options.eps:
-            solver.set_xsph(self.options.eps)
+        if self.options.eps is not None:
+            solver.eps = self.options.eps
 
         # OpenCL setup for the solver
         solver.set_cl(self.options.with_cl)
+        
+        if self.options.resume is not None:
+            solver.particles = self.particles # needed to be able to load particles
+            r = solver.load_output(self.options.resume)
+            if r is not None:
+                print 'available times for resume:'
+                print r
+                sys.exit(0)
 
-        # solver setup. Particles will be available now
+        if self.options.integration is not None:
+            solver.integrator_type = integration_methods[self.options.integration][1]
+        
         solver.setup_integrator(self.particles)
 
         # print options for the solver
@@ -405,8 +484,8 @@ class Application(object):
         # add solver interfaces
         self.command_manager = CommandManager(solver, self.comm)
         solver.set_command_handler(self.command_manager.execute_commands)
-        
-        if comm.Get_rank() == 0:
+
+        if self.rank == 0:
             # commandline interface
             if self.options.cmd_line:
                 from pysph.solver.solver_interfaces import CommandlineInterface
@@ -426,7 +505,7 @@ class Application(object):
                 from pysph.solver.solver_interfaces import MultiprocessingInterface
                 addr = self.options.multiproc
                 idx = addr.find('@')
-                authkey = "pysph" if idx == -1 else addr[:idx] 
+                authkey = "pysph" if idx == -1 else addr[:idx]
                 addr = addr[idx+1:]
                 idx = addr.find(':')
                 host = "0.0.0.0" if idx == -1 else addr[:idx]
