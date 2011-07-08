@@ -763,3 +763,11 @@ class LeapFrogIntegrator(Integrator):
         self.cstep = 1
         
 ############################################################################## 
+
+integration_methods = [('Euler', EulerIntegrator),
+                       ('LeapFrog', LeapFrogIntegrator),
+                       ('RK2', RK2Integrator),
+                       ('RK4', RK4Integrator),
+                       ('PredictorCorrector', PredictorCorrectorIntegrator),
+                       ]
+

@@ -83,7 +83,6 @@ Solid = base.ParticleType.Solid
 
 fname = sys.argv[0][:-3]
 app = solver.Application(fname=fname)
-app.process_command_line()
 
 #global variables
 h = 2.097e-2
@@ -115,9 +114,7 @@ boundary = base.get_particle_array(name="boundary", type=1, x=xb, y=yb,
 particles = base.Particles(arrays=[boundary,fluid])
 app.particles = particles
 
-
 s = solver.Solver(dim=2, integrator_type=solver.EulerIntegrator)
-
 
 #Equation of state
 s.add_operation(solver.SPHOperation(

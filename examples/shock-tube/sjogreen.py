@@ -59,16 +59,17 @@ def get_particles(with_boundary=False, **kwargs):
        return [adke,]
 
 app = solver.Application()
-app.process_command_line()
 
-particles = app.create_particles(
+adke = get_particles(nl=nl, nr=nr, xl=xl, xr=xr, pl=pl, rhol=rhol,
+                     ul=ul, ur=ur, g1=g1, g2=g2, h0=h0,gamma=1.4)[0]
+
+particles = base.Particles(
+    arrays=[adke,],
+    variable_h=True,
     min_cell_size=4*h0,
-    variable_h=False,
-    callable=get_particles,
-    locator_type=Locator.NSquareNeighborLocator,
-    cl_locator_type=CLLocator.AllPairNeighborLocator,
-    domain_manager_type=CLDomain.DomainManager,
-    nl=nl, nr=nr)
+    locator_type=Locator.SPHNeighborLocator)
+
+app.particles = particles
 
 s = solver.ADKEShockTubeSolver(dim=1, integrator_type=solver.RK2Integrator,
                                h0=h0, eps=eps, k=k, g1=g1, g2=g2,
@@ -79,6 +80,7 @@ s.set_final_time(tf)
 s.set_time_step(dt)
 
 app.set_solver(s)
+
 output_dir = app.options.output_dir
 numpy.savez(output_dir + "/parameters.npz", eps=eps, k=k, h0=h0,
             g1=g1, g2=g2, alpha=alpha, beta=beta, hks=hks)

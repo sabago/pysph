@@ -11,6 +11,7 @@ from pysph.sph.sph_calc cimport SPHCalc
 from pysph.base.kernels cimport KernelBase
 #from pysph.sph.function import *
 from pysph.sph.sph_func import get_all_funcs
+from pysph.sph.funcs.stress_funcs import get_G, get_K, get_nu
 from pysph.sph.sph_func cimport SPHFunctionParticle
 import numpy
 
@@ -53,12 +54,47 @@ cpdef dict sph_func_calc(Ns=Ns):
         da2 = DoubleArray(N)
         da.set_data(z)
         da2.set_data(z)
-        pa = get_particle_array(x=x, y=y, z=z, h=h, mu=mu, rho=rho, m=m, tmp=z,
-                                tx=z, ty=m, tz=z, nx=m, ny=z, nz=z, u=z, v=z, w=z,
-                                ubar=z, vbar=z, wbar=z, q=m)
-        pb = get_particle_array(x=x+0.1**0.5, y=y, z=z, h=h, mu=mu, rho=rho, m=m, tmp=z,
-                                tx=m, ty=z, tz=z, nx=z, ny=m, nz=z, u=z, v=z, w=z,
-                                ubar=z, vbar=z, wbar=z, q=m)
+
+        pa = get_particle_array(x=x, y=y, z=z, h=h, mu=mu, rho=rho, m=m,
+                                tmp=z, tx=z, ty=m, tz=z, nx=m, ny=z,
+                                nz=z, u=z, v=z, w=z,
+                                ubar=z, vbar=z, wbar=z,
+                                q=m, div=z, rhop=z, e_t=m*0.1,
+                                rkpm_beta1=z,
+                                rkpm_beta2=z,
+                                rkpm_alpha=z,
+                                rkpm_dbeta1dx=z,
+                                rkpm_dbeta1dy=z,
+                                rkpm_dbeta2dx=z,
+                                rkpm_dbeta2dy=z)
+        pa.constants['E'] = 1e9
+        pa.constants['nu'] = 0.3
+        pa.constants['G'] = pa.constants['E']/(2.0*1+pa.constants['nu'])
+        pa.constants['K'] = get_K(pa.constants['G'], pa.constants['nu'])
+        pa.constants['rho0'] = 1.0
+        pa.constants['c_s'] = numpy.sqrt(pa.constants['K']/pa.constants['rho0'])
+
+        pb = get_particle_array(x=x+0.1**0.5, y=y, z=z, h=h, mu=mu,
+                                rho=rho, m=m, tmp=z,
+                                tx=m, ty=z, tz=z,
+                                nx=z, ny=m, nz=z, u=z, v=z, w=z,
+                                ubar=z, vbar=z, wbar=z,
+                                q=m, div=z, rhop=z, e_t=m*0.1,
+                                rkpm_beta1=z,
+                                rkpm_beta2=z,
+                                rkpm_alpha=z,
+                                rkpm_dbeta1dx=z,
+                                rkpm_dbeta1dy=z,
+                                rkpm_dbeta2dx=z,
+                                rkpm_dbeta2dy=z)
+        pb.constants['E'] = 1e9
+        pb.constants['nu'] = 0.3
+        pb.constants['G'] = pb.constants['E']/(2.0*1+pb.constants['nu'])
+        pb.constants['K'] = get_K(pb.constants['G'], pb.constants['nu'])
+        pb.constants['rho0'] = 1.0
+        pb.constants['c_s'] = numpy.sqrt(pb.constants['K']/pb.constants['rho0'])
+            
+
         particles = Particles(arrays=[pa, pb])
         for func_getter in funcs_calc:
             func = func_getter.get_func(pa, pb)
@@ -96,9 +132,26 @@ cpdef dict sph_func_eqn(Ns=Ns):
         da2 = DoubleArray(N)
         da.set_data(z)
         da2.set_data(z)
-        pa = get_particle_array(x=x, y=y, z=z, h=h, mu=mu, rho=rho, m=m, tmp=z,
-                                tx=z, ty=m, tz=z, nx=m, ny=z, nz=z, u=z, v=z, w=z,
-                                ubar=z, vbar=z, wbar=z)
+
+        pa = get_particle_array(x=x, y=y, z=z, h=h, mu=mu, rho=rho, m=m,
+                                tmp=z, tx=z, ty=m, tz=z, nx=m, ny=z,
+                                nz=z, u=z, v=z, w=z,
+                                ubar=z, vbar=z, wbar=z,
+                                q=m, div=z, rhop=z, e_t=m*0.1,
+                                rkpm_beta1=z,
+                                rkpm_beta2=z,
+                                rkpm_alpha=z,
+                                rkpm_dbeta1dx=z,
+                                rkpm_dbeta1dy=z,
+                                rkpm_dbeta2dx=z,
+                                rkpm_dbeta2dy=z)
+        pa.constants['E'] = 1e9
+        pa.constants['nu'] = 0.3
+        pa.constants['G'] = pa.constants['E']/(2.0*1+pa.constants['nu'])
+        pa.constants['K'] = get_K(pa.constants['G'], pa.constants['nu'])
+        pa.constants['rho0'] = 1.0
+        pa.constants['c_s'] = numpy.sqrt(pa.constants['K']/pa.constants['rho0'])
+
         particles = Particles(arrays=[pa])
         for func_getter in funcs_eqn:
             func = func_getter.get_func(pa, pa)

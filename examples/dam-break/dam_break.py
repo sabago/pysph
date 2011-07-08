@@ -87,7 +87,7 @@ Fluid = base.ParticleType.Fluid
 Solid = base.ParticleType.Solid
 
 #h = 0.0156
-h = 0.0390322953
+h = 0.0390
 #h = 0.01
 dx = dy = h/1.3
 ro = 1000.0
@@ -103,12 +103,16 @@ container_width  = 4.0
 
 B = co*co*ro/gamma
 
-
 def get_boundary_particles():
     """ Get the particles corresponding to the dam and fluids """
     
-    xb1, yb1 = geom.create_2D_tank(0, 0, container_width, container_height, dx)
-    xb2, yb2 = geom.create_2D_tank(-dx/2, -dx/2, container_width, container_height, dx)
+    xb1, yb1 = geom.create_2D_tank(x1=0, y1=0,
+                                   x2=container_width, y2=container_height,
+                                   dx=dx)
+    
+    xb2, yb2 = geom.create_2D_tank(x1=-dx/2, y1=-dx/2,
+                                   x2=container_width, y2=container_height,
+                                   dx=dx)
 
     xb = numpy.concatenate((xb1, xb2))
     yb = numpy.concatenate((yb1, yb2))
@@ -119,7 +123,8 @@ def get_boundary_particles():
 
     cb = numpy.ones_like(xb)*co
 
-    boundary = base.get_particle_array(name="boundary", type=Solid, 
+    boundary = base.get_particle_array(cl_precision="single",
+                                       name="boundary", type=Solid, 
                                        x=xb, y=yb, h=hb, rho=rhob, cs=cb,
                                        m=mb)
 
@@ -129,8 +134,14 @@ def get_boundary_particles():
 
 def get_fluid_particles():
     
-    xf1, yf1 = geom.create_2D_filled_region(dx, dx, fluid_collumn_width, fluid_collumn_height, dx)
-    xf2, yf2 = geom.create_2D_filled_region(dx/2, dx/2, fluid_collumn_width, fluid_collumn_height, dx)
+    xf1, yf1 = geom.create_2D_filled_region(x1=dx, y1=dx,
+                                            x2=fluid_collumn_width,
+                                            y2=fluid_collumn_height,
+                                            dx=dx)
+
+    xf2, yf2 = geom.create_2D_filled_region(x1=dx/2, y1=dx/2,
+                                            x2=fluid_collumn_width,
+                                            y2=fluid_collumn_height, dx=dx)
     
 
     x = numpy.concatenate((xf1, xf2))
@@ -143,8 +154,10 @@ def get_fluid_particles():
     rhof = numpy.ones_like(x) * ro
     csf = numpy.ones_like(x) * co
     
-    fluid = base.get_particle_array(name="fluid", type=Fluid,
-                                    x=x, y=y, h=hf, m=mf, rho=rhof, cs=csf)
+    fluid = base.get_particle_array(cl_precision="single",
+                                    name="fluid", type=Fluid,
+                                    x=x, y=y, h=hf, m=mf, rho=rhof,
+                                    cs=csf)
 
     return fluid
 
@@ -156,26 +169,9 @@ def get_particles(**args):
 
 
 app = solver.Application()
-app.process_command_line()
+
 
 integrator_type = solver.PredictorCorrectorIntegrator
-if app.options.with_cl:
-    msg = """\n\n
-You have chosen to run the example with OpenCL support.  The only
-integrator with OpenCL support is the forward Euler
-integrator. This integrator will be used instead of the default
-predictor corrector integrator for this example.\n\n
-"""
-    warnings.warn(msg)
-    integrator_type = solver.EulerIntegrator    
-
-particles = app.create_particles(
-    variable_h=False, callable=get_particles, min_cell_size=4*h,
-    locator_type=base.NeighborLocatorType.SPHNeighborLocator,
-    domain_manager=base.DomainManagerType.DomainManager,
-    cl_locator_type=base.OpenCLNeighborLocatorType.AllPairNeighborLocator
-    )
-
 s = solver.Solver(dim=2, integrator_type=integrator_type)
 
 kernel = base.CubicSplineKernel(dim=2)
@@ -215,7 +211,7 @@ s.add_operation(solver.SPHIntegration(
 
 #s.add_operation(solver.SPHIntegration(
     
-#    sph.SPHPressureGradient(),
+#    sph.SPHPressureGradient.withargs(),
 #    on_types=[Fluid], from_types=[Fluid,Solid],
 #    updates=['u','v'], id='pgrad')
 
@@ -223,7 +219,7 @@ s.add_operation(solver.SPHIntegration(
 
 #s.add_operation(solver.SPHIntegration(
 
-#    sph.MonaghanArtificialVsicosity(alpha=alpha, beta=0.0),
+#    sph.MonaghanArtificialVsicosity.withargs(alpha=alpha, beta=0.0),
 #    on_types=[Fluid], from_types=[Fluid,Solid],
 #    updates=['u','v'], id='avisc')
 
@@ -249,12 +245,28 @@ dt = 1.25e-4
 s.set_final_time(3.0)
 s.set_time_step(dt)
 
+app.set_solver(s,
+    var_h=False, create_particles=get_particles, min_cell_size=4*h,
+    locator_type=base.NeighborLocatorType.SPHNeighborLocator,
+    domain_manager=base.DomainManagerType.DomainManager,
+    cl_locator_type=base.OpenCLNeighborLocatorType.AllPairNeighborLocator
+    )
+
 # this tells the solver to compute the max time step dynamically
-s.time_step_function = solver.ViscousTimeStep(co=co,cfl=0.3,particles=particles)
+s.time_step_function = solver.ViscousTimeStep(co=co,cfl=0.3,
+                                              particles=s.particles)
 
-#s.time_step_function = solver.ViscousAndForceBasedTimeStep(co=co, cfl=0.3,
-#                                                           particles=particles)
+#s.time_step_function = solver.ViscousAndForceBasedTimeStep(
+#    co=co, cfl=0.3, particles=s.particles)
 
-app.set_solver(s)
+if app.options.with_cl:
+    msg = """\n\n
+You have chosen to run the example with OpenCL support.  The only
+integrator with OpenCL support is the forward Euler
+integrator. This integrator will be used instead of the default
+predictor corrector integrator for this example.\n\n
+"""
+    warnings.warn(msg)
+    integrator_type = solver.EulerIntegrator    
 
 app.run()

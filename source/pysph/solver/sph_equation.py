@@ -1,6 +1,7 @@
 """ A wrapper around the sph calc and function to make it simpler """
 
 from pysph.sph.sph_calc import SPHCalc, CLCalc
+from pysph.sph.sph_func import SPHFunctionParticle
 
 import pysph.base.api as base
 Fluid = base.ParticleType.Fluid
@@ -83,6 +84,11 @@ class SPHOperation(object):
         self.integrates = integrates
 
         self.kernel = kernel
+        
+        if not issubclass(function.get_func_class(), SPHFunctionParticle):
+            self.nbr_info = False
+        else:
+            self.nbr_info = True
 
         self.has_kernel_correction = False
         self.kernel_correction = kernel_correction
@@ -114,11 +120,13 @@ class SPHOperation(object):
         
         """ 
         
-        #if issubclass(self.function.get_func_class(), sph.SPHFunctionParticle):
-        #    # all nbr requiring funcs are subclasses of SPHFunctionParticle
-        #    self.nbr_info = True
-        #else:
-        #    self.nbr_info = False
+        if issubclass(self.function.get_func_class(), SPHFunctionParticle):
+           # all nbr requiring funcs are subclasses of SPHFunctionParticle
+           self.nbr_info = True
+        else:
+           self.nbr_info = False
+           if self.from_types != []:
+               raise ValueError, 'Only Subclasses of SPHFunctionParticle need neighbors, %s should not provide `from_types` to operation'%(self.function.get_func_class())
         
         arrays = particles.arrays
         narrays = len(arrays)
@@ -131,7 +139,7 @@ class SPHOperation(object):
 
             # create an entry in the dict if this is a valid destination array
 
-            if dst.particle_type in self.on_types:
+            if dst.particle_type in self.on_types or dst in self.on_types or dst.name in self.on_types:
                 calc_data[i] = {'sources':[], 'funcs':[], 'dnum':i, 'id':"",
                                 'snum':str(i)}
 
@@ -152,7 +160,7 @@ class SPHOperation(object):
 
                         # check if this is a valid source array
                  
-                        if src.particle_type in self.from_types:
+                        if src.particle_type in self.from_types or src in self.from_types or src.name in self.from_types:
 
                             # get the function with the src dst pair
 
@@ -209,7 +217,8 @@ class SPHOperation(object):
                     funcs=funcs, kernel=kernel, updates=self.updates,
                     integrates=self.integrates, dnum=dnum, id=id,
                     dim=kernel.dim, snum=snum,
-                    kernel_correction=self.kernel_correction, nbr_info=True,
+                    kernel_correction=self.kernel_correction,
+                    nbr_info=self.nbr_info,
 
                     )
 

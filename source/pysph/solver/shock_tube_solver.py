@@ -50,7 +50,7 @@ def standard_shock_tube_data(name="", type=0, cl_precision="double",
 
 class ShockTubeSolver(Solver):
     
-    def setup_solver(self):
+    def setup_solver(self, options=None):
 
         kernel = base.CubicSplineKernel(dim=1)
 
@@ -118,7 +118,7 @@ class ADKEShockTubeSolver(Solver):
         # base class constructor
         Solver.__init__(self, dim, integrator_type)
     
-    def setup_solver(self):
+    def setup_solver(self, options=None):
 
         hks = self.hks
         kernel = self.kernel

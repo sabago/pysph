@@ -12,8 +12,8 @@ Boundary = base.ParticleType.Boundary
 
 # Shock tube parameters
 
-nl = int(320 * 7.5)
-nr = int(80 * 7.5)
+nl = int(320 * 4)
+nr = int(80 * 4)
 
 dxl = 0.6/nl
 dxr = 4*dxl
@@ -25,6 +25,9 @@ k = 0.7
 g1 = 0.2
 g2 = 0.5
 
+alpha = 1.0
+beta = 1.0
+
 hks = False
 
 class UpdateBoundaryParticles:
@@ -32,10 +35,10 @@ class UpdateBoundaryParticles:
         self.particles = particles
 
     def eval(self):
-        left = particles.get_named_particle_array('left')
-        right = particles.get_named_particle_array("right")
+        left = self.particles.get_named_particle_array('left')
+        right = self.particles.get_named_particle_array("right")
 
-        fluid = particles.get_named_particle_array("fluid")
+        fluid = self.particles.get_named_particle_array("fluid")
 
         left.h[:] = fluid.h[0]
         right.h[:] = fluid.h[-1]
@@ -104,15 +107,6 @@ def get_particles(**kwargs):
 # Create the application
 
 app = solver.Application()
-app.process_command_line()
-
-particles = app.create_particles(
-    min_cell_size = 4*h0,
-    variable_h=True, callable=get_particles,
-    locator_type=base.NeighborLocatorType.SPHNeighborLocator)
-
-# add the boundary update function to the particles
-particles.add_misc_function( UpdateBoundaryParticles(particles) )
 
 # define the solver and kernel
 s = solver.Solver(dim=1, integrator_type=solver.RK2Integrator)
@@ -206,7 +200,12 @@ s.add_operation_step([Fluid])
 s.set_final_time(0.15)
 s.set_time_step(3e-4)
 
-app.set_solver(s)
+app.set_solver(s,min_cell_size = 4*h0,
+               var_h=True, create_particles=get_particles,
+               locator_type=base.NeighborLocatorType.SPHNeighborLocator)
+
+# add the boundary update function to the particles
+s.particles.add_misc_function( UpdateBoundaryParticles(s.particles) )
 
 output_dir = app.options.output_dir
 numpy.savez(output_dir + "/parameters.npz", eps=eps, k=k, h0=h0,

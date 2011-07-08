@@ -1,9 +1,11 @@
 """ Tests for the load balancer """
 
 import unittest
+import numpy
 
 from pysph.base.kernels import CubicSplineKernel
 from pysph.base.cell import CellManager
+from pysph.base.api import get_particle_array
 
 from pysph.solver.basic_generators import LineGenerator, RectangleGenerator, \
         CuboidGenerator
@@ -139,6 +141,52 @@ class TestSerialLoadBalancer3D(TestSerialLoadBalancer1D):
         for pa in pas[0]+pas[1]:
             np2 += pa.get_number_of_particles()
         self.assertEqual(np2, np)
+
+class TestSerialLoadBalancerMulti(unittest.TestCase):
+    def setUp(self):
+        pa = get_particle_array(x=numpy.linspace(-2,-1,11))
+        pb = get_particle_array(x=numpy.linspace(1,2,11))
+        pa.constants['a'] = 1.0
+        pa.add_property(dict(name='q'))
+        self.pas = [pa, pb]
+        self.pas[0].x += 0.1
+        self.cell_size = 0.3
+        self.dim = 1
+        
+    def create_solver(self):
+        self.cm = cm = ParallelCellManager(self.pas, self.cell_size, self.cell_size)
+        #print 'num_cells:', len(cm.cells_dict)
+        cm.load_balancing = False # balancing will be done manually
+        cm.dimension = self.dim
+        
+        self.lb = lb = self.cm.load_balancer = LoadBalancer(parallel_cell_manager=self.cm)
+        lb.skip_iteration = 1
+        lb.threshold_ratio = 10.
+        lb.lb_max_iteration = 10
+        lb.setup()
+    
+    def load_balance(self):
+        np0 = 0
+        for cid, cell in self.cm.cell_dict.items():
+            np0 += cell.get_number_of_particles()
+        lb = self.cm.load_balancer
+        for lbargs in self.get_lb_args():
+            lb.load_balance(**lbargs)
+            self.cm.exchange_neighbor_particles()
+    
+    def test_properties(self):
+        ''' verify that all arrays have all properties even if they have no particles '''
+        num_procs = 2
+        self.create_solver()
+        props = [pa.properties for pa in self.pas]
+        consts = [pa.constants for pa in self.pas]
+        proc_pas = LoadBalancer.distribute_particle_arrays(self.pas, num_procs,
+                                    self.cell_size, 100)#, **lbargs)
+        nps = [[pa.get_number_of_particles() for pa in pas] for pas in proc_pas]
+        for i,pa in enumerate(pas):
+            self.assertEqual(len(pa.get('x')), pa.get_number_of_particles())
+            self.assertEqual(len(props[i]), len(pa.properties))
+            self.assertEqual(len(consts[i]), len(pa.constants))
 
 
 if __name__ == "__main__":

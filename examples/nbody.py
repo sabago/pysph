@@ -32,13 +32,6 @@ def get_particles(**kwargs):
     return pa
 
 app = solver.Application()
-app.process_command_line()
-
-particles = app.create_particles(
-    variable_h=False, callable=get_particles,
-    locator_type=base.NeighborLocatorType.NSquareNeighborLocator,
-    cl_locator_type=base.OpenCLNeighborLocatorType.AllPairNeighborLocator,
-    domain_manager=base.DomainManager)
 
 s = solver.Solver(dim=3,
                   integrator_type=solver.EulerIntegrator)
@@ -53,7 +46,13 @@ s.add_operation(solver.SPHIntegration(
 
 s.add_operation_step([Fluid])
 
-app.set_solver(s)
+# The particles are available after a call to set solver
+app.set_solver(s, 
+               var_h=False, create_particles=get_particles,
+               locator_type=base.NeighborLocatorType.NSquareNeighborLocator,
+               cl_locator_type=base.OpenCLNeighborLocatorType.AllPairNeighborLocator,
+               domain_manager=base.DomainManager)
+
 s.set_final_time(tf)
 s.set_time_step(dt)
 s.set_print_freq(nsteps + 1)

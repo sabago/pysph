@@ -259,7 +259,16 @@ def mkdir(newdir):
             mkdir(head)
 
         if tail:
-            os.mkdir(newdir)
+            try:
+                os.mkdir(newdir)
+            # To prevent race in mpi runs
+            except OSError as e:
+                import errno
+                if e.errno == errno.EEXIST and os.path.isdir(newdir):
+                    pass
+                else:
+                    raise
+                
 
 
 ##############################################################################

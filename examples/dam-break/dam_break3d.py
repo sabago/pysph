@@ -161,26 +161,8 @@ def get_particles(**args):
 
 
 app = solver.Application()
-app.process_command_line()
 
 integrator_type = solver.PredictorCorrectorIntegrator
-if app.options.with_cl:
-    msg = """\n\n
-You have chosen to run the example with OpenCL support.  The only
-integrator with OpenCL support is the forward Euler
-integrator. This integrator will be used instead of the default
-predictor corrector integrator for this example.\n\n
-"""
-    warnings.warn(msg)
-    integrator_type = solver.EulerIntegrator    
-
-particles = app.create_particles(
-    variable_h=False, callable=get_particles, min_cell_size=4*h,
-    locator_type=base.NeighborLocatorType.SPHNeighborLocator,
-    domain_manager=base.DomainManagerType.DomainManager,
-    cl_locator_type=base.OpenCLNeighborLocatorType.AllPairNeighborLocator
-    )
-
 s = solver.Solver(dim=2, integrator_type=integrator_type)
 
 kernel = base.CubicSplineKernel(dim=2)
@@ -254,9 +236,27 @@ dt = 1.25e-4
 s.set_final_time(3.0)
 s.set_time_step(dt)
 
-# this tells the solver to compute the max time step dynamically
-s.time_step_function = solver.ViscousTimeStep(co=co,cfl=0.3,particles=particles)
+app.set_solver(
+    s,
+    var_h=False, create_particles=get_particles, min_cell_size=4*h,
+    locator_type=base.NeighborLocatorType.SPHNeighborLocator,
+    domain_manager=base.DomainManagerType.DomainManager,
+    cl_locator_type=base.OpenCLNeighborLocatorType.AllPairNeighborLocator
+    )
 
-app.set_solver(s)
+if app.options.with_cl:
+    msg = """\n\n
+You have chosen to run the example with OpenCL support.  The only
+integrator with OpenCL support is the forward Euler
+integrator. This integrator will be used instead of the default
+predictor corrector integrator for this example.\n\n
+"""
+    warnings.warn(msg)
+    integrator_type = solver.EulerIntegrator
+
+# this tells the solver to compute the max time step dynamically
+s.time_step_function = solver.ViscousTimeStep(co=co,cfl=0.3,
+                                              particles=s.particles)
+    
 
 app.run()

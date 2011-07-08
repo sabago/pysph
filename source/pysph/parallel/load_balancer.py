@@ -11,7 +11,7 @@ logger = logging.getLogger()
 import numpy
 
 # local imports
-from pysph.base.particle_array import ParticleArray
+from pysph.base.particle_array import ParticleArray, get_particle_array
 from pysph.base.cell import CellManager, py_construct_immediate_neighbor_list
 
 TAG_LB_PARTICLE_REQUEST = 101
@@ -1393,7 +1393,18 @@ class LoadBalancer:
         lb.pid = 0
         lb.num_procs = num_procs
         lb.lb_max_iteration = max_iter
-        
+
+        z = numpy.empty(0)
+        empty_props = []
+        constants = []
+        for pa in particle_arrays:
+            d = {}
+            for prop in pa.properties:
+                d[prop] = z
+            empty_props.append(d)
+            constants.append(pa.constants)
+
+
         redistr_func = getattr(lb, 'load_redistr_'+distr_func)
         #print redistr_func
         lb.load_difference = [0] * lb.num_procs
@@ -1432,7 +1443,7 @@ class LoadBalancer:
             current_balance_iteration += 1
         
         na = len(cm.arrays_to_bin)
-        particle_arrays_per_proc = [[ParticleArray() for j in range(na)] for 
+        particle_arrays_per_proc = [[get_particle_array(**empty_props[j]) for j in range(na)] for 
                                         i in range(num_procs)]
         
         cells_dict = cm.cells_dict
@@ -1443,6 +1454,8 @@ class LoadBalancer:
             cell.get_particle_ids(pid_list)
             for i in range(na):
                 arr = particle_arrays_per_proc[proc][i]
+                arr.constants.update(constants[i])
+
                 arr.append_parray(a2b[i].extract_particles(pid_list[i]))
 
                 arr.set_name(a2b[i].name)

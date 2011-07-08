@@ -64,7 +64,7 @@ class MoveSquare:
         self.time = motion[:,0]
         self.disp = motion[:,3]
 
-    def eval(self, solver, count):
+    def eval(self, solver):
 
         particles = solver.particles
         time = solver.time
