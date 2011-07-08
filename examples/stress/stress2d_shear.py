@@ -74,7 +74,7 @@ def create_particles():
     N = cos(kL) + cosh(kL)
     Q = 2*(cos(kL)*sinh(kL) - sin(kL)*cosh(kL))
 
-    v_f = 0.001
+    v_f = 0.01
     kx = k*x
     # sill need to multiply by c_s
     v = v_f*(M*(cos(kx)-cosh(kx)) - N*(sin(kx)-sinh(kx)))/Q
@@ -96,7 +96,7 @@ def create_particles():
 
     pa.constants['E'] = 1e9
     pa.constants['nu'] = 0.25
-    pa.constants['G'] = pa.constants['E']/(2.0*1+pa.constants['nu'])
+    pa.constants['G'] = pa.constants['E']/(2.0*(1+pa.constants['nu']))
     pa.constants['K'] = stress_funcs.get_K(pa.constants['G'], pa.constants['nu'])
     pa.constants['rho0'] = 1.0
     pa.constants['dr0'] = dx
@@ -135,7 +135,7 @@ def create_particles():
                                  MArtStress01=z, MArtStress12=z, MArtStress02=z,
                                  )
 
-    pb.constants['E'] = 1e7
+    pb.constants['E'] = 1e9
     pb.constants['nu'] = 0.25
     pb.constants['G'] = pb.constants['E']/(2.0*(1+pb.constants['nu']))
     pb.constants['K'] = stress_funcs.get_K(pb.constants['G'], pb.constants['nu'])
