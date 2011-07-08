@@ -13,9 +13,10 @@ from pysph.sph.api import SPHFunction
 app = solver.Application()
 
 app.opt_parse.add_option('--hfac', action='store', dest='hfac', default=None,
+                         type='float',
                          help='the smoothing length as a factor of particle spacing')
 
-app.opt_parse.add_option('--N', action='store', dest='N', default=None,
+app.opt_parse.add_option('--N', action='store', dest='N', default=None, type='float',
                          help='number of partitions (num particles=N+1)')
 
 
@@ -25,7 +26,7 @@ class PrintPos(object):
         if not os.path.exists(os.path.dirname(filename)):
             os.makedirs(os.path.dirname(filename))
         self.file = open(filename, 'w')
-        self.file.write('i\t'+'\t'.join(props)+'\n')
+        self.file.write('i\tt\t'+'\t'.join(props)+'\n')
         self.res = []
         self.props = props
         self.particle_id = particle_id
@@ -47,7 +48,7 @@ def create_particles():
     N += 1
     hfac = app.options.hfac or 1.2
 
-    rho0 = 1.0 # Aluminium
+    rho0 = 1.0
     #x,y = numpy.mgrid[-1.05:1.05+1e-4:dx, -0.105:0.105+1e-4:dx]
     x = numpy.mgrid[0:1:1j*N]
     dx = 1.0/(N-1)
@@ -107,8 +108,8 @@ class FixedBoundary(SPHFunction):
 s = StressSolver(dim=1, integrator_type=solver.LeapFrogIntegrator, xsph=0.5, marts_eps=0.3, marts_n=4, CFL=None)
 
 # can be overriden by commandline arguments
-s.set_time_step(1e-6)
-s.set_final_time(1e-2)
+s.set_time_step(1e-7)
+s.set_final_time(1e-3)
 
 app.set_solver(s, create_particles)
 particles = s.particles
@@ -119,11 +120,10 @@ s.pre_step_functions.append(FixedBoundary(pa, pa, props=['u','x'], values=[0,0],
 
 for i in range(len(particles.arrays[0].x)):
     app.command_manager.add_function(PrintPos(i, ['x','y','u','p','rho','sigma00','ubar'],
-                                              'stress1d/stress%s.dat'%i).function,
-                                      interval=1)
+                  s.output_directory+'/stress%s.dat'%i).function,
+                                     interval=1)
 
 s.set_kernel_correction(-1)
-s.add_print_properties(['sigma00'])
 s.pfreq = 10
 
 app.run()
