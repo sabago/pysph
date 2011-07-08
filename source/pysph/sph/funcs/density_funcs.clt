@@ -1,0 +1,108 @@
+
+// The kernel arguments are filled in automatically.
+$SPHRho
+
+#include "cl_common.h"
+#include "cl_common.cl"
+#include "kernels.h"
+
+__kernel void SPHRho(%(kernel_args)s)
+{
+    %(workgroup_code)s
+
+    // The term `dest_id` will be suitably defined at this point.
+
+    REAL4 pa = (REAL4)( d_x[dest_id], d_y[dest_id], 
+                        d_z[dest_id], d_h[dest_id] );
+    REAL4 pb;
+  
+    REAL wmb = 0.0F ;
+    REAL w, mb, dist, dst_rad, src_rad;
+
+    dst_rad = d_h[dest_id] * kernel_radius;
+
+    %(neighbor_loop_code_start)s 
+    {
+        // SPH innermost loop code goes here.  The index `src_id` will
+        // be available and looped over, this index.
+
+      pb = (REAL4)(s_x[src_id], s_y[src_id], s_z[src_id], s_h[src_id]);
+      mb = s_m[src_id];
+
+      src_rad = s_h[src_id] * kernel_radius;
+
+      dist = distance( pa, pb );
+
+      if ( (dst_rad > dist) || (src_rad > dist) )
+	{
+	  w = kernel_function(pa, pb, dim, kernel_type); 
+	  wmb += w*mb;
+	}
+	
+	%(neighbor_loop_code_break)s
+
+    }
+
+    %(neighbor_loop_code_end)s 
+
+    tmpx[dest_id] += wmb;
+  
+} // __kernel SPHRho
+
+$SPHRho
+
+
+$SPHDensityRate
+
+#include "cl_common.cl"
+#include "kernels.h"
+
+__kernel void SPHDensityRate(%(kernel_args)s)
+{
+    %(workgroup_code)s
+
+    // The term `dest_id` will be suitably defined at this point.
+
+    REAL4 pa = (REAL4)( d_x[dest_id], d_y[dest_id], 
+                        d_z[dest_id], d_h[dest_id] );
+
+    REAL4 pb, grad;
+    REAL dist, dst_rad, src_rad;
+    REAL sum = 0.0F;
+
+    dst_rad = d_h[dest_id] * kernel_radius;
+
+    %(neighbor_loop_code_start)s 
+    {
+        // SPH innermost loop code goes here.  The index `src_id` will
+        // be available and looped over, this index.
+
+      pb = (REAL4)(s_x[src_id], s_y[src_id], s_z[src_id], s_h[src_id]);
+
+      src_rad = s_h[src_id] * kernel_radius;
+
+      dist = distance( pa, pb );
+
+      if ( (dst_rad > dist) || (src_rad > dist) )
+	{
+
+	  kernel_gradient(pa, pb, &grad, dim, kernel_type);
+	  REAL4 vab = (REAL4)( d_u[dest_id] - s_u[src_id] ,
+			       d_v[dest_id] - s_v[src_id] ,
+			       d_w[dest_id] - s_w[src_id] ,
+			       0.0F);
+
+	  sum += s_m[src_id] * dot(vab, grad);
+	}
+      
+      %(neighbor_loop_code_break)s
+	 
+	 }
+    
+    %(neighbor_loop_code_end)s 
+
+       tmpx[dest_id] += sum;
+  
+} // __kernel SPHRho
+
+$SPHDensityRate

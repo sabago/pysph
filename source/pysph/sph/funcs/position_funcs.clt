@@ -1,0 +1,18 @@
+
+$PositionStepping
+
+#include "cl_common.h"
+#include "cl_common.cl"
+#include "kernels.h"
+
+__kernel void PositionStepping(%(kernel_args)s)
+{
+
+  %(workgroup_code)s
+
+  tmpx[dest_id] = d_u[dest_id];
+  tmpy[dest_id] = d_v[dest_id];
+  tmpz[dest_id] = d_w[dest_id];
+
+}
+$PositionStepping
