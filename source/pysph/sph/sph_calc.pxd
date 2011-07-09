@@ -23,6 +23,7 @@ cdef class SPHCalc:
     cdef public bint rkpm_first_order_correction
 
     cdef public bint nbr_info
+    cdef public bint reset_arrays
 
     cdef public list funcs
     cdef public list nbr_locators

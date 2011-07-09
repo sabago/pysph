@@ -43,6 +43,11 @@ cdef:
     int REPULSIVE = 9
     int POLY6 = 10
 
+kernel_names = ['CubicSplineKernel', 'GaussianKernel', 'QuinticSplineKernel',
+                'WendlandQuinticSplineKernel', 'HarmonicKernel',
+                'M6SplineKernel', 'W8Kernel', 'W10Kernel',
+                'RepulsiveBoundaryKernel', 'Poly6Kernel']
+
 
 cdef inline double h_dim(double h, int dim):
     if dim == 1:

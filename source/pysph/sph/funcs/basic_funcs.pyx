@@ -1,7 +1,8 @@
+
 #cython: cdivision=True
 """ Implementations for the basic SPH functions """
 
-from pysph.base.point cimport cPoint_new, cPoint_sub
+from pysph.base.point cimport cPoint_new, cPoint_sub, cPoint_distance
 
 cdef extern from "math.h":
     double sqrt(double)
@@ -790,3 +791,30 @@ cdef class FirstOrderCorrectionVectorGradient(CSPHFunctionParticle):
         dnr[0] += -Vb*rab.y*grad.y - Vb*w
 
 ##########################################################################
+
+
+##############################################################################
+# `KernelSum`
+##############################################################################
+cdef class KernelSum(SPHFunctionParticle):
+    def set_src_dst_reads(self):
+        self.src_reads = ['h', 'x', 'y', 'z', 'rho', 'm']
+        self.dst_reads = ['h', 'x', 'y', 'z']
+
+    cdef void eval_nbr(self, size_t source_pid, size_t dest_pid, 
+                       KernelBase kernel, double *nr):
+        
+        self._src.x = self.s_x.data[source_pid]
+        self._src.y = self.s_y.data[source_pid]
+        self._src.z = self.s_z.data[source_pid]
+        
+        self._dst.x = self.d_x.data[dest_pid]
+        self._dst.y = self.d_y.data[dest_pid]
+        self._dst.z = self.d_z.data[dest_pid]
+
+        cdef double h = 0.5*(self.s_h.data[source_pid] +
+                             self.d_h.data[dest_pid])
+
+        cdef double w = kernel.function(self._dst, self._src, h)
+
+        nr[0] += (w * self.s_m.data[source_pid] / self.s_rho.data[source_pid])

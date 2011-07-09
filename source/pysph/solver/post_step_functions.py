@@ -6,7 +6,7 @@ import os
 import pysph.base.api as base
 from pysph.base.cell import py_find_cell_id
 
-class PrintNeighborInformation:
+class PrintNeighborInformation(object):
 
     def __init__(self, rank = 0, path=None, count=10):
         self.rank = rank
@@ -18,9 +18,9 @@ class PrintNeighborInformation:
         else:
             self.path = "."
     
-    def eval(self, solver, count):
+    def eval(self, solver):
         
-        if not ((count % self.count) == 0):
+        if not ((solver.count % self.count) == 0):
             return
 
         particles = solver.particles
@@ -73,3 +73,14 @@ class PrintNeighborInformation:
             cell_manager.get_particle_representation(fname_cells)
             
 
+class CFLTimeStepFunction(object):
+    def __init__(self, CFL=0.3):
+        self.cfl = CFL
+
+    def eval(self, solver):
+        v = float('inf')
+        for pa in solver.particles.arrays:
+            val = min(pa.h/(pa.cs+(pa.u**2+pa.v**2+pa.w**2)**0.5))
+            if val < v:
+                v = val
+        solver.dt = self.cfl*v

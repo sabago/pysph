@@ -25,21 +25,6 @@ nr = 80
 # Create the application, do this first so the application sets up the
 # logging and also gets all command line arguments.
 app = solver.Application()
-# Process command line args first, this also sets up the logging.
-app.process_command_line()
-
-# Create the particles automatically, the application calls a supplied
-# function which generates the particles.
-particles = app.create_particles(
-    False,
-    solver.shock_tube_solver.standard_shock_tube_data,
-    name='fluid', type=0,
-    locator_type=Locator.SPHNeighborLocator,
-    cl_locator_type=CLLocator.AllPairNeighborLocator,
-    domain_manager_type=CLDomain.DomainManager,
-    nl=nl, nr=nr, smoothing_length=None)
-    
-pa = particles.arrays[0]
 
 # Set the solver using the default cubic spline kernel
 s = solver.ShockTubeSolver(dim=1, integrator_type=solver.EulerIntegrator)
@@ -50,7 +35,15 @@ s.set_time_step(3e-4)
 # Set the application's solver.  We do this at the end since the user
 # may have asked for a different timestep/final time on the command
 # line.
-app.set_solver(s)
+app.set_solver(
+    solver=s,
+    variable_h=False,
+    callable=solver.shock_tube_solver.standard_shock_tube_data,
+    name='fluid', type=0,
+    locator_type=Locator.SPHNeighborLocator,
+    cl_locator_type=CLLocator.AllPairNeighborLocator,
+    domain_manager_type=CLDomain.DomainManager,
+    nl=nl, nr=nr, smoothing_length=None)
 
 # Run the application.
 app.run()

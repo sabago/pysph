@@ -126,7 +126,7 @@ def main(paths=None):
     if `args` is an empty list all src files in current directory are converted
     '''
     if paths is None:
-        files = [os.path.dirname(__file__)]
+        files = get_src_files(os.path.dirname(__file__))
     elif len(paths)>0:
         files = paths
     else:

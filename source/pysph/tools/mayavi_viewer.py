@@ -176,12 +176,13 @@ class MayaviViewer(HasTraits):
     ########################################
     # Timer traits.
     timer = Instance(Timer)
-    interval = Range(1, 20.0, 5.0, 
+    interval = Range(0.5, 20.0, 2.0,
                      desc='frequency in seconds with which plot is updated')
     
     ########################################
     # Solver info/control.
     current_time = Float(0.0, desc='the current time in the simulation')
+    time_step = Float(0.0, desc='the time-step of the solver')
     iteration = Int(0, desc='the current iteration number')
     pause_solver = Bool(False, desc='if the solver should be paused')
 
@@ -197,6 +198,7 @@ class MayaviViewer(HasTraits):
                           ),
                     Group(
                           Item(name='current_time'),
+                          Item(name='time_step'),
                           Item(name='iteration'),
                           Item(name='pause_solver'),
                           Item(name='interval'),
@@ -217,7 +219,7 @@ class MayaviViewer(HasTraits):
                          height=480, width=500, show_label=False),
                       ),
                 resizable=True,
-                title='Mayavi Particle Viewer'
+                title='PySPH Particle Viewer'
                 )
 
     ######################################################################
@@ -240,6 +242,7 @@ class MayaviViewer(HasTraits):
             return
         
         self.current_time = controller.get_t()
+        self.time_step = controller.get_dt()
         for idx, name in enumerate(self.pa_names):
             pa = controller.get_named_particle_array(name)
             self.particle_arrays[idx].particle_array = pa
@@ -260,7 +263,7 @@ class MayaviViewer(HasTraits):
                 c = self.client.controller
                 self.iteration = c.get_count()
             except Exception as e:
-                logger.info('Error: no connection or connection closed: reconnecting')
+                logger.info('Error: no connection or connection closed: reconnecting:%s'%e)
                 reconnect = True
                 self.client = None
         
@@ -271,9 +274,10 @@ class MayaviViewer(HasTraits):
                     self.client = MultiprocessingClient(address=(self.host, self.port),
                                                         authkey=self.authkey)
                 else:
+                    logger.info('Could not connect: Multiprocessing Interface not available on %s'%(self.host,self.port))
                     return None
             except Exception as e:
-                logger.info('Could not connect: check if solver is running')
+                logger.info('Could not connect: check if solver is running:%s'%e)
                 return None
             c = self.client.controller
             self.iteration = c.get_count()
@@ -312,7 +316,9 @@ class MayaviViewer(HasTraits):
         return Timer(int(self.interval*1000), self._timer_event)
 
     def _pause_solver_changed(self, value):
-        c = self.client.controller
+        c = self.controller
+        if c is None:
+            return
         if value:
             c.pause_on_next()
         else:
@@ -321,9 +327,13 @@ class MayaviViewer(HasTraits):
 ######################################################################
 def usage():
     print """Usage:
-mayavi_viewer.py <trait1=value> <trait2=value> ...
+mayavi_viewer.py [-v] <trait1=value> <trait2=value> ...
 
-Where the options <trait1=value> are optional.
+The option -v sets verbose mode which will print solver connection
+    status failures on stdout
+The options <trait1=value> are optional settings
+    host, port and authkey
+
 
 Example::
 
@@ -341,6 +351,11 @@ def main(args=None):
     if '-h' in args or '--help' in args:
         usage()
         sys.exit(0)
+    
+    if '-v' in args:
+        logger.addHandler(logging.StreamHandler())
+        logger.setLevel(logging.INFO)
+        args.remove('-v')
 
     kw = {}
     for arg in args:

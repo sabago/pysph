@@ -83,7 +83,6 @@ Solid = base.ParticleType.Solid
 
 fname = sys.argv[0][:-3]
 app = solver.Application(fname=fname)
-app.process_command_line()
 
 #global variables
 h = 2.097e-2
