@@ -134,8 +134,8 @@ class StressSolver(Solver):
     def get_options(self, opt_parser):
         opt = OptionGroup(opt_parser, "Stress Solver Options")
         
-        opt.add_option('--xsph_fac', action='store', type='float',
-                       dest='xsph_fac', default=self.defaults['xsph'],
+        opt.add_option('--xsph', action='store', type='float',
+                       dest='xsph', default=self.defaults['xsph'],
                        help='set the XSPH correction weight factor (default=0.5)')
         opt.add_option('--marts_eps', dest='marts_eps', type='float',
                        default=self.defaults['marts_eps'],

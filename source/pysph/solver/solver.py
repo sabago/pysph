@@ -1,21 +1,20 @@
 """ An implementation of a general solver base class """
 
-import os
-from utils import PBar, savez_compressed, savez
-import numpy
-from cl_utils import get_cl_devices, HAS_CL, create_some_context
-
-import pysph.base.api as base
+# PySPH imports
+from pysph.base.particle_types import ParticleType
+from pysph.base.carray import LongArray
+from pysph.base.kernels import CubicSplineKernel
 
 from pysph.sph.kernel_correction import KernelCorrectionManager
 from pysph.sph.sph_calc import SPHCalc, CLCalc
-import pysph.sph.api as sph
+from pysph.sph.funcs.position_funcs import PositionStepping
+from pysph.sph.funcs.xsph_funcs import XSPHCorrection
 
 from sph_equation import SPHOperation, SPHIntegration
-
 from integrator import EulerIntegrator
 from cl_integrator import CLEulerIntegrator
-
+from utils import PBar, savez_compressed, savez
+from cl_utils import get_cl_devices, HAS_CL, create_some_context
 from time_step_functions import TimeStep
 
 if HAS_CL:
@@ -24,7 +23,10 @@ if HAS_CL:
 import logging
 logger = logging.getLogger()
 
-Fluids = base.ParticleType.Fluid
+import os
+import numpy
+
+Fluids = ParticleType.Fluid
 
 class Solver(object):
     """ Base class for all PySPH Solvers
@@ -62,65 +64,79 @@ class Solver(object):
     - eps -- the epsilon value to use for XSPH stepping. 
       Defaults to -1 for no XSPH
 
-    - position_stepping_operations -- the dictionary of position stepping 
-      operations.
-    
     """
     
     def __init__(self, dim, integrator_type):
 
-        self.particles = None
         self.integrator_type = integrator_type
         self.dim = dim
 
-        self.default_kernel = base.CubicSplineKernel(dim=dim)
-
-        self.initialize()
-
-        self.with_cl = False
         self.cl_integrator_types = {EulerIntegrator:CLEulerIntegrator}
 
-        self.fname = self.__class__.__name__
-        self.output_directory = self.fname+'_output'
-        self.detailed_output = False
-
-        # set the default rank to 0
-        self.rank = 0
+        self.initialize()
 
     def initialize(self):
         """ Perform basic initializations """
 
+        # set the particles to None
         self.particles = None
+
+        # default SPH kernel
+        self.default_kernel = CubicSplineKernel(dim=self.dim)
+
+        # flag to use OpenCL
+        self.with_cl = False
+
+        # mapping between operation id's and SPHOperations
         self.operation_dict = {}
+
+        # Order of precedence for the SPHOperations
         self.order = []
+
+        # solver time and iteration count
         self.t = 0
         self.count = 0
+
         self.execute_commands = None
 
+        # list of functions to be called before and after an integration step
         self.pre_step_functions = []
         self.post_step_functions = []
+
+        # default output printing frequency
         self.pfreq = 100
 
+        # Integer identifying the type of kernel correction to use
         self.kernel_correction = -1
 
+        # the process id for parallel runs
         self.pid = None
-        self.eps = -1
 
-        self.position_stepping_operations = {}
+        # set the default rank to 0
+        self.rank = 0
 
-        # the arrays to print
+        # default function to dynamically compute time step
+        self.time_step_function = TimeStep()
+
+        # arrays to print output
         self.arrays_to_print = []
 
-        self.print_properties = ['x','u','m','h','p','rho',]
-
+        # default particle properties to print
+        self.print_properties = ['x','u','m','h','p','e','rho',]
         if self.dim > 1:
             self.print_properties.extend(['y','v'])
 
         if self.dim > 2:
             self.print_properties.extend(['z','w'])
 
-        # variable time step
-        self.time_step_function = TimeStep()
+        # flag to print all arrays 
+        self.detailed_output = False
+
+        # output filename
+        self.fname = self.__class__.__name__
+
+        # output drectory
+        self.output_directory = self.fname+'_output'
 
     def switch_integrator(self, integrator_type):
         """ Change the integrator for the solver """
@@ -154,7 +170,7 @@ class Solver(object):
         id = 'step'
         
         self.add_operation(SPHIntegration(
-            sph.PositionStepping, on_types=types, updates=updates, id=id,
+            PositionStepping, on_types=types, updates=updates, id=id,
             kernel=None)
                            )
 
@@ -189,7 +205,7 @@ class Solver(object):
                            
         self.add_operation(SPHIntegration(
 
-            sph.XSPHCorrection.withargs(eps=eps, hks=hks), from_types=types,
+            XSPHCorrection.withargs(eps=eps, hks=hks), from_types=types,
             on_types=types, updates=updates, id=id, kernel=self.default_kernel)
 
                            )
@@ -331,7 +347,7 @@ class Solver(object):
         pass
 
     def setup_integrator(self, particles=None):
-        """ Setup the integrator for the solver
+        """ Setup the solver.
 
         The solver's processor id is set if the in_parallel flag is set 
         to true.
@@ -350,13 +366,14 @@ class Solver(object):
 
             self.particles.kernel = self.default_kernel
 
+            # set the process id if in parallel
             if particles.in_parallel:
                 self.pid = particles.cell_manager.pid
 
+            # instantiate the Integrator
             self.integrator = self.integrator_type(particles, calcs=[])
 
-            # set the calcs for the integrator
-
+            # setup the SPHCalc objects for the integrator
             for equation_id in self.order:
                 operation = self.operation_dict[equation_id]
 
@@ -373,10 +390,15 @@ class Solver(object):
                 self.integrator.setup_integrator()
 
             # Setup the kernel correction manager for each calc
-
             calcs = self.integrator.calcs
             particles.correction_manager = KernelCorrectionManager(
                 calcs, self.kernel_correction)
+
+    def add_print_properties(self, props):
+        """ Add a list of properties to print """
+        for prop in props:
+            if not prop in self.print_properties:
+                self.print_properties.append(prop)            
 
     def append_particle_arrrays(self, arrays):
         """ Append the particle arrays to the existing particle arrays """
@@ -422,17 +444,11 @@ class Solver(object):
 
     def set_output_fname(self, fname):
         """ Set the output file name """
-        self.fname = fname    
+        self.fname = fname
 
     def set_output_printing_level(self, detailed_output):
         """ Set the output printing level """
         self.detailed_output = detailed_output
-
-    def add_print_properties(self, props):
-        """ Add a list of properties to print """
-        for prop in props:
-            if not prop in self.print_properties:
-                self.print_properties.append(prop)
 
     def set_output_directory(self, path):
         """ Set the output directory """
@@ -500,6 +516,7 @@ class Solver(object):
         self.count = 0
 
         dt = self.dt
+
         bt = (self.tf - self.t)/1000.0
         bcount = 0.0
         bar = PBar(1000, show=show_progress)
@@ -513,12 +530,10 @@ class Solver(object):
             self.t += dt
             self.count += 1
 
-            #update the particles explicitly
-
+            # update the particles explicitly
             self.particles.update()
 
             # perform any pre step functions
-            
             for func in self.pre_step_functions:
                 func.eval(self)
 
@@ -533,17 +548,14 @@ class Solver(object):
                                                            self.rank))
 
             # perform the integration and update the time
-
             self.integrator.integrate(dt)
             self.integrator.t += dt            
 
-            # perform any post step functions
-            
+            # perform any post step functions            
             for func in self.post_step_functions:
                 func.eval(self)
 
             # dump output
-
             if self.count % self.pfreq == 0:
                 self.dump_output(dt, *self.print_properties)
 
@@ -608,15 +620,15 @@ class Solver(object):
                 savez(_fname, dt=dt, t=self.t, cell_size=cell_size, 
                       np = pa.num_real_particles, **props)
 
-    def load_output(self, time):
-        """ load particle data from dumped output file
+    def load_output(self, count):
+        """ Load particle data from dumped output file.
 
         Parameters
         ----------
-        time : string
-            The time from which to load the data. If time is '?' then list of
-            available time data files is returned and if time is '*' then the
-            latest available data file is used
+        count : string
+            The iteration time from which to load the data. If time is
+            '?' then list of available data files is returned else 
+             the latest available data file is used
 
         Notes
         -----
@@ -626,26 +638,35 @@ class Solver(object):
         dumped
 
         """
-        if time == '?':
+        if count == '?':
             l = [i.rsplit('_',1)[1][:-4] for i in os.listdir(self.output_directory) if i.startswith(self.fname) and i.endswith('.npz')]
-            return sorted(set(l), key=float)
-        elif time == '*':
+            return sorted(set(l), key=int)
+
+        else:
+        #elif count == '*':
             l = [i.rsplit('_',1)[1][:-4] for i in os.listdir(self.output_directory) if i.startswith(self.fname) and i.endswith('.npz')]
             l = sorted(set(l), key=float)
-            time = l[-1]
+            count = l[-1]
 
         for pa in self.particles.arrays:
             name = pa.name
-            
-            data = numpy.load(os.path.join(self.output_directory, self.fname+'_'+name+'_'+time+'.npz'))
+
+            data = numpy.load(os.path.join(self.output_directory,
+                                           self.fname+'_'+name+'_'+count+'.npz'))
 
             cleared = False
-            for prop, val in data.iteritems():
-                if val.ndim==0: # constants become 0 dim arrays
+            for prop in data.files:
+                val = data[prop]
+                if val.ndim == 0:
                     pa.constants[prop] = val
+
+            # cleared = False
+            # for prop, val in data.iteritems():
+            #     if val.ndim==0: # constants become 0 dim arrays
+            #         pa.constants[prop] = val
                 else:
                     if not cleared and len(val) != pa.get_number_of_particles():
-                        idx = base.LongArray(pa.get_number_of_particles())
+                        idx = LongArray(pa.get_number_of_particles())
                         idxn = idx.get_npy_array()
                         idxn[:] = range(pa.get_number_of_particles())
                         pa.remove_particles(idx)
@@ -653,11 +674,10 @@ class Solver(object):
                     
                     pa.add_property(dict(name=prop, data=val))
 
-        self.t = float(time)
+        self.t = float(data['t'])
 
     def setup_cl(self):
         """ Setup the OpenCL context and other initializations """
-
         if HAS_CL:
             self.cl_context = create_some_context()
 

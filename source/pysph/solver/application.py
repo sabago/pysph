@@ -84,15 +84,16 @@ class Application(object):
    
         Replace '4' above with the number of processors you have.
         Below are the options you may pass.
+
         """
         parser = OptionParser(usage)
         self.opt_parse = parser
 
         # Add some default options.
         parser.add_option("-b", "--no-load-balance", action="store_true",
-                         dest="no_load_balance", default=False,
-                         help="Do not perform automatic load balancing "\
-                              "for parallel runs.")
+                          dest="no_load_balance", default=False,
+                          help="Do not perform automatic load balancing "\
+                          "for parallel runs.")
         # -v
         valid_vals = "Valid values: %s"%self._log_levels.keys()
         parser.add_option("-v", "--loglevel", action="store",
@@ -171,11 +172,6 @@ class Application(object):
                           ''.join(['%d - %-51s'%(d,s[0]) for d,s in
                                      enumerate(integration_methods)]))
 
-        # --xsph
-        parser.add_option("--xsph", action="store", dest="eps", type="float",
-                          default=None, 
-                          help="Use XSPH correction with epsilon value")
-
         # --cl
         parser.add_option("--cl", action="store_true", dest="with_cl",
                           default=False, help=""" Use OpenCL to run the
@@ -229,8 +225,11 @@ class Application(object):
                           )
 
     def _process_command_line(self):
-        """Parse any command line arguments.  Add any new options before
-        this is called.  This also sets up the logging automatically.
+        """ Parse any command line arguments.
+
+        Add any new options before this is called.  This also sets up
+        the logging automatically.
+
         """
         (options, args) = self.opt_parse.parse_args(self.args)
         self.options = options
@@ -246,16 +245,15 @@ class Application(object):
             self._setup_logging(options.logfile, level,
                                 options.print_log)
 
-    def _setup_logging(self, filename=None, 
-                      loglevel=logging.WARNING,
-                      stream=True):
-        """Setup logging for the application.
+    def _setup_logging(self, filename=None, loglevel=logging.WARNING,
+                       stream=True):
+        """ Setup logging for the application.
         
         Parameters
         ----------
         filename : The filename to log messages to.  If this is None
-                      a filename is automatically chosen and if it is an
-                      empty string, no file is used
+                   a filename is automatically chosen and if it is an
+                   empty string, no file is used
 
         loglevel : The logging level
 
@@ -265,9 +263,11 @@ class Application(object):
         # logging setup
         self.logger = logger = logging.getLogger()
         logger.setLevel(loglevel)
+
         # Setup the log file.
         if filename is None:
             filename = splitext(basename(sys.argv[0]))[0] + '.log'
+
         if len(filename) > 0:
             lfn = os.path.join(self.path,filename)
             if self.num_procs > 1:
@@ -402,8 +402,10 @@ class Application(object):
             If supplied, particles will be created for the solver using the
             particle arrays returned by the callable. Else particles for the
             solver need to be set before calling this method
+
         variable_h : bool
             If the particles created using create_particles have variable h
+
         min_cell_size : float
             minimum cell size for particles created using min_cell_size
         """
@@ -422,12 +424,10 @@ class Application(object):
         dt = self.options.time_step
         if dt is not None:
             solver.set_time_step(dt)
+
         tf = self.options.final_time
         if tf is not None:
             solver.set_final_time(tf)
-
-        # set the rank for the solver
-        solver.rank = self.rank
 
         #setup the solver output file name
         fname = self.options.output
@@ -438,6 +438,9 @@ class Application(object):
             
             if not self.num_procs == 0:
                 fname += '_' + str(rank)
+
+        # set the rank for the solver
+        solver.rank = self.rank                
 
         # output file name
         solver.set_output_fname(fname)
@@ -457,11 +460,8 @@ class Application(object):
                       kernels.kernel_names[self.options.kernel])(dim=solver.dim)
 
         # Hernquist and Katz kernel correction
-        solver.set_kernel_correction(self.options.kernel_correction)
-
-        # XSPH operation
-        if self.options.eps is not None:
-            solver.eps = self.options.eps
+        # TODO. Fix the Kernel and Gradient Correction
+        #solver.set_kernel_correction(self.options.kernel_correction)
 
         # OpenCL setup for the solver
         solver.set_cl(self.options.with_cl)
@@ -475,8 +475,9 @@ class Application(object):
                 sys.exit(0)
 
         if self.options.integration is not None:
-            solver.integrator_type = integration_methods[self.options.integration][1]
-        
+            solver.integrator_type =integration_methods[self.options.integration][1]
+
+        # setup the solver
         solver.setup_integrator(self.particles)
 
         # print options for the solver
