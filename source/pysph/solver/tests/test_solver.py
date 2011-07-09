@@ -290,7 +290,7 @@ class SolverTestCase(unittest.TestCase):
         for name,prop in s.particles.arrays[0].properties.iteritems():
             old_props[name] = prop.get_npy_array().copy()
 
-        s.dump_output()
+        s.dump_output(s.dt)
         pa.q = pa.x = pa.z
         s.load_output('*')
 
