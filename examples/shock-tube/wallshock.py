@@ -27,8 +27,8 @@ nr = 400
 np = nl + nr
 
 # Time step constants
-dt = 1e-6
-tf = 0.05
+dt = 5e-7
+tf = 0.1
 
 # Artificial Viscosity constants
 alpha = 1.0

@@ -123,7 +123,6 @@ boundary.m[:] = 1.0
 particles = base.Particles(arrays=[fluid, boundary])
 app.particles = particles
 
-
 kernel = base.HarmonicKernel(dim=2, n=3)
 
 s = solver.Solver(dim=2, integrator_type=solver.PredictorCorrectorIntegrator)

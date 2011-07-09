@@ -9,6 +9,7 @@ syntax: glob
 *.orig
 *.swp
 *.log
+*.npz
 docs/build/
 source/build/
 source/PySPH.egg-info/

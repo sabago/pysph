@@ -87,7 +87,7 @@ Fluid = base.ParticleType.Fluid
 Solid = base.ParticleType.Solid
 
 #h = 0.0156
-h = 0.0390322953
+h = 0.0390
 #h = 0.01
 dx = dy = h/1.3
 ro = 1000.0
@@ -110,7 +110,7 @@ def get_boundary_particles():
     xb1, yb1 = geom.create_2D_tank(x1=0, y1=0,
                                    x2=container_width, y2=container_height,
                                    dx=dx)
-
+    
     xb2, yb2 = geom.create_2D_tank(x1=-dx/2, y1=-dx/2,
                                    x2=container_width, y2=container_height,
                                    dx=dx)
@@ -124,7 +124,8 @@ def get_boundary_particles():
 
     cb = numpy.ones_like(xb)*co
 
-    boundary = base.get_particle_array(name="boundary", type=Solid, 
+    boundary = base.get_particle_array(cl_precision="single",
+                                       name="boundary", type=Solid, 
                                        x=xb, y=yb, h=hb, rho=rhob, cs=cb,
                                        m=mb)
 
@@ -155,8 +156,10 @@ def get_fluid_particles():
     rhof = numpy.ones_like(x) * ro
     csf = numpy.ones_like(x) * co
     
-    fluid = base.get_particle_array(name="fluid", type=Fluid,
-                                    x=x, y=y, h=hf, m=mf, rho=rhof, cs=csf)
+    fluid = base.get_particle_array(cl_precision="single",
+                                    name="fluid", type=Fluid,
+                                    x=x, y=y, h=hf, m=mf, rho=rhof,
+                                    cs=csf)
 
     return fluid
 
@@ -168,6 +171,7 @@ def get_particles(**args):
 
 
 app = solver.Application()
+
 
 integrator_type = solver.PredictorCorrectorIntegrator
 s = solver.Solver(dim=2, integrator_type=integrator_type)

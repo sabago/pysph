@@ -10,7 +10,7 @@ tf = 0.0076
 
 app = solver.Application()
 
-# use the solvers default cubic spline kernel
+# set the integrator type
 integrator_type = solver.RK2Integrator
 
 s = solver.FluidSolver(dim=2, integrator_type=integrator_type)

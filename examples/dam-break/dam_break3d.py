@@ -161,6 +161,7 @@ def get_particles(**args):
 
 
 app = solver.Application()
+
 integrator_type = solver.PredictorCorrectorIntegrator
 
 s = solver.Solver(dim=2, integrator_type=integrator_type)
