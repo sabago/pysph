@@ -108,7 +108,6 @@ def get_particles(**kwargs):
 app = solver.Application()
 
 
-
 # define the solver and kernel
 s = solver.Solver(dim=1, integrator_type=solver.RK2Integrator)
 

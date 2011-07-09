@@ -95,13 +95,18 @@ class StressSolver(Solver):
         
         Parameters
         ----------
+
         xsph : float
             correction factor for xsph (0=disabled, default=0.5)
+
         marts_eps : float
             correction factor epsilon for Monaghan's artificial stress term
             (0=disabled, default=0.3)
+
         marts_n : float
-            correction factor kernel exponent for Monaghan's artificial stress term
+            correction factor kernel exponent for Monaghan's
+            artificial stress term
+
         CFL : float or None
             the CFL number if time-step is to be based on CFL (use < 0.3)
 
@@ -142,6 +147,7 @@ class StressSolver(Solver):
         opt.add_option('--martv_alpha', dest='martv_alpha', type='float',
                        default=self.defaults['martv_alpha'],
                        help='set the Monaghan artificial viscosity alpha (1)')
+        
         opt.add_option('--martv_beta', dest='martv_beta', type='float',
                        default=self.defaults['martv_beta'],
                        help='set the Monaghan artificial viscosity beta (1)')
@@ -175,100 +181,111 @@ class StressSolver(Solver):
 
         if xsph:
             self.add_operation(SPHOperation(
-                    sph.XSPHCorrection.withargs(eps=xsph, hks=False),
-                    from_types=[Solids], on_types=[Solids],
-                    updates=['ubar','vbar','wbar'],
-                    id='xsphcorr')
-                               )
+                
+                sph.XSPHCorrection.withargs(eps=xsph, hks=False),
+                from_types=[Solids], on_types=[Solids],
+                updates=['ubar','vbar','wbar'],
+                id='xsphcorr')
 
+                               )
+        # Monaghan Artificial Stress operations
         if marts_eps:
-            # Monaghan Artificial Stress operations
             self.add_operation(SPHOperation(
-                    stress_funcs.MonaghanArtStressD.withargs(eps=marts_eps),
-                    on_types=[Solids],
-                    updates=['MArtStress00','MArtStress11','MArtStress22'],
-                    id='mart_stress_d')
+                
+                stress_funcs.MonaghanArtStressD.withargs(eps=marts_eps),
+                on_types=[Solids],
+                updates=['MArtStress00','MArtStress11','MArtStress22'],
+                id='mart_stress_d')
                                )
             
             self.add_operation(SPHOperation(
-                    stress_funcs.MonaghanArtStressS.withargs(eps=marts_eps),
-                    on_types=[Solids],
-                    updates=['MArtStress12','MArtStress02','MArtStress01'],
-                    id='mart_stress_s')
+
+                stress_funcs.MonaghanArtStressS.withargs(eps=marts_eps),
+                on_types=[Solids],
+                updates=['MArtStress12','MArtStress02','MArtStress01'],
+                id='mart_stress_s')
                                )
             
             self.add_operation(SPHIntegration(
-                    stress_funcs.MonaghanArtStressAcc.withargs(n=marts_n),
-                    from_types=[Fluids, Solids], on_types=[Solids],
-                    updates=['u','v','w'],
-                    id='mart_stressacc')
+                
+                stress_funcs.MonaghanArtStressAcc.withargs(n=marts_n),
+                from_types=[Fluids, Solids], on_types=[Solids],
+                updates=['u','v','w'],
+                id='mart_stressacc')
                                )
 
         if xsph:
             self.add_operation(SPHIntegration(
-                    sph.XSPHDensityRate.withargs(hks=False),
-                    from_types=[Solids], on_types=[Solids],
-                    updates=['rho'],
-                    id='density')
+
+                sph.XSPHDensityRate.withargs(hks=False),
+                from_types=[Solids], on_types=[Solids],
+                updates=['rho'],
+                id='density')
                                )
         else:
             self.add_operation(SPHIntegration(
-                    sph.SPHDensityRate.withargs(hks=False),
-                    from_types=[Solids], on_types=[Solids],
-                    updates=['rho'],
-                    id='density')
+
+                sph.SPHDensityRate.withargs(hks=False),
+                from_types=[Solids], on_types=[Solids],
+                updates=['rho'],
+                id='density')
                                )
 
 
         self.add_operation(SPHIntegration(
-                stress_funcs.SimpleStressAcceleration,
-                from_types=[Fluids, Solids], on_types=[Solids],
-                updates=['u','v','w'],
-                id='stressacc')
-            )
 
+            stress_funcs.SimpleStressAcceleration,
+            from_types=[Fluids, Solids], on_types=[Solids],
+            updates=['u','v','w'],
+            id='stressacc')
+                           )        
 
         self.add_operation(SPHIntegration(
-                stress_funcs.PressureAcceleration.withargs(alpha=martv_alpha,
-                                                           beta=martv_beta,
-                                                           eta=0.0),
-                from_types=[Fluids, Solids], on_types=[Solids],
-                updates=['u','v','w'],
-                id='pacc')
-            )
+
+            stress_funcs.PressureAcceleration.withargs(alpha=martv_alpha,
+                                                       beta=martv_beta,
+                                                       eta=0.0),
+            from_types=[Fluids, Solids], on_types=[Solids],
+            updates=['u','v','w'],
+            id='pacc')
+                           )
         
         self.add_operation(SPHIntegration(
-                stress_funcs.StressRateD.withargs(xsph=bool(xsph)),
-                from_types=[Fluids, Solids], on_types=[Solids],
-                updates=['sigma00','sigma11','sigma22'],
-                id='stressD')
-            )
+
+            stress_funcs.StressRateD.withargs(xsph=bool(xsph)),
+            from_types=[Fluids, Solids], on_types=[Solids],
+            updates=['sigma00','sigma11','sigma22'],
+            id='stressD')
+                           )
         
         self.add_operation(SPHIntegration(
-                stress_funcs.StressRateS.withargs(xsph=bool(xsph)),
-                from_types=[Fluids, Solids], on_types=[Solids],
-                updates=['sigma12','sigma02','sigma01'],
-                id='stressS')
-            )
-
+            
+            stress_funcs.StressRateS.withargs(xsph=bool(xsph)),
+            from_types=[Fluids, Solids], on_types=[Solids],
+            updates=['sigma12','sigma02','sigma01'],
+            id='stressS')
+                           )
+        
 
         # position stepping
         self.add_operation(SPHIntegration(
-                sph.PositionStepping,
-                on_types=[Solids],
-                updates=['x','y','z'],
-                id='pos')
+
+            sph.PositionStepping,
+            on_types=[Solids],
+            updates=['x','y','z'],
+            id='pos')
                            )
 
+        # xsph correction to position stepping
         if xsph:
-            # xsph correction to position stepping
             self.add_operation(SPHIntegration(
-                    PropertyGet.withargs(prop_names=['ubar','vbar','wbar'][:self.dim]),
-                    on_types=[Solids],
-                    updates=['x','y','z'][:self.dim],
-                    id='xsph_pos')
-                               )
 
+                PropertyGet.withargs(prop_names=['ubar','vbar','wbar'][:self.dim]),
+                on_types=[Solids],
+                updates=['x','y','z'][:self.dim],
+                id='xsph_pos')
+                               )
+            
         #self.add_operation_step([Solids])
         #self.add_operation_xsph(eps=0.5, hks=False)
 

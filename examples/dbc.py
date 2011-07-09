@@ -114,9 +114,7 @@ boundary = base.get_particle_array(name="boundary", type=1, x=xb, y=yb,
 particles = base.Particles(arrays=[boundary,fluid])
 app.particles = particles
 
-
 s = solver.Solver(dim=2, integrator_type=solver.EulerIntegrator)
-
 
 #Equation of state
 s.add_operation(solver.SPHOperation(

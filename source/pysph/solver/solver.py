@@ -528,6 +528,7 @@ class Solver(object):
 
             # compute the global time step
             dt = self.compute_global_time_step(dt)
+            
             logger.info("Time %f, time step %f, rank  %d"%(self.t, dt,
                                                            self.rank))
 
@@ -546,7 +547,10 @@ class Solver(object):
             if self.count % self.pfreq == 0:
                 self.dump_output(dt, *self.print_properties)
 
-            bar.update()
+            bcount += self.dt/bt
+            while bcount > 0:
+                bar.update()
+                bcount -= 1
         
             if self.execute_commands is not None:
                 if self.count % self.command_interval == 0:
