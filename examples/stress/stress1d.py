@@ -105,13 +105,13 @@ class FixedBoundary(SPHFunction):
             self.dest.get(prop)[self.indices] = self.values[i]
 
 # use the solvers default cubic spline kernel
-s = StressSolver(dim=1, integrator_type=solver.LeapFrogIntegrator, xsph=0.5, marts_eps=0.3, marts_n=4, CFL=None)
+s = StressSolver(dim=1, integrator_type=solver.PredictorCorrectorIntegrator, xsph=0.5, marts_eps=0.3, marts_n=4, CFL=None)
 
 # can be overriden by commandline arguments
 s.set_time_step(1e-7)
 s.set_final_time(1e-3)
 
-app.set_solver(s, create_particles)
+app.set_solver(s, callable=create_particles)
 particles = s.particles
 pa = particles.arrays[0]
 

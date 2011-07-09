@@ -71,11 +71,20 @@ def get_cl_include():
 
     PYSPH_ROOT = get_pysph_root()
 
-    inc_dir = '-I'+path.join(PYSPH_ROOT, 'base') + " " + \
-              '-I'+path.join(PYSPH_ROOT, 'solver')
+    if cl.version.VERSION_TEXT == "2011.1beta3":
+
+        inc_dir = '-I'+path.join(PYSPH_ROOT, 'base') + " " + \
+                  '-I'+path.join(PYSPH_ROOT, 'solver')
+
+    elif cl.version.VERSION_TEXT == "2011.1.1":
+
+        inc_dir = ["-I" + path.join(PYSPH_ROOT, "base"),
+                   "-I" + path.join(PYSPH_ROOT, "solver") ]
+        
+    else:
+        raise RuntimeWarning("Not supported yet")
 
     return inc_dir
-
 
 def get_scalar_buffer(val, dtype, ctx):
     """ Return a cl.Buffer object that can be passed as a scalar to kernels """
@@ -192,3 +201,28 @@ def create_program(template, func, loc=None):
     neighbor_loop_code = "for (int src_id=0; src_id<nbrs; ++src_id)"
 
     return template%(locals())
+
+def enqueue_copy(queue, src, dst):
+
+    if cl.version.VERSION_TEXT == "2011.1beta3":
+
+        if ( isinstance(dst, cl.Buffer) ):
+
+            if ( isinstance(src, cl.Buffer) ):
+
+                # device to device copy
+                cl.enqueue_copy_buffer(queue, src=src, dst=dst)
+
+            elif ( isinstance(src, numpy.ndarray) ):
+
+                # host to device copy
+                cl.enqueue_write_buffer(queue, mem=dst, hostbuf=src)
+
+        elif ( isinstance(src, cl.Buffer) ):
+
+            cl.enqueue_read_buffer(queue, mem=src, hostbuf=dst)
+
+    elif cl.version.VERSION_TEXT == "2011.1.1":
+        cl.enqueue_copy(queue, dest=dst, src=src).wait()
+
+    queue.finish()

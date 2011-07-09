@@ -5,6 +5,14 @@ from pysph.solver.cl_utils import get_real
 
 cdef extern from "math.h":
     double sqrt(double)
+    double fabs(double)
+    double pow(double, double)
+
+cdef inline max(double a, double b):
+    if a < b:
+        return b
+    else:
+        return a
 
 ################################################################################
 # `SPHPressureGradient` class.
@@ -18,10 +26,20 @@ cdef class SPHPressureGradient(SPHFunctionParticle):
     """
 
     def __init__(self, ParticleArray source, ParticleArray dest,
-                 bint setup_arrays=True, **kwargs):
+                 bint setup_arrays=True, double deltap=-1, double n=1,
+                 double epsp=0.01, double epsm=0.2,
+                 **kwargs):
         
         SPHFunctionParticle.__init__(self, source, dest, setup_arrays,
                                      **kwargs)
+
+        self.deltap = deltap
+        self.n = n
+        self.epsp = epsp
+        self.epsm = epsm
+
+        if deltap > 0:
+            self.with_correction = True
 
         self.id = 'pgrad'
         self.tag = "velocity"
@@ -50,10 +68,14 @@ cdef class SPHPressureGradient(SPHFunctionParticle):
         cdef double h = 0.5*(ha + hb)
 
         cdef double temp = 0.0
+        cdef double Ra, Rb, rhoa2, rhob2, fab, w, wa, wb
 
         cdef cPoint grad
         cdef cPoint grada
         cdef cPoint gradb
+
+        cdef cPoint _ra, _rb
+        cdef double wdeltap, wdeltap1, wdeltap2
 
         self._src.x = self.s_x.data[source_pid]
         self._src.y = self.s_y.data[source_pid]
@@ -63,16 +85,68 @@ cdef class SPHPressureGradient(SPHFunctionParticle):
         self._dst.y = self.d_y.data[dest_pid]
         self._dst.z = self.d_z.data[dest_pid]
 
-        temp = (pa/(rhoa*rhoa) + pb/(rhob*rhob))
+        rhoa2 = 1.0/(rhoa*rhoa)
+        rhob2 = 1.0/(rhob*rhob)
+
+        temp = pa*rhoa2 + pb*rhob2
+
+        #temp = (pa/(rhoa*rhoa) + pb/(rhob*rhob))
+
+        # Artificial pressure
+        if self.with_correction:
+            if pa > 0:
+                Ra = self.epsp * pa
+            else:
+                Ra = -self.epsm * pa
+
+            Ra = Ra * rhoa2
+
+            if pb > 0:
+                Rb = self.epsp * pb
+            else:
+                Rb = -self.epsm * pb
+
+            Rb = Rb * rhob2
+
+            if self.hks:
+                wa = kernel.function(self._dst, self._src, ha)
+                wb = kernel.function(self._dst, self._src, hb)
+                w = 0.5 * (wa + wb)
+
+                _ra = cPoint_new(ha * self.deltap, 0.0, 0.0)
+                _rb = cPoint_new(0.0, 0.0, 0.0)
+                wdeltap1 = kernel.function(_ra, _rb, ha)
+
+                _ra = cPoint_new(hb * self.deltap, 0.0, 0.0)
+                wdeltap2 = kernel.function(_ra, _rb, hb)
+                
+                wdeltap = 0.5 * (wdeltap1 + wdeltap2)            
+            
+            else:
+                w = kernel.function(self._dst, self._src, h)
+
+                _ra = cPoint(h *self.deltap, 0.0, 0.0)
+                _rb = cPoint(0.0, 0.0, 0.0)
+                wdeltap = kernel.function(_ra, _rb, h)
+                
+                fab = w/wdeltap
+                fab = pow(fab, self.n)
+            
+                temp = temp + (Ra+Rb)*fab
+        
         temp *= -mb
 
         if self.hks:
             grada = kernel.gradient(self._dst, self._src, ha)
             gradb = kernel.gradient(self._dst, self._src, hb)
 
-            grad.set((grada.x + gradb.x)*0.5,
-                     (grada.y + gradb.y)*0.5,
-                     (grada.z + gradb.z)*0.5)
+            grad.x = (grada.x + gradb.x) * 0.5
+            grad.y = (grada.y + gradb.y) * 0.5
+            grad.z = (grada.z + gradb.z) * 0.5
+
+            # grad.set((grada.x + gradb.x)*0.5,
+            #          (grada.y + gradb.y)*0.5,
+            #          (grada.z + gradb.z)*0.5)
 
         else:            
             grad = kernel.gradient(self._dst, self._src, h)
@@ -112,8 +186,9 @@ cdef class MomentumEquation(SPHFunctionParticle):
     #cdef public double eta
 
     def __init__(self, ParticleArray source, ParticleArray dest, 
-                 bint setup_arrays=True, alpha=1, beta=1, gamma=1.4, 
-                 eta=0.1, **kwargs):
+                 bint setup_arrays=True, alpha=1, beta=1, gamma=1.4,
+                 eta=0.1, double deltap=-1, double n=1, double epsp=0.01,
+                 double epsm=0.2, **kwargs):
 
         SPHFunctionParticle.__init__(self, source, dest, setup_arrays,
                                      **kwargs)
@@ -122,6 +197,14 @@ cdef class MomentumEquation(SPHFunctionParticle):
         self.beta = beta
         self.gamma = gamma
         self.eta = eta
+    
+        self.deltap = deltap
+        self.n = n
+        self.epsp = epsp
+        self.epsm = epsm
+
+        if deltap > 0:
+            self.with_correction = True
 
         self.id = 'momentumequation'
         self.tag = "velocity"
@@ -129,10 +212,24 @@ cdef class MomentumEquation(SPHFunctionParticle):
         self.cl_kernel_src_file = "pressure_funcs.clt"
         self.cl_kernel_function_name = "MomentumEquation"
 
+        self.to_reset = ['dt_fac']
+
     def set_src_dst_reads(self):
         self.src_reads = ['x','y','z','h','m','rho','p','u','v','w','cs']
         self.dst_reads = ['x','y','z','h','rho','p',
                           'u','v','w','cs','tag']
+
+    cpdef setup_arrays(self):
+        """
+        """
+        SPHFunctionParticle.setup_arrays(self)
+
+        if not self.dest.properties.has_key("dt_fac"):
+            self.dest.add_property( {'name':'dt_fac'} )
+
+        self.d_dt_fac = self.dest.get_carray("dt_fac")
+
+        self.dst_reads.append("dt_fac")
 
     def _set_extra_cl_args(self):
         self.cl_args.append( get_real(self.alpha, self.dest.cl_precision) )
@@ -159,6 +256,12 @@ cdef class MomentumEquation(SPHFunctionParticle):
         cdef DoubleArray xgc, ygc, zgc
 
         cdef double hab = 0.5*(ha + hb)
+        cdef double dt_fac, rab2
+
+        cdef double rhoa2, rhob2, Ra, Rb, fab, w, wa, wb
+
+        cdef cPoint _ra, _rb
+        cdef double wdeltap, wdeltap1, wdeltap2
 
         self._src.x = self.s_x.data[source_pid]
         self._src.y = self.s_y.data[source_pid]
@@ -182,6 +285,12 @@ cdef class MomentumEquation(SPHFunctionParticle):
         vab.z = self.d_w.data[dest_pid]-self.s_w.data[source_pid]
         
         dot = cPoint_dot(vab, rab)
+
+        # compute the factor used to determine the viscous time step limit
+        rab2 = cPoint_norm(rab)
+        dt_fac = fabs( hab * dot / (rab2) )
+        self.d_dt_fac.data[dest_pid] = max( self.d_dt_fac.data[dest_pid],
+                                            dt_fac )
     
         Pa = self.d_p.data[dest_pid]
         rhoa = self.d_rho.data[dest_pid]        
@@ -190,7 +299,54 @@ cdef class MomentumEquation(SPHFunctionParticle):
         rhob = self.s_rho.data[source_pid]
         mb = self.s_m.data[source_pid]
 
-        tmp = Pa/(rhoa*rhoa) + Pb/(rhob*rhob)
+        rhoa2 = 1.0/(rhoa*rhoa)
+        rhob2 = 1.0/(rhob*rhob)
+
+        tmp = Pa*rhoa2 + Pb*rhob2        
+        #tmp = Pa/(rhoa*rhoa) + Pb/(rhob*rhob)
+
+        # Artificial pressure
+        if self.with_correction:
+            if Pa > 0:
+                Ra = self.epsp * Pa
+            else:
+                Ra = -self.epsm * Pa
+
+            Ra = Ra * rhoa2
+
+            if Pb > 0:
+                Rb = self.epsp * Pb
+            else:
+                Rb = -self.epsm * Pb
+
+            Rb = Rb * rhob2
+
+            if self.hks:
+                wa = kernel.function(self._dst, self._src, ha)
+                wb = kernel.function(self._dst, self._src, hb)
+                w = 0.5 * (wa + wb)
+
+                _ra = cPoint_new(ha * self.deltap, 0.0, 0.0)
+                _rb = cPoint_new(0.0,0.0,0.0)
+
+                wdeltap1 = kernel.function(_ra, _rb, ha)
+
+                _ra = cPoint_new(hb * self.deltap, 0.0, 0.0)
+                wdeltap2 = kernel.function(_ra, _rb, hb)
+
+                wdeltap = 0.5 * (wdeltap1 + wdeltap2)
+            
+            else:
+                w = kernel.function(self._dst, self._src, hab)
+
+                _ra = cPoint_new(hab * self.deltap, 0.0, 0.0)
+                _rb = cPoint_new(0.0, 0.0, 0.0)
+
+                wdeltap = kernel.function(_ra, _rb, hab)
+
+            fab = w/wdeltap
+            fab = pow(fab, self.n)
+            tmp = tmp + (Ra+Rb)*fab
         
         piab = 0
         if dot < 0:
@@ -204,7 +360,7 @@ cdef class MomentumEquation(SPHFunctionParticle):
             rhoab = 0.5 * (rhoa + rhob)
 
             mu = hab*dot
-            mu /= (cPoint_norm(rab) + eta*eta*hab*hab)
+            mu /= (rab2 + eta*eta*hab*hab)
             
             piab = -alpha*cab*mu + beta*mu*mu
             piab /= rhoab
@@ -221,9 +377,13 @@ cdef class MomentumEquation(SPHFunctionParticle):
             grada = kernel.gradient(self._dst, self._src, ha)
             gradb = kernel.gradient(self._dst, self._src, hb)
             
-            grad.set((grada.x + gradb.x)*0.5,
-                     (grada.y + gradb.y)*0.5,
-                     (grada.z + gradb.z)*0.5)
+            grad.x = (grada.x + gradb.x) * 0.5
+            grad.y = (grada.y + gradb.y) * 0.5
+            grad.z = (grada.z + gradb.z) * 0.5
+
+            # grad.set((grada.x + gradb.x)*0.5,
+            #          (grada.y + gradb.y)*0.5,
+            #          (grada.z + gradb.z)*0.5)
 
         else:
             grad = kernel.gradient(self._dst, self._src, hab)

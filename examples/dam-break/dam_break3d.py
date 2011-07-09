@@ -87,7 +87,7 @@ Fluid = base.ParticleType.Fluid
 Solid = base.ParticleType.Solid
 
 #h = 0.0156
-h = 0.0390322953
+h = 0.039
 #h = 0.01
 dx = dy = h/1.3
 ro = 1000.0
@@ -107,25 +107,22 @@ B = co*co*ro/gamma
 def get_boundary_particles():
     """ Get the particles corresponding to the dam and fluids """
     
-    xb1, yb1 = geom.create_2D_tank(x1=0, y1=0,
-                                   x2=container_width, y2=container_height,
-                                   dx=dx)
-
-    xb2, yb2 = geom.create_2D_tank(x1=-dx/2, y1=-dx/2,
-                                   x2=container_width, y2=container_height,
-                                   dx=dx)
+    xb1, yb1, zb1 = geom.create_3D_tank(0, 0, 0, container_width, container_height, container_width/2, dx)
+    xb2, yb2, zb2 = geom.create_3D_tank(-dx/2, -dx/2, -dx/2, container_width, container_height,
+                                        container_width/2, dx)
 
     xb = numpy.concatenate((xb1, xb2))
     yb = numpy.concatenate((yb1, yb2))
+    zb = numpy.concatenate((zb1, zb2))
 
     hb = numpy.ones_like(xb)*h
-    mb = numpy.ones_like(xb)*dx*dy*ro*0.5
+    mb = numpy.ones_like(xb)*dx*dy*dx*ro*0.5
     rhob = numpy.ones_like(xb) * ro
 
     cb = numpy.ones_like(xb)*co
 
     boundary = base.get_particle_array(name="boundary", type=Solid, 
-                                       x=xb, y=yb, h=hb, rho=rhob, cs=cb,
+                                       x=xb, y=yb, z=zb, h=hb, rho=rhob, cs=cb,
                                        m=mb)
 
     print 'Number of Boundary particles: ', len(xb)
@@ -134,29 +131,25 @@ def get_boundary_particles():
 
 def get_fluid_particles():
     
-    xf1, yf1 = geom.create_2D_filled_region(x1=dx, y1=dx,
-                                            x2=fluid_collumn_width,
-                                            y2=fluid_collumn_height,
-                                            dx=dx)
+    xf1, yf1, zf1 = geom.create_3D_filled_region(dx, dx, dx,fluid_collumn_width, fluid_collumn_height,
+                                                 fluid_collumn_width/2, dx)
 
-    xf2, yf2 = geom.create_2D_filled_region(x1=dx/2, y1=dx/2,
-                                            x2=fluid_collumn_width,
-                                            y2=fluid_collumn_height,
-                                            dx=dx)
-    
+    xf2, yf2, zf2  = geom.create_3D_filled_region(dx/2, dx/2, dx/2, fluid_collumn_width, fluid_collumn_height,
+                                                  fluid_collumn_width/2, dx)
 
     x = numpy.concatenate((xf1, xf2))
     y = numpy.concatenate((yf1, yf2))
+    z = numpy.concatenate((zf1, zf2))
 
     print 'Number of fluid particles: ', len(x)
 
     hf = numpy.ones_like(x) * h
-    mf = numpy.ones_like(x) * dx * dy * ro * 0.5
+    mf = numpy.ones_like(x) * dx * dy * dx * ro * 0.5
     rhof = numpy.ones_like(x) * ro
     csf = numpy.ones_like(x) * co
     
     fluid = base.get_particle_array(name="fluid", type=Fluid,
-                                    x=x, y=y, h=hf, m=mf, rho=rhof, cs=csf)
+                                    x=x, y=y, z=z, h=hf, m=mf, rho=rhof, cs=csf)
 
     return fluid
 
@@ -168,8 +161,8 @@ def get_particles(**args):
 
 
 app = solver.Application()
-
 integrator_type = solver.PredictorCorrectorIntegrator
+
 s = solver.Solver(dim=2, integrator_type=integrator_type)
 
 kernel = base.CubicSplineKernel(dim=2)
@@ -198,30 +191,30 @@ s.add_operation(solver.SPHIntegration(
                 )
 
 #momentum equation
-s.add_operation(solver.SPHIntegration(
+# s.add_operation(solver.SPHIntegration(
         
-    sph.MomentumEquation.withargs(alpha=alpha, beta=0.0, hks=False,
-                                  deltap=deltap, n=n),
-    on_types=[Fluid], from_types=[Fluid, Solid],  
-    updates=['u','v'], id='mom')
+#     sph.MomentumEquation.withargs(alpha=alpha, beta=0.0, hks=False,
+#                                   deltap=deltap, n=n),
+#     on_types=[Fluid], from_types=[Fluid, Solid],  
+#     updates=['u','v'], id='mom')
                     
-                 )
+#                  )
 
-#s.add_operation(solver.SPHIntegration(
+s.add_operation(solver.SPHIntegration(
     
-#    sph.SPHPressureGradient.withargs(),
-#    on_types=[Fluid], from_types=[Fluid,Solid],
-#    updates=['u','v'], id='pgrad')
+   sph.SPHPressureGradient.withargs(),
+   on_types=[Fluid], from_types=[Fluid,],
+   updates=['u','v','z'], id='pgrad')
 
-#                )
+               )
 
-#s.add_operation(solver.SPHIntegration(
+s.add_operation(solver.SPHIntegration(
 
-#    sph.MonaghanArtificialVsicosity.withargs(alpha=alpha, beta=0.0),
-#    on_types=[Fluid], from_types=[Fluid,Solid],
-#    updates=['u','v'], id='avisc')
+   sph.MonaghanArtificialVsicosity.withargs(alpha=alpha, beta=0.0),
+   on_types=[Fluid], from_types=[Fluid,Solid],
+   updates=['u','v','z'], id='avisc')
 
-#                )
+               )
 
 
 #Gravity force
@@ -229,7 +222,7 @@ s.add_operation(solver.SPHIntegration(
         
     sph.GravityForce.withargs(gy=-9.81),
     on_types=[Fluid],
-    updates=['u','v'],id='gravity')
+    updates=['u','v','z'],id='gravity')
                 
                 )
 
@@ -243,8 +236,6 @@ dt = 1.25e-4
 s.set_final_time(3.0)
 s.set_time_step(dt)
 
-
-
 app.set_solver(
     solver=s,
     variable_h=False, callable=get_particles, min_cell_size=4*h,
@@ -257,9 +248,6 @@ app.set_solver(
 s.time_step_function = solver.ViscousTimeStep(co=co,cfl=0.3,
                                               particles=s.particles)
 
-#s.time_step_function = solver.ViscousAndForceBasedTimeStep(co=co, cfl=0.3,
-#                                                           particles=s.particles)
-
 if app.options.with_cl:
     msg = """\n\n
 You have chosen to run the example with OpenCL support.  The only
@@ -268,6 +256,6 @@ integrator. This integrator will be used instead of the default
 predictor corrector integrator for this example.\n\n
 """
     warnings.warn(msg)
-    integrator_type = solver.EulerIntegrator
+    integrator_type = solver.EulerIntegrator    
 
 app.run()

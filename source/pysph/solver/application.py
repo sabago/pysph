@@ -22,6 +22,12 @@ except ImportError:
 else:
     from pysph.parallel.load_balancer import LoadBalancer
 
+
+def list_option_callback(option, opt, value, parser):
+    val = value.split(',')
+    val.extend( parser.rargs )
+    setattr( parser.values, option.dest, val )
+
 ##############################################################################
 # `Application` class.
 ############################################################################## 
@@ -172,8 +178,16 @@ class Application(object):
 
         # --cl
         parser.add_option("--cl", action="store_true", dest="with_cl",
-                          default=False, help="""Use OpenCL to run the
+                          default=False, help=""" Use OpenCL to run the
                           simulation on an appropriate device """)
+
+        # --arrays_to_print
+        parser.add_option("--arrays_to_print", action="callback",
+                          callback=list_option_callback,
+                          dest="arrays_to_print",
+                          type="string",
+                          help="""Only print solution properties for this list
+                          of arrays""")
         
         # solver interfaces
         interfaces = OptionGroup(parser, "Interfaces",
@@ -353,7 +367,8 @@ class Application(object):
             for o in opt:
                 self.add_option(o)
 
-    def set_solver(self, solver, create_particles=None, var_h=False, min_cell_size=-1):
+    def set_solver(self, solver, callable=None,
+                   variable_h=False, min_cell_size=-1, **kwargs):
         """Set the application's solver.  This will call the solver's
         `setup_integrator` method.
 
@@ -383,11 +398,11 @@ class Application(object):
 
         Parameters
         ----------
-        create_particles : callable or None
+        callable : callable or None
             If supplied, particles will be created for the solver using the
             particle arrays returned by the callable. Else particles for the
             solver need to be set before calling this method
-        var_h : bool
+        variable_h : bool
             If the particles created using create_particles have variable h
         min_cell_size : float
             minimum cell size for particles created using min_cell_size
@@ -398,8 +413,9 @@ class Application(object):
             self.add_option(solver_opts)
         self._process_command_line()
 
-        if create_particles:
-            self._create_particles(var_h, create_particles, min_cell_size)
+        if callable:
+            self._create_particles(variable_h, callable, min_cell_size,
+                                   **kwargs)
 
         self._solver.setup_solver(self.options.__dict__)
 
@@ -460,6 +476,9 @@ class Application(object):
         
         solver.setup_integrator(self.particles)
 
+        # print options for the solver
+        solver.set_arrays_to_print(self.options.arrays_to_print)
+        
         # add solver interfaces
         self.command_manager = CommandManager(solver, self.comm)
         solver.set_command_handler(self.command_manager.execute_commands)
@@ -478,6 +497,7 @@ class Application(object):
                 host = "0.0.0.0" if idx == -1 else addr[:idx]
                 port = int(addr[idx+1:])
                 self.command_manager.add_interface(XMLRPCInterface((host,port)).start)
+        
             # python MultiProcessing interface
             if self.options.multiproc:
                 from pysph.solver.solver_interfaces import MultiprocessingInterface

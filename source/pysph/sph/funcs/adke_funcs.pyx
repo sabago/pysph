@@ -203,10 +203,14 @@ cdef class SPHVelocityDivergence(SPHFunctionParticle):
         if self.hks:
             grada = kernel.gradient(self._dst, self._src, ha)
             gradb = kernel.gradient(self._dst, self._src, hb)
+
+            grad.x = (grada.x + gradb.x) * 0.5
+            grad.y = (grada.y + gradb.y) * 0.5
+            grad.z = (grada.z + gradb.z) * 0.5
             
-            grad.set((grada.x + gradb.x)*0.5,
-                     (grada.y + gradb.y)*0.5,
-                     (grada.z + gradb.z)*0.5)
+            #grad.set((grada.x + gradb.x)*0.5,
+            #         (grada.y + gradb.y)*0.5,
+            #         (grada.z + gradb.z)*0.5)
 
         else:            
             grad = kernel.gradient(self._dst, self._src, h)

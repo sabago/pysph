@@ -98,7 +98,8 @@ class FixedBoundary(SPHFunction):
 
 CFL=None
 # use the solvers default cubic spline kernel
-s = StressSolver(dim=2, integrator_type=solver.LeapFrogIntegrator, xsph=0.5, marts_eps=0.3, marts_n=4, CFL=CFL)
+s = StressSolver(dim=2, integrator_type=solver.PredictorCorrectorIntegrator,
+                 xsph=0.5, marts_eps=0.3, marts_n=4, CFL=CFL)
 
 dt = 1e-8
 tf = 1e-3
@@ -106,7 +107,7 @@ s.set_time_step(dt)
 s.set_final_time(tf)
 s.pfreq = 100
 
-app.set_solver(s, create_particles)
+app.set_solver(s, callable=create_particles)
 
 particles = s.particles
 pa = particles.arrays[0]

@@ -2,6 +2,7 @@
 #define TRUE 1
 
 #pragma OPENCL EXTENSION cl_khr_global_int32_base_atomics : enable
+#pragma OPENCL EXTENSION cl_amd_printf: enable
 
 /** 
  * @brief Accquire a lock on a global variable
@@ -77,23 +78,26 @@ __kernel void bin(__global const REAL *x,
 		  uint const ncx,
 		  uint const ncy,
 		  uint const ncz,
-		  REAL const cell_size
+		  REAL const cell_size,
+		  int const mcx, 
+		  int const mcy,
+		  int const mcz
 		  )			    
 {
 
   unsigned int gid = get_global_id(0);
   
-  REAL cell_size1 = 1.0F/cell_size;
-  
-  unsigned int _ix = (int)( ( x[gid]-mx ) * cell_size1 );
-  unsigned int _iy = (int)( ( y[gid]-my ) * cell_size1 );
-  unsigned int _iz = (int)( ( z[gid]-mz ) * cell_size1 );
+  int IX = (int)floor( x[gid]/cell_size );
+  int IY = (int)floor( y[gid]/cell_size );
+  int IZ = (int)floor( z[gid]/cell_size );
 
-  ix[gid] = _ix;
-  iy[gid] = _iy;
-  iz[gid] = _iz;
+  ix[gid] = (IX - mcx);
+  iy[gid] = (IY - mcy);
+  iz[gid] = (IZ - mcz);
   
-  unsigned int cellid = _iz * (ncx*ncy) + _iy * ncx + _ix;
+  //unsigned int cellid = _iz * (ncx*ncy) + _iy * ncx + _ix;
+
+  unsigned int cellid = (IZ - mcz) * (ncx*ncy) + (IY - mcy)*ncx + (IX - mcx);
 
   cellids[gid] = cellid;
 

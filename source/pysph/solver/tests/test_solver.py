@@ -267,13 +267,7 @@ class SolverTestCase(unittest.TestCase):
 
         calcs = i.calcs
 
-        pcalcs = i.pcalcs
-
-        icalcs = i.icalcs
-
         self.assertEqual(len(calcs), 6)
-
-        self.assertEqual(len(pcalcs), 2)
 
     def test_load_output(self):
         

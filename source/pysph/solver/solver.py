@@ -16,6 +16,8 @@ from sph_equation import SPHOperation, SPHIntegration
 from integrator import EulerIntegrator
 from cl_integrator import CLEulerIntegrator
 
+from time_step_functions import TimeStep
+
 if HAS_CL:
     import pyopencl as cl
 
@@ -82,6 +84,9 @@ class Solver(object):
         self.output_directory = self.fname+'_output'
         self.detailed_output = False
 
+        # set the default rank to 0
+        self.rank = 0
+
     def initialize(self):
         """ Perform basic initializations """
 
@@ -103,6 +108,9 @@ class Solver(object):
 
         self.position_stepping_operations = {}
 
+        # the arrays to print
+        self.arrays_to_print = []
+
         self.print_properties = ['x','u','m','h','p','rho',]
 
         if self.dim > 1:
@@ -110,6 +118,9 @@ class Solver(object):
 
         if self.dim > 2:
             self.print_properties.extend(['z','w'])
+
+        # variable time step
+        self.time_step_function = TimeStep()
 
     def switch_integrator(self, integrator_type):
         """ Change the integrator for the solver """
@@ -181,7 +192,7 @@ class Solver(object):
             sph.XSPHCorrection.withargs(eps=eps, hks=hks), from_types=types,
             on_types=types, updates=updates, id=id, kernel=self.default_kernel)
 
-                           )        
+                           )
 
     def add_operation(self, operation, before=False, id=None):
         """ Add an SPH operation to the solver.
@@ -394,9 +405,24 @@ class Solver(object):
         """ Set the output print frequency """
         self.pfreq = n
 
+    def set_arrays_to_print(self, array_names=None):
+
+        available_arrays = [array.name for array in self.particles.arrays]
+        
+        if array_names:
+            for name in array_names:
+
+                if not name in available_arrays:
+                    raise RuntimeError("Array %s not availabe"%(name))
+                
+                array = self.particles.get_named_particle_array(name)
+                self.arrays_to_print.append(array)
+        else:
+            self.arrays_to_print = self.particles.arrays
+
     def set_output_fname(self, fname):
         """ Set the output file name """
-        self.fname = fname
+        self.fname = fname    
 
     def set_output_printing_level(self, detailed_output):
         """ Set the output printing level """
@@ -473,14 +499,18 @@ class Solver(object):
         """
         self.count = 0
 
+        dt = self.dt
         bt = (self.tf - self.t)/1000.0
         bcount = 0.0
         bar = PBar(1000, show=show_progress)
 
-        self.dump_output(*self.print_properties)
+        self.dump_output(dt, *self.print_properties)
+
+        # set the time for the integrator
+        self.integrator.t = self.t
 
         while self.t < self.tf:
-            self.t += self.dt
+            self.t += dt
             self.count += 1
 
             #update the particles explicitly
@@ -492,11 +522,19 @@ class Solver(object):
             for func in self.pre_step_functions:
                 func.eval(self)
 
-            # perform the integration 
+            # compute the local time step
+            if not self.with_cl:
+                dt = self.time_step_function.compute_time_step(self)
 
-            logger.info("Time %f, time step %f "%(self.t, self.dt))
+            # compute the global time step
+            dt = self.compute_global_time_step(dt)
+            logger.info("Time %f, time step %f, rank  %d"%(self.t, dt,
+                                                           self.rank))
 
-            self.integrator.integrate(self.dt)
+            # perform the integration and update the time
+
+            self.integrator.integrate(dt)
+            self.integrator.t += dt            
 
             # perform any post step functions
             
@@ -506,12 +544,9 @@ class Solver(object):
             # dump output
 
             if self.count % self.pfreq == 0:
-                self.dump_output(*self.print_properties)
+                self.dump_output(dt, *self.print_properties)
 
-            bcount += self.dt/bt
-            while bcount > 0:
-                bar.update()
-                bcount -= 1
+            bar.update()
         
             if self.execute_commands is not None:
                 if self.count % self.command_interval == 0:
@@ -519,7 +554,16 @@ class Solver(object):
 
         bar.finish()
 
-    def dump_output(self, *print_properties):
+    def compute_global_time_step(self, dt):
+
+        if self.particles.in_parallel:
+            props = {'dt':dt}
+            glb_min, glb_max = self.particles.get_global_min_max(props)
+            return glb_min['dt']
+        else:
+            return dt
+
+    def dump_output(self, dt, *print_properties):
         """ Print output based on level of detail required
         
         The default detail level (low) is the integrator's calc's update 
@@ -539,20 +583,25 @@ class Solver(object):
         if not self.with_cl:
             cell_size = self.particles.cell_manager.cell_size
 
-        for pa in self.particles.arrays:
+        if self.t == 0:
+            arrays_to_print = self.particles.arrays
+        else:
+            arrays_to_print = self.arrays_to_print
+
+        for pa in arrays_to_print:
             name = pa.name
             _fname = os.path.join(self.output_directory,
-                                  fname + name + '_' + str(self.t) + '.npz')
+                                  fname + name + '_' + str(self.count) +'.npz')
             
             if self.detailed_output:
-                savez(_fname, dt=self.dt, cell_size=cell_size, 
-                      np = pa.num_real_particles, **pa.properties)
+                savez(_fname, dt=dt, t=self.t, np=pa.num_real_particles,
+                       cell_size=cell_size,**pa.properties)
 
             else:
                 for prop in print_properties:
                     props[prop] = pa.get(prop)
 
-                savez(_fname, dt=self.dt, cell_size=cell_size, 
+                savez(_fname, dt=dt, t=self.t, cell_size=cell_size, 
                       np = pa.num_real_particles, **props)
 
     def load_output(self, time):

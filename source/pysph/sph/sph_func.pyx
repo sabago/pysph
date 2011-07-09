@@ -149,7 +149,12 @@ cdef class SPHFunction:
         
         if setup_arrays:
             self.setup_arrays()
-    
+
+        # a list of destination props that may need resetting at the
+        # calc level. We can't reset at the function level since the
+        # values need to be computed across functions
+        self.to_reset = []
+
     # convenience methods to be able to use class instead of Function object
     # for default construction (testing) and class.withargs(*) as an alias for
     # explicitly creating Function objects

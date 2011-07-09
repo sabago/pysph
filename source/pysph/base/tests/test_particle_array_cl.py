@@ -99,12 +99,12 @@ class ParticleArrayCLTestCase(unittest.TestCase):
                 if dtype == "double":
                     _array = _array.astype(numpy.float32)
                     pysph_arr = pysph_arr.astype(numpy.float32)
+
                 if dtype == "long":
                     _array = _array.astype(numpy.int32)
                     pysph_arr = pysph_arr.astype(numpy.int32)
 
-            #cl.enqueue_copy(self.queue, dest=_array, src=buffer)
-            cl.enqueue_read_buffer(self.queue, mem=buffer, hostbuf=_array)
+            cl_utils.enqueue_copy(self.queue, dst=_array, src=buffer)
 
             self.assertEqual( len(_array), len(pysph_arr) )
 

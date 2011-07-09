@@ -90,7 +90,7 @@ opencl_time = time() - t1
 
 pa2.read_from_buffer()
 
-print pa1.x - pa2.x
+#print pa1.x - pa2.x
 print sum(abs(pa1.x - pa2.x))/np
 
 print "=================================================================="

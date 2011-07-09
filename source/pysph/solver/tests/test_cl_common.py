@@ -48,12 +48,9 @@ prog = cl.Program(ctx, src).build(options=solver.get_cl_include())
 prog.set_tmp_to_zero(q, (16, 16, 16), (1,1,1), xbuf, *args)
 
 # read the buffer contents back to the arrays
-#cl.enqueue_copy(q, src=xbuf, dest=x).wait()
-#cl.enqueue_copy(q, src=ybuf, dest=y).wait()
-#cl.enqueue_copy(q, src=zbuf, dest=z).wait()
-cl.enqueue_read_buffer(q, mem=xbuf, hostbuf=x)
-cl.enqueue_read_buffer(q, mem=ybuf, hostbuf=y)
-cl.enqueue_read_buffer(q, mem=zbuf, hostbuf=z).wait()
+solver.enqueue_copy(q, src=xbuf, dst=x)
+solver.enqueue_copy(q, src=ybuf, dst=y)
+solver.enqueue_copy(q, src=zbuf, dst=z)
 
 for i in range(np):
     assert x[i] == 0.0

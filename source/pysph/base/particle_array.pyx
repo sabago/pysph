@@ -1141,6 +1141,51 @@ cdef class ParticleArray:
             if src_array != None and dst_array != None:
                 dst_array.copy_subset(src_array, start_index, end_index)
 
+    cpdef copy_over_properties(self, dict props):
+        """ Copy the properties from one set to another.
+
+        Parameters:
+        -----------
+
+        props : dict
+            A mapping between the properties to be copied.
+
+        Example:
+        --------
+
+        To save the properties 'x' and 'y' to say 'x0' and 'y0':
+
+        pa.copy_over_properties(props = {'x':'x0', 'y':'y0'}
+
+        """
+        cdef DoubleArray dst, src
+        cdef str prop
+
+        cdef long np = self.get_number_of_particles()
+        cdef long a
+
+        for prop in props:
+
+            src = self.get_carray( prop )
+            dst = self.get_carray( props[prop] )
+
+            for a in range( np ):
+                dst.data[ a ] = src.data[ a ]
+
+    cpdef set_to_zero(self, list props):
+
+        cdef long np = self.get_number_of_particles()
+        cdef long a
+
+        cdef DoubleArray prop_arr
+        cdef str prop
+
+        for prop in props:
+            prop_arr = self.get_carray(prop)
+            
+            for a in range(np):
+                prop_arr.data[a] = 0.0
+
     cpdef remove_property(self, str prop_name):
         """ Removes property prop_name from the particle array """
 
@@ -1302,9 +1347,7 @@ cdef class ParticleArray:
                 if dtype == "long":
                     array = array.astype(numpy.int32)
 
-                #cl.enqueue_copy(self.queue, src=buffer, dest=array).wait()
-                cl.enqueue_read_buffer(self.queue,
-                                       mem=buffer, hostbuf=array).wait()
+                cl_utils.enqueue_copy(self.queue, src=buffer, dst=array)
                     
                 self.set( **{prop:array} )            
         
@@ -1380,7 +1423,10 @@ def get_particle_array(cl_precision="double", **props):
 
     if props.has_key("type"):
         particle_type = props["type"]
-        assert particle_type in [ParticleType.Fluid, ParticleType.Solid, ParticleType.Probe], 'Type not understood!'
+        assert particle_type in [ParticleType.Fluid, ParticleType.Solid,
+                                 ParticleType.Probe,
+                                 ParticleType.Boundary,
+                                 ParticleType.DummyFluid],'Type not understood!'
 
     pa = ParticleArray(name=name, particle_type=particle_type,
                        cl_precision=cl_precision, **prop_dict)

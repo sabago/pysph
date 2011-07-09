@@ -17,7 +17,15 @@ cdef class SPHPressureGradient(SPHFunctionParticle):
     """
     SPH function to compute pressure gradient.
     """
-    pass
+
+    # factors to add artificial pressure as suggested by
+    # Monaghan ( SPH Without Tension Instability )
+    cdef public double deltab
+    cdef public double n
+    cdef public double epsp
+    cdef public double epsm
+
+    cdef public bint with_correction
 
 cdef class MomentumEquation(SPHFunctionParticle):
     """ Momentum equation """
@@ -26,3 +34,14 @@ cdef class MomentumEquation(SPHFunctionParticle):
     cdef public double beta 
     cdef public double eta
     cdef public double gamma
+
+    # factors to add artificial pressure as suggested by
+    # Monaghan ( SPH Without Tension Instability )
+    cdef public double deltap
+    cdef public double n
+    cdef public double epsp
+    cdef public double epsm
+
+    cdef public bint with_correction
+
+    cdef DoubleArray d_dt_fac

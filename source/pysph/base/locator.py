@@ -79,11 +79,11 @@ class LinkedListSPHNeighborLocator(OpenCLNeighborLocator):
           REAL tmp = ncx*ncy;
           int src_id, cid;
 
-          for (int ix = idx-2; ix <= idx+2; ++ix )
+          for (int ix = idx-1; ix <= idx+1; ++ix )
           {
-            for (int iy = idy-2; iy <= idy+2; ++iy)
+            for (int iy = idy-1; iy <= idy+1; ++iy)
               {
-                for (int iz = idz-2; iz <= idz+2; ++iz)
+                for (int iz = idz-1; iz <= idz+1; ++iz)
                   {
                     if ( (ix >=0) && (iy >=0) && (iz >= 0) )
                       {

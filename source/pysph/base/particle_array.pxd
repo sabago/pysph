@@ -151,4 +151,8 @@ cdef class ParticleArray:
     cpdef copy_properties(self, ParticleArray source, long start_index=*, long
                           end_index=*)
 
+    # copy properties from one set of variables to another
+    cpdef copy_over_properties(self, dict props)
 
+    # set the specified properties to zero
+    cpdef set_to_zero(self, list props)

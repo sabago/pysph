@@ -1,6 +1,6 @@
 from integrator import Integrator
 from cl_utils import HAS_CL, get_pysph_root, get_cl_include,\
-     get_scalar_buffer, cl_read, get_real
+     get_scalar_buffer, cl_read, get_real, enqueue_copy
 
 if HAS_CL:
     import pyopencl as cl
@@ -29,7 +29,7 @@ class CLIntegrator(Integrator):
 
         self.cl_precision = self.particles.get_cl_precision()
 
-        self.step_props = ['_tmpx', '_tmpy', '_tmpz']
+        #self.step_props = ['_tmpx', '_tmpy', '_tmpz']
 
     def setup_cl(self, context):
         """ OpenCL setup """
@@ -46,7 +46,20 @@ class CLIntegrator(Integrator):
 
         self.program = cl.Program(context, src).build(get_cl_include())
 
-    def set_initial_buffers(self):
+    def reset_accelerations(self, step):
+
+        for array in self.arrays:
+            queue = array.queue
+            np = array.get_number_of_particles()
+
+            to_step = self.step_props[array.name][step]
+            for prop in to_step:
+                acc_prop = to_step[prop][1]
+
+                acc_buffer = array.get_cl_buffer( acc_prop )
+                self.program.set_to_zero(queue, (np,), (1,), acc_buffer).wait()
+
+    def save_initial_arrays(self):
         """ Set the initial arrays for each calc
 
         The initial array is the update property of a calc appended with _0
@@ -58,69 +71,75 @@ class CLIntegrator(Integrator):
         property array.
         
         """        
-        calcs = self.calcs
+        for array in self.arrays:
 
-        ncalcs = len(calcs)
-        for i in range(ncalcs):
-            calc = calcs[i]
-            queue = calc.queue
+            queue = array.queue
+            initial_props = self.initial_properties[ array.name ]
 
-            if calc.integrates:
-                updates = calc.updates
-                nupdates = len(updates)
+            for prop in initial_props:
 
-                pa = self.arrays[calc.dnum]
+                src = array.get_cl_buffer( prop )
+                dst = array.get_cl_buffer( initial_props[prop] )
 
-                for j in range(nupdates):
-                    update_prop = updates[j]
-                    initial_prop = self.initial_props[calc.id][j]
+                enqueue_copy(queue=queue, src=src, dst=dst)
 
-                    update_prop_buffer = pa.get_cl_buffer(update_prop)
-                    initial_prop_buffer = pa.get_cl_buffer(initial_prop)
+        # ncalcs = len(calcs)
+        # for i in range(ncalcs):
+        #     calc = calcs[i]
+        #     queue = calc.queue
 
-                    #cl.enqueue_copy(queue=queue, src=update_prop_buffer,
-                    #                dest=initial_prop_buffer,
-                    #                ).wait()
-                    cl.enqueue_copy_buffer(queue, src=update_prop_buffer,
-                                           dst=initial_prop_buffer).wait()
+        #     if calc.integrates:
+        #         updates = calc.updates
+        #         nupdates = len(updates)
 
-    def reset_current_buffers(self, calcs):
-        """ Reset the current arrays """
+        #         pa = self.arrays[calc.dnum]
+
+        #         for j in range(nupdates):
+        #             update_prop = updates[j]
+        #             initial_prop = self.initial_props[calc.id][j]
+
+        #             update_prop_buffer = pa.get_cl_buffer(update_prop)
+        #             initial_prop_buffer = pa.get_cl_buffer(initial_prop)
+
+        #             enqueue_copy(queue=queue, src=update_prop_buffer,
+        #                          dst=initial_prop_buffer)
+
+    # def reset_current_buffers(self, calcs):
+    #     """ Reset the current arrays """
         
-        ncalcs = len(calcs)
-        for i in range(ncalcs):
-            calc = calcs[i]
-            queue = calc.queue
+    #     ncalcs = len(calcs)
+    #     for i in range(ncalcs):
+    #         calc = calcs[i]
+    #         queue = calc.queue
 
-            if calc.integrates:
+    #         if calc.integrates:
 
-                updates = calc.updates
-                nupdates = len(updates)
+    #             updates = calc.updates
+    #             nupdates = len(updates)
 
-                pa = self.arrays[calc.dnum]
+    #             pa = self.arrays[calc.dnum]
             
-                for j in range(nupdates):
-                    update_prop = updates[j]
-                    initial_prop = self.initial_props[calc.id][j]
+    #             for j in range(nupdates):
+    #                 update_prop = updates[j]
+    #                 initial_prop = self.initial_props[calc.id][j]
 
-                    # get the device buffers
-                    update_prop_buffer = pa.get_cl_buffer(update_prop)
-                    initial_prop_buffer = pa.get_cl_buffer(initial_prop)
+    #                 # get the device buffers
+    #                 update_prop_buffer = pa.get_cl_buffer(update_prop)
+    #                 initial_prop_buffer = pa.get_cl_buffer(initial_prop)
 
-                    # reset the current property to the initial array
+    #                 # reset the current property to the initial array
 
-                    #cl.enqueue_copy(queue=queue,src=initial_prop_buffer,
-                    #                dest=update_prop_buffer)
-                    cl.enqueue_copy_buffer(queue, src=initial_prop_buffer,
-                                           dst=update_prop_buffer).wait()
+    #                 enqueue_copy(queue=queue,src=initial_prop_buffer,
+    #                              dst=update_prop_buffer)
 
-    def eval(self, calcs):
+    def eval(self):
         """ Evaluate each calc and store in the k list if necessary """
 
+        calcs = self.calcs
         ncalcs = len(calcs)
         particles = self.particles
         
-        k_num = 'k' + str(self.cstep)
+        k_num = self.cstep
         for i in range(ncalcs):
             calc = calcs[i]
             queue = calc.queue
@@ -130,7 +149,7 @@ class CLIntegrator(Integrator):
 
             # get the destination particle array for this calc
             
-            pa = calc.dest
+            pa = dest = calc.dest
             
             if calc.integrates:
                 calc.sph( *calc.dst_writes[k_num] )
@@ -138,14 +157,7 @@ class CLIntegrator(Integrator):
             else:
                 calc.sph( *calc.updates )
 
-                particles.barrier()
-
-                # update neighbor information if 'h' has been updated
-
-                if calc.tag == "h":
-                    particles.update()
-
-                # update the remote particle properties
+                #particles.barrier()
 
                 #self.rupdate_list[calc.dnum] = [update_prop]
                 
@@ -156,51 +168,74 @@ class CLIntegrator(Integrator):
 
         particles.barrier()
 
-    def step(self, calcs, dt):
+    def step(self, dt):
         """ Perform stepping for the integrating calcs """
-
-        ncalcs = len(calcs)
 
         cl_dt = get_real(dt, self.cl_precision)
 
-        k_num = 'k' + str(self.cstep)
-        for i in range(ncalcs):
-            calc = calcs[i]
-            queue = calc.queue
+        # get the current stage of the integration
+        k_num = self.cstep
 
-            if calc.integrates:
-                
-                updates = calc.updates
-                nupdates = calc.nupdates
+        for array in self.arrays:
 
-                # get the destination particle array for this calc
+            # get the number of particles
+            np = array.get_number_of_particles()
+
+            # get the command queue for the array
+            queue = array.queue
             
-                pa = self.arrays[calc.dnum]
-                np = pa.get_number_of_particles()
+            # get the mapping for this array and this stage
+            to_step = self.step_props[ array.name ][k_num]
 
-                for j in range(nupdates):
-                    update_prop = updates[j]
-                    k_prop = self.k_props[calc.id][k_num][j]
+            for prop in to_step:
 
-                    current_buffer = pa.get_cl_buffer(update_prop)
-                    step_buffer = pa.get_cl_buffer(k_prop)
-                    tmp_buffer = pa.get_cl_buffer('_tmpx')
-                
-                    self.program.step_array(queue, (np,1,1), (1,1,1),
-                                            current_buffer, step_buffer,
-                                            tmp_buffer, cl_dt)
+                initial_prop = to_step[ prop ][0]
+                step_prop = to_step[ prop ][1]
 
-                    #cl.enqueue_copy(queue, src=tmp_buffer,
-                    #                dest=current_buffer)
-                    cl.enqueue_copy_buffer(queue, src=tmp_buffer,
-                                           dst=current_buffer).wait()
-                    
-                pass
-            pass
+                prop_buffer = array.get_cl_buffer( prop )
+                step_buffer = array.get_cl_buffer( step_prop )
+                initial_buffer = array.get_cl_buffer( initial_prop )
 
-        # Increment the step by 1
-
+                self.program.step_array(queue, (np,1,1), (1,1,1),
+                                        initial_buffer, step_buffer,
+                                        prop_buffer, cl_dt)
         self.cstep += 1
+        
+        # for i in range(ncalcs):
+        #     calc = calcs[i]
+        #     queue = calc.queue
+
+        #     if calc.integrates:
+                
+        #         updates = calc.updates
+        #         nupdates = calc.nupdates
+
+        #         # get the destination particle array for this calc
+            
+        #         pa = self.arrays[calc.dnum]
+        #         np = pa.get_number_of_particles()
+
+        #         for j in range(nupdates):
+        #             update_prop = updates[j]
+        #             k_prop = self.k_props[calc.id][k_num][j]
+
+        #             current_buffer = pa.get_cl_buffer(update_prop)
+        #             step_buffer = pa.get_cl_buffer(k_prop)
+        #             tmp_buffer = pa.get_cl_buffer('_tmpx')
+                
+        #             self.program.step_array(queue, (np,1,1), (1,1,1),
+        #                                     current_buffer, step_buffer,
+        #                                     tmp_buffer, cl_dt)
+
+        #             enqueue_copy(queue, src=tmp_buffer,
+        #                          dest=current_buffer)
+                    
+        #         pass
+        #     pass
+
+        # # Increment the step by 1
+
+        # self.cstep += 1
 
 ##############################################################################
 #`CLEulerIntegrator` class 
@@ -215,61 +250,134 @@ class CLEulerIntegrator(CLIntegrator):
         CLIntegrator.__init__(self, particles, calcs)
         self.nsteps = 1
 
-    def final_step(self, calc, dt):
-        """ Perform the final step for the integrating calc """
-        updates = calc.updates
-        nupdates = calc.nupdates
-        queue = calc.queue
-
-        pa = self.arrays[calc.dnum]
-        np = pa.get_number_of_particles()
-
-        cl_dt = get_real(dt, self.cl_precision)
-
-        for i in range(nupdates):           
-            initial_prop = self.initial_props[calc.id][i]
-            k_prop = self.k_props[calc.id]['k1'][i]
-            update_prop = updates[i]
-
-            initial_buffer = pa.get_cl_buffer(initial_prop)
-            update_buffer = pa.get_cl_buffer(update_prop)
-            k1_buffer = pa.get_cl_buffer(k_prop)
-            tmp_buffer = pa.get_cl_buffer('_tmpx')
-           
-            self.program.step_array(queue, (np,), None,
-                                    initial_buffer, k1_buffer,
-                                    tmp_buffer, cl_dt).wait()
-
-            #cl.enqueue_copy(queue, src=tmp_buffer,
-            #                dest=initial_buffer,
-            #                ).wait()
-            cl.enqueue_copy_buffer(queue, src=tmp_buffer,
-                                   dst=initial_buffer)
-
-            #cl.enqueue_copy(queue, src=tmp_buffer,
-            #                dest=update_buffer,
-            #                ).wait()
-            cl.enqueue_copy_buffer(queue, src=tmp_buffer,
-                                   dst=update_buffer).wait()
-
     def integrate(self, dt):
         
         # set the initial buffers
+        self.save_initial_arrays()
 
-        self.set_initial_buffers()
+        # Euler step
+        self.reset_accelerations(step=1)
 
-        # evaluate the calcs
+        self.eval()
+        self.step(dt)
 
-        self.eval(self.calcs)
-
-        # step the update properties for each integrating calc
-
-        for calc in self.calcs:
-            if calc.integrates:
-                self.final_step(calc, dt)
-                
-        # update the partilces
-        
         self.particles.update()
 
-#############################################################################
+        self.cstep = 1
+
+##############################################################################
+#`CLRK2Integrator` class 
+##############################################################################
+class CLRK2Integrator(CLIntegrator):
+    """ RK2 Integration for the system X' = F(X) with the formula:
+
+    # Stage 1
+    K1 = F(X)
+    X(t + h/2) = X0 + h/2*K1
+
+    # Stage 2
+    K1 = F( X(t+h/2) )
+    X(t + h) = X0 + h * K1
+
+    """    
+    def __init__(self, particles, calcs):
+        CLIntegrator.__init__(self, particles, calcs)
+        self.nsteps = 1
+
+    def integrate(self, dt):
+
+        # set the initial arrays
+        self.save_initial_arrays()  # X0 = X(t)
+        
+        #############################################################
+        # Stage 1
+        #############################################################
+        self.reset_accelerations(step=1)
+
+        self.eval()                # K1 = F(X)
+        self.step(dt/2)            # F(X+h/2) = X0 + h/2*K1
+
+        self.particles.update()
+
+        self.cstep = 1
+
+        #############################################################
+        # Stage 2
+        #############################################################
+        self.reset_accelerations(step=1)
+
+        self.eval()                # K1 = F( X(t+h/2) )
+        self.step(dt)              # F(X+h) = X0 + h*K1
+
+        self.particles.update()
+
+        self.cstep = 1
+
+##############################################################################
+#`CLPredictorCorrectorIntegrator` class 
+##############################################################################
+class CLPredictorCorrectorIntegrator(CLIntegrator):
+    """ Predictor Corrector Integration of a system X' = F(X) using the scheme
+    
+    Predict:
+    X(t + h/2) = X0 + h/2 * F(X)
+
+    Correct:    
+    X(t + h/2) = X0 + h/2 * F( X(t + h/2) )
+
+    Step:
+    X(t + h) = 2*X(t + h/2) - X0
+
+    """
+    def __init__(self, particles, calcs):
+        CLIntegrator.__init__(self, particles, calcs)
+        self.nsteps = 1
+
+    def final_step(self):
+
+        for array in self.arrays:
+
+            to_step = self.step_props[array.name][1]
+            for prop in to_step:
+
+                current_buffer = array.get_cl_buffer( prop )
+                initial_buffer = array.get_cl_buffer( to_step[prop][0] )
+
+                self.program.pc_final_step( queue, (np,), (1,),
+                                            current_buffer,
+                                            initial_buffer).wait()
+
+    def integrate(self, dt):
+
+        # save the initial arrays
+        self.save_initial_arrays()    # X0 = X(t)
+
+        ############################################################
+        # Predict
+        ############################################################
+        self.reset_accelerations(step=1)
+
+        self.eval()                  # K1 = F(X)
+        self.step(dt/2)              # X(t+h/2) = X0 + h/2*K1
+
+        self.particles.update()
+
+        self.cstep = 1
+
+        ##############################################################
+        # Correct
+        ##############################################################
+        self.reset_accelerations(step=1)
+
+        self.eval()                  # K1 = F( X(t+h/2) )
+        self.step(dt/2)              # X(t+h/2) = X0 + h/2*K1
+
+        self.particles.update()
+
+        ##############################################################
+        # Step
+        ##############################################################
+        self.final_step(dt)           # X(t+h) = 2*X(t+h/2) - X0
+        self.particles.update()
+
+        self.cstep = 1

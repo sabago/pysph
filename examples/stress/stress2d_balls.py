@@ -121,7 +121,8 @@ def create_particles(two_arr=False):
 cfl = 0.1
 # use the solvers default cubic spline kernel
 # s = StressSolver(dim=2, integrator_type=solver.RK2Integrator)
-s = StressSolver(dim=2, integrator_type=solver.LeapFrogIntegrator, xsph=0.5, marts_eps=0.3, marts_n=4, CFL=cfl)
+s = StressSolver(dim=2, integrator_type=solver.PredictorCorrectorIntegrator,
+                 xsph=0.5, marts_eps=0.3, marts_n=4, CFL=cfl)
 #s = StressSolver(dim=2, integrator_type=solver.LeapFrogIntegrator)
 
 
@@ -133,7 +134,7 @@ s.set_final_time(tf)
 s.set_kernel_correction(-1)
 s.pfreq = 100
 
-app.set_solver(s, create_particles)
+app.set_solver(s, callable=create_particles)
 
 particles = s.particles
 pa = particles.arrays[0]

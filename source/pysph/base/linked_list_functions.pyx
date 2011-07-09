@@ -265,7 +265,8 @@ cpdef cbin(numpy.ndarray[ndim=1, dtype=numpy.float32_t] x,
            numpy.ndarray[ndim=1, dtype=numpy.int32_t] head,
            numpy.ndarray[ndim=1, dtype=numpy.int32_t] next,
            float mx, float my, float mz,
-           int ncx, int ncy, int ncz, float cell_size, int np):
+           int ncx, int ncy, int ncz, float cell_size, int np,
+           int mcx, int mcy, int mcz):
     """ Bin a set of points
 
     Parameters:
@@ -286,18 +287,17 @@ cpdef cbin(numpy.ndarray[ndim=1, dtype=numpy.float32_t] x,
     """
 
     cdef int i, _ix, _iy, _iz, _bin
-    cdef float cell_size1 = numpy.float32(1.0/cell_size)
 
     for i in range(np):
-        _ix = numpy.int32( (x[i]-mx) * cell_size1 )
-        _iy = numpy.int32( (y[i]-my) * cell_size1 )
-        _iz = numpy.int32( (z[i]-mz) * cell_size1 )
+        _ix = numpy.int32( numpy.floor( x[i]/cell_size ) )
+        _iy = numpy.int32( numpy.floor( y[i]/cell_size ) )
+        _iz = numpy.int32( numpy.floor( z[i]/cell_size ) )
 
-        ix[i] = _ix
-        iy[i] = _iy
-        iz[i] = _iz
+        ix[i] = (_ix - mcx)
+        iy[i] = (_iy - mcy)
+        iz[i] = (_iz - mcz)
 
-        _bin = _iz * (ncx*ncy) + _iy * ncx + _ix
+        _bin = (_iz-mcz) * (ncx*ncy) + (_iy-mcy) * ncx + (_ix-mcx)
         bins[i] = _bin
         
         next[i] = head[_bin]
