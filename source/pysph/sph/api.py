@@ -10,7 +10,8 @@ from sph_func import SPHFunction, SPHFunctionParticle, CSPHFunctionParticle
 
 #Import basic functions
 from funcs.basic_funcs import SPHGradient, \
-     SPHLaplacian, CountNeighbors, SPH as SPHInterpolation
+     SPHLaplacian, CountNeighbors, SPH as SPHInterpolation,\
+     VelocityGradient
 
 #Import boundary functions
 from funcs.boundary_funcs import MonaghanBoundaryForce, LennardJonesForce, \

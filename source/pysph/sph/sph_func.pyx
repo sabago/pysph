@@ -208,7 +208,7 @@ cdef class SPHFunction:
                DoubleArray output2, DoubleArray output3):
         """ Evaluate the store the results in the output arrays """
         cdef double result[3]
-        cdef int i
+        cdef size_t i
         
         # get the tag array pointer
         cdef LongArray tag_arr = self.dest.get_carray('tag')
@@ -391,6 +391,7 @@ cdef class SPHFunctionParticle(SPHFunction):
         """ Computes contribution of all neighbors on particle at dest_pid """
         cdef LongArray nbrs = self.nbr_locator.get_nearest_particles(dest_pid)
         cdef size_t nnbrs = nbrs.length
+        cdef size_t j
 
         if self.exclude_self:
             if self.src is self.dest:
