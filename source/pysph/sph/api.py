@@ -36,7 +36,8 @@ from funcs.position_funcs import PositionStepping
 from funcs.xsph_funcs import XSPHDensityRate, XSPHCorrection
 
 #Import Equation of state functions
-from funcs.eos_funcs import IdealGasEquation, TaitEquation
+from funcs.eos_funcs import IdealGasEquation, TaitEquation, \
+     IsothermalEquation
 
 #Import external force functions
 from funcs.external_force import GravityForce, VectorForce, MoveCircleX,\
