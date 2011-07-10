@@ -12,7 +12,7 @@ from pysph.sph.sph_func cimport SPHFunction, SPHFunctionParticle, CSPHFunctionPa
 from pysph.base.particle_array cimport ParticleArray
 from pysph.base.point cimport cPoint, cPoint_dot, cPoint_length, cPoint_sub
 from pysph.base.kernels cimport KernelBase
-from pysph.base.carray cimport DoubleArray
+from pysph.base.carray cimport DoubleArray, LongArray
 
 cdef class SPH(CSPHFunctionParticle):
     """
@@ -45,6 +45,10 @@ cdef class SPHLaplacian(SPHFunctionParticle):
 cdef class CountNeighbors(SPHFunctionParticle):
     """ Count Neighbors.  """
     pass
+
+cdef class VelocityGradient(SPHFunctionParticle):
+    """ Compute the velocity gradient matrix. """
+    cpdef tensor_eval(self, KernelBase kernel)
 
 cdef class BonnetAndLokKernelGradientCorrectionTerms(CSPHFunctionParticle):
     """ Kernel Gradient Correction terms """
