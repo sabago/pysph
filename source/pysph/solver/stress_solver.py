@@ -7,7 +7,8 @@ from optparse import OptionGroup, Option
 import pysph.base.api as base
 
 import pysph.sph.api as sph
-from pysph.sph.funcs import stress_funcs 
+from pysph.sph.funcs import stress_funcs
+from pysph.sph.funcs import eos_funcs
 
 from solver import Solver
 from post_step_functions import CFLTimeStepFunction
@@ -90,7 +91,8 @@ def get_circular_patch(name="", type=1, dx=0.25):
 
 class StressSolver(Solver):
     def __init__(self, dim, integrator_type, xsph=0.5, marts_eps=0.3, marts_n=4,
-                 CFL=None, martv_alpha=1.0, martv_beta=1.0):
+                 CFL=None, martv_alpha=1.0, martv_beta=1.0,
+                 co=None, ro=None):
         ''' constructor
         
         Parameters
@@ -118,7 +120,9 @@ class StressSolver(Solver):
                              marts_n=marts_n,
                              martv_alpha=martv_alpha,
                              martv_beta=martv_beta,
-                             cfl=CFL
+                             cfl=CFL,
+                             co=co,
+                             ro=ro
                              )
         Solver.__init__(self, dim, integrator_type)
 
@@ -151,12 +155,20 @@ class StressSolver(Solver):
         opt.add_option('--martv_beta', dest='martv_beta', type='float',
                        default=self.defaults['martv_beta'],
                        help='set the Monaghan artificial viscosity beta (1)')
+
+        opt.add_option('--co', dest="co", type="float",
+                       default=self.defaults["co"],
+                       help="Set the reference sound speed c0 ")
+
+        opt.add_option("--ro", dest="ro", type="float",
+                       default=self.defaults["ro"],
+                       help="Set the reference density r0")
         
         cfl_opt = Option('--cfl', dest='cfl', type='float',
                          default=self.defaults['cfl'],
                          help='set the cfl number for determining the timestep '
                          'of simulation')
-        
+
         return opt, cfl_opt
 
     def setup_solver(self, options=None):
@@ -170,6 +182,9 @@ class StressSolver(Solver):
 
         cfl = options.get('cfl')
 
+        co = options.get("co")
+        ro = options.get("ro")
+
         #create the sph operation objects
 
         self.add_operation(SPHOperation(
@@ -179,6 +194,14 @@ class StressSolver(Solver):
                 id='eos')
             )
 
+        # self.add_operation(SPHOperation(
+
+        #     eos_funcs.IsothermalEquation.withargs(co=co, ro=ro),
+        #     on_types = [Solids,],
+        #     updates = ['p'], id="eos")
+
+        #                    )
+            
         if xsph:
             self.add_operation(SPHOperation(
                 

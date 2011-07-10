@@ -19,4 +19,15 @@ cdef class TaitEquation(SPHFunction):
     cdef public double gamma, co, ro
     cdef public double B
 
+cdef class IsothermalEquation(SPHFunction):
+    """ Isothermal equation of state:
+
+    .. math::
+
+    p = c_0^2(\rho - \rho_0)
+
+    """
+    cdef public double co
+    cdef public double ro
+
 
