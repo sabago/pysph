@@ -11,7 +11,7 @@ from sph_func import SPHFunction, SPHFunctionParticle, CSPHFunctionParticle
 #Import basic functions
 from funcs.basic_funcs import SPHGradient, \
      SPHLaplacian, CountNeighbors, SPH as SPHInterpolation,\
-     VelocityGradient
+     VelocityGradient3D, VelocityGradient2D
 
 #Import boundary functions
 from funcs.boundary_funcs import MonaghanBoundaryForce, LennardJonesForce, \
@@ -48,6 +48,10 @@ from funcs.external_force import GravityForce, VectorForce, MoveCircleX,\
 from funcs.adke_funcs import ADKEPilotRho, ADKESmoothingUpdate,\
     SPHVelocityDivergence as VelocityDivergence, ADKEConductionCoeffUpdate
 
+# Import stress functions
+from funcs.stress_funcs import HookesDeviatoricStressRate2D, \
+     HookesDeviatoricStressRate3D, MomentumEquationWithStress2D
+
+from funcs.stress_funcs import get_K, get_nu, get_G
+
 ############################################################################
-
-

@@ -52,14 +52,13 @@ class VelocityGradientTestCase(unittest.TestCase):
         
         self.kernel = kernel = base.CubicSplineKernel(dim=3)
         
-        func = sph.VelocityGradient.withargs().get_func(pa,pa)
+        func = sph.VelocityGradient3D.withargs().get_func(pa,pa)
         
         self.calc = calc = sph.SPHCalc(dest=pa,
                                        sources=[pa,],
                                        particles=particles,
                                        kernel=kernel,
-                                       funcs=[func,],
-                                       updates=[])
+                                       funcs=[func,])
 
         # create the summation density calc to assign interior particles
         func = sph.SPHRho.withargs().get_func(pa,pa)

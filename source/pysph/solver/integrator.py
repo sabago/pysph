@@ -298,7 +298,11 @@ class Integrator(object):
 
             # Evaluate the calc
             if calc.integrates:
-                calc.sph( *calc.dst_writes[k_num] )
+
+                if calc.tensor_eval:
+                    calc.tensor_sph( *calc.dst_writes[k_num] )
+                else:
+                    calc.sph( *calc.dst_writes[k_num] )
 
             else:
                 calc.sph( *calc.updates )
@@ -706,7 +710,8 @@ class LeapFrogIntegrator(Integrator):
                     pos_calc_pa.set(**{update_prop:updated_array})
 
     def final_step(self, calc, dt):
-        pa = self.arrays[calc.dnum]
+        #pa = self.arrays[calc.dnum]
+        pa = calc.dest
         updates = calc.updates
 
         for j in range(len(updates)):

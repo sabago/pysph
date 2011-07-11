@@ -11,6 +11,8 @@ import numpy
 
 from linalg cimport get_eigenvalvec, transform2, transform2inv
 
+from pysph.base.particle_array cimport LocalReal
+
 # NOTE: for a symmetric 3x3 matrix M, the notation d,s of denotes the diagonal
 # and off-diagonal elements as [c]Points
 # d = M[0,0], M[1,1], M[2,2]
@@ -406,7 +408,7 @@ cdef class BulkModulusPEqn(SPHFunction):
 
 
 cdef class MonaghanEOS(SPHFunction):
-    ''' Monaghan's pressure eqn P = c_s^2 ((rho/rho_0)^gamma - 1)/gamma '''
+    ''' s pressure eqn P = c_s^2 ((rho/rho_0)^gamma - 1)/gamma '''
     def __init__(self, ParticleArray source, ParticleArray dest=None,
                  bint setup_arrays=True, double gamma=7.0, *args, **kwargs):
         self.gamma = gamma
@@ -697,3 +699,629 @@ cdef class PressureAcceleration2(SPHFunctionParticle):
             result[i] += (self.d_p.data[dest_pid]/(rhoa*rhoa) +
                           self.s_p.data[source_pid]/(rhob*rhob)) * dgrad[i]
         
+
+#############################################################################
+# `HookesDeviatoricStressRate` class
+#############################################################################
+cdef class HookesDeviatoricStressRate3D(SPHFunction):
+    """ Compute the RHS for the rate of change of stress equation (3D)
+
+    .. math::
+
+    \frac{dS^{ij}}{dt} = 2\mu\left(\eps^{ij} -
+    \frac{1}{3}\delta^{ij}\eps^{ij}\right) + S^{ik}\Omega^{jk} +
+    \Omega^{ik}S^{kj}
+
+    where,
+
+    \eps^{ij} = \frac{1}{2}\left( \frac{\partialv^i}{\partialx^j} +
+                                  \frac{\partialv^j}{\partialx^i} \right )
+
+    and
+
+    \Omega^{ij} = \frac{1}{2}\left( \frac{\partialv^i}{\partialx^j} -
+                                  \frac{\partialv^j}{\partialx^i} \right )
+
+    """
+    
+    def __init__(self, ParticleArray source, ParticleArray dest,
+                 shear_mod=1.0, bint setup_arrays=True, *args, **kwargs):
+
+        self.id = "stress_rate"
+        self.tag = "stress"
+
+        self.shear_mod = shear_mod
+
+        stress_props = ["S_00", "S_01", "S_02",
+                        "S_10", "S_11", "S_12",
+                        "S_20", "S_21", "S_22"]
+
+        dest_props = dest.properties.keys()
+
+        for prop in stress_props:
+            if not prop in dest_props:
+                dest.add_property( dict(name=prop) )
+
+        # the velocity gradient tensor props should be defined on the
+        # destination. This means, a previous operation of
+        # VelocityGradient3D should have been defined for the dest.
+        vgrad_props = ["v_00", "v_01", "v_02",
+                        "v_10", "v_11", "v_12",
+                        "v_20", "v_21", "v_22"]
+
+        for prop in vgrad_props:
+            if not prop in dest_props:
+                err_msg = """Velocity gradient tensor prop %s not defined.
+                This could mean that the required function VelocityGradient3D
+                is not defined!"""%(prop)
+
+                raise RuntimeError(err_msg)        
+
+        SPHFunction.__init__(self, source, dest, setup_arrays)
+
+    def set_src_dst_reads(self):
+        pass
+
+    cpdef setup_arrays(self):
+        SPHFunctionParticle.setup_arrays(self)
+
+        # setup the stress arrays
+        self.d_S_00 = self.dest.get_carray("S_00")
+        self.d_S_01 = self.dest.get_carray("S_01")
+        self.d_S_02 = self.dest.get_carray("S_02")
+
+        self.d_S_10 = self.dest.get_carray("S_10")
+        self.d_S_11 = self.dest.get_carray("S_11")
+        self.d_S_12 = self.dest.get_carray("S_12")
+
+        self.d_S_20 = self.dest.get_carray("S_20")
+        self.d_S_21 = self.dest.get_carray("S_21")
+        self.d_S_22 = self.dest.get_carray("S_22")
+
+        # setup the velocity gradient tensor arrays
+        self.d_v_00 = self.dest.get_carray("v_00")
+        self.d_v_01 = self.dest.get_carray("v_01")
+        self.d_v_02 = self.dest.get_carray("v_02")
+
+        self.d_v_10 = self.dest.get_carray("v_10")
+        self.d_v_11 = self.dest.get_carray("v_11")
+        self.d_v_12 = self.dest.get_carray("v_12")
+
+        self.d_v_20 = self.dest.get_carray("v_20")
+        self.d_v_21 = self.dest.get_carray("v_21")
+        self.d_v_22 = self.dest.get_carray("v_22")
+
+    def setup_calc_updates(self, calc):
+        """ Setup the updates for the stress variable.
+
+        The stress tensor is written as:
+
+        .. math::
+
+        \sigma^{ij} = -P\delta^{ij} + S^{ij}
+
+        S is the deviatoric component of the stress tensor. It's nine
+        components are devined as:
+
+        S_00, S_01, S_02
+        S_10, S_11, S_12
+        S_20, S_21, S_22
+
+        This deviatoric stress component will have to be integrated
+        and the corresponding integrator variables are:
+
+        Initial props:
+        S_000, S_010, S_020
+        S_100, S_110, S_120
+        S_200, S_210, S_220
+
+        Step props:
+        S_00_a_1, S_01_a_1, S_02_a_1
+        S_10_a_1, S_11_a_1, S_12_a_1
+        S_20_a_1, S_21_a_1, S_22_a_1
+
+        """
+        calc.tensor_eval = True
+
+        updates = []
+        for i in range(3):
+            for j in range(3):
+                updates.append( "S_" + str(i) + str(j) )
+
+        return updates
+        
+    cpdef tensor_eval(self, KernelBase kernel,
+                      DoubleArray output1, DoubleArray output2,
+                      DoubleArray output3, DoubleArray output4,
+                      DoubleArray output5, DoubleArray output6,
+                      DoubleArray output7, DoubleArray output8,
+                      DoubleArray output9):
+
+        """ Evaluate the nine components the deviatoric stress rate equation """ 
+        
+        # get the tag array pointer
+        cdef LongArray tag_arr = self.dest.get_carray('tag')
+
+        # perform any iteration specific setup
+        self.setup_iter_data()
+        cdef size_t np = self.dest.get_number_of_particles()
+        cdef size_t a
+
+        cdef double result[9]
+
+        for a in range(np):
+            if tag_arr.data[a] == LocalReal:
+                self.eval_single(a, kernel, result)
+
+                output1.data[a] += result[0]
+                output2.data[a] += result[1]
+                output3.data[a] += result[2]
+
+                output4.data[a] += result[3]
+                output5.data[a] += result[4]
+                output6.data[a] += result[5]
+
+                output7.data[a] += result[6]
+                output8.data[a] += result[7]
+                output9.data[a] += result[8]
+
+    cdef void eval_single(self, size_t dest_pid,
+                          KernelBase kernel, double *result):
+
+        result[0] = result[1] = result[2] = 0.0
+        result[3] = result[4] = result[5] = 0.0
+        result[6] = result[7] = result[8] = 0.0
+
+        cdef double v_00 = self.d_v_00.data[dest_pid]
+        cdef double v_01 = self.d_v_01.data[dest_pid]
+        cdef double v_02 = self.d_v_02.data[dest_pid]
+
+        cdef double v_10 = self.d_v_10.data[dest_pid]
+        cdef double v_11 = self.d_v_11.data[dest_pid]
+        cdef double v_12 = self.d_v_12.data[dest_pid]
+
+        cdef double v_20 = self.d_v_20.data[dest_pid]
+        cdef double v_21 = self.d_v_21.data[dest_pid]
+        cdef double v_22 = self.d_v_22.data[dest_pid]
+
+        cdef double s_00 = self.d_S_00.data[dest_pid]
+        cdef double s_01 = self.d_S_01.data[dest_pid]
+        cdef double s_02 = self.d_S_02.data[dest_pid]
+
+        cdef double s_10 = self.d_S_10.data[dest_pid]
+        cdef double s_11 = self.d_S_11.data[dest_pid]
+        cdef double s_12 = self.d_S_12.data[dest_pid]
+
+        cdef double s_20 = self.d_S_20.data[dest_pid]
+        cdef double s_21 = self.d_S_21.data[dest_pid]
+        cdef double s_22 = self.d_S_02.data[dest_pid]
+
+        # strain rate tensor is symmetric
+        cdef double eps_00 = v_00
+        cdef double eps_01 = 0.5 * (v_01 + v_10)
+        cdef double eps_02 = 0.5 * (v_02 + v_20)
+
+        cdef double eps_10 = eps_01
+        cdef double eps_20 = eps_02
+
+        cdef double eps_11 = v_11
+        cdef double eps_12 = 0.5 * (v_12 + v_21)
+
+        cdef double eps_21 = eps_12
+        
+        cdef double eps_22 = v_22
+
+        # rotation tensor is asymmetric
+        cdef double omega_01 = 0.5 * (v_01 - v_10)
+        cdef double omega_02 = 0.5 * (v_02 - v_20)
+
+        cdef double omega_10 = -omega_01
+        cdef double omega_20 = -omega_02
+
+        cdef double omega_12 = 0.5 * (v_12 - v_21)
+        cdef double omega_21 = -omega_12
+
+        cdef double tmp = 2.0*self.shear_mod
+        cdef double fac = 2.0/3.0
+
+        # S_00
+        result[0] = tmp*( fac * eps_00 ) + \
+                    ( s_01*omega_01 + s_02*omega_02 ) + \
+                    ( s_10*omega_01 + s_20*omega_02 )
+
+        # S_01
+        result[1] = tmp*(eps_01) + \
+                    ( s_00*omega_10 + s_02*omega_12 ) + \
+                    ( s_11*omega_01 + s_21*omega_02 )
+
+        # S_02
+        result[2] = tmp*(eps_02) + \
+                    ( s_00*omega_20 + s_01*omega_21 ) + \
+                    ( s_12*omega_01 + s_22*omega_02 )
+
+        # S_10
+        result[3] = tmp*(eps_10) + \
+                    ( s_11*omega_01 + s_12*omega_02 ) + \
+                    ( s_00*omega_10 + s_20*omega_12 )
+
+        # S_11
+        result[4] = tmp*fac*eps_11 + \
+                    ( s_10*omega_10 + s_12*omega_12 ) + \
+                    ( s_01*omega_10 + s_21*omega_12 )
+
+        # S_12
+        result[5] = tmp*eps_12 + \
+                    ( s_10*omega_20 + s_11*omega_21 ) + \
+                    ( s_02*omega_10 + s_22*omega_12 )
+
+        # S_20
+        result[6] = tmp*eps_20 + \
+                    ( s_21*omega_01 + s_22*omega_02 ) + \
+                    ( s_00*omega_20 + s_10*omega_21 )
+
+        # S_21
+        result[7] = tmp*eps_21 + \
+                    ( s_20*omega_10 + s_22*omega_12 ) + \
+                    ( s_01*omega_20 + s_11*omega_21 )
+
+        # S_22
+        result[8] = tmp*fac*eps_22 + \
+                    ( s_20*omega_20 + s_21*omega_21 ) + \
+                    ( s_02*omega_20 + s_12*omega_21 )
+
+
+#############################################################################
+# `HookesDeviatoricStressRate2D` class
+#############################################################################
+cdef class HookesDeviatoricStressRate2D(SPHFunction):
+    """ Compute the RHS for the rate of change of stress equation (2D)
+
+    .. math::
+
+    \frac{dS^{ij}}{dt} = 2\mu\left(\eps^{ij} -
+    \frac{1}{3}\delta^{ij}\eps^{ij}\right) + S^{ik}\Omega^{jk} +
+    \Omega^{ik}S^{kj}
+
+    where,
+
+    \eps^{ij} = \frac{1}{2}\left( \frac{\partialv^i}{\partialx^j} +
+                                  \frac{\partialv^j}{\partialx^i} \right )
+
+    and
+
+    \Omega^{ij} = \frac{1}{2}\left( \frac{\partialv^i}{\partialx^j} -
+                                  \frac{\partialv^j}{\partialx^i} \right )
+
+    """
+    
+    def __init__(self, ParticleArray source, ParticleArray dest,
+                 shear_mod=1.0, bint setup_arrays=True, *args, **kwargs):
+
+        self.id = "stress_rate"
+        self.tag = "stress"
+
+        self.shear_mod=shear_mod
+
+        stress_props = ["S_00", "S_01",
+                        "S_10", "S_11"]
+
+        dest_props = dest.properties.keys()
+
+        for prop in stress_props:
+            if not prop in dest_props:
+                dest.add_property( dict(name=prop) )
+
+        # the velocity gradient tensor props should be defined on the
+        # destination. This means, a previous operation of
+        # VelocityGradient3D should have been defined for the dest.
+        vgrad_props = ["v_00", "v_01",
+                        "v_10", "v_11"]
+
+        for prop in vgrad_props:
+            if not prop in dest_props:
+                err_msg = """Velocity gradient tensor prop %s not defined.
+                This could mean that the required function VelocityGradient2D
+                is not defined!"""%(prop)
+
+                raise RuntimeError(err_msg)        
+
+        SPHFunction.__init__(self, source, dest, setup_arrays)
+
+    def set_src_dst_reads(self):
+        pass
+
+    cpdef setup_arrays(self):
+        SPHFunctionParticle.setup_arrays(self)
+
+        # setup the stress arrays
+        self.d_S_00 = self.dest.get_carray("S_00")
+        self.d_S_01 = self.dest.get_carray("S_01")
+
+        self.d_S_10 = self.dest.get_carray("S_10")
+        self.d_S_11 = self.dest.get_carray("S_11")
+
+        # setup the velocity gradient tensor arrays
+        self.d_v_00 = self.dest.get_carray("v_00")
+        self.d_v_01 = self.dest.get_carray("v_01")
+
+        self.d_v_10 = self.dest.get_carray("v_10")
+        self.d_v_11 = self.dest.get_carray("v_11")
+
+    def setup_calc_updates(self, calc):
+        """ Setup the updates for the stress variable.
+
+        The stress tensor is written as:
+
+        .. math::
+
+        \sigma^{ij} = -P\delta^{ij} + S^{ij}
+
+        S is the deviatoric component of the stress tensor. It's nine
+        components are devined as:
+
+        S_00, S_01, S_02
+        S_10, S_11, S_12
+        S_20, S_21, S_22
+
+        This deviatoric stress component will have to be integrated
+        and the corresponding integrator variables are:
+
+        Initial props:
+        S_000, S_010, S_020
+        S_100, S_110, S_120
+        S_200, S_210, S_220
+
+        Step props:
+        S_00_a_1, S_01_a_1, S_02_a_1
+        S_10_a_1, S_11_a_1, S_12_a_1
+        S_20_a_1, S_21_a_1, S_22_a_1
+
+        """
+        calc.tensor_eval = True
+
+        updates = []
+        for i in range(2):
+            for j in range(2):
+                updates.append( "S_" + str(i) + str(j) )
+
+        return updates
+        
+    cpdef tensor_eval(self, KernelBase kernel,
+                      DoubleArray output1, DoubleArray output2,
+                      DoubleArray output3, DoubleArray output4,
+                      DoubleArray output5, DoubleArray output6,
+                      DoubleArray output7, DoubleArray output8,
+                      DoubleArray output9):
+
+        """ Evaluate the nine components the deviatoric stress rate equation """ 
+        
+        # get the tag array pointer
+        cdef LongArray tag_arr = self.dest.get_carray('tag')
+
+        # perform any iteration specific setup
+        self.setup_iter_data()
+        cdef size_t np = self.dest.get_number_of_particles()
+        cdef size_t a
+
+        cdef double result[9]
+
+        for a in range(np):
+            if tag_arr.data[a] == LocalReal:
+                self.eval_single(a, kernel, result)
+
+                output1.data[a] += result[0]
+                output2.data[a] += result[1]
+
+                output3.data[a] += result[2]
+                output4.data[a] += result[3]
+
+    cdef void eval_single(self, size_t dest_pid,
+                          KernelBase kernel, double *result):
+
+        result[0] = result[1] = result[2] = 0.0
+        result[3] = result[4] = result[5] = 0.0
+        result[6] = result[7] = result[8] = 0.0
+
+        cdef double v_00 = self.d_v_00.data[dest_pid]
+        cdef double v_01 = self.d_v_01.data[dest_pid]
+
+        cdef double v_10 = self.d_v_10.data[dest_pid]
+        cdef double v_11 = self.d_v_11.data[dest_pid]
+
+        cdef double s_00 = self.d_S_00.data[dest_pid]
+        cdef double s_01 = self.d_S_01.data[dest_pid]
+
+        cdef double s_10 = self.d_S_10.data[dest_pid]
+        cdef double s_11 = self.d_S_11.data[dest_pid]
+
+        # strain rate tensor is symmetric
+        cdef double eps_00 = v_00
+        cdef double eps_01 = 0.5 * (v_01 + v_10)
+
+        cdef double eps_10 = eps_01
+        cdef double eps_11 = v_11
+
+        # rotation tensor is asymmetric
+        cdef double omega_01 = 0.5 * (v_01 - v_10)
+        cdef double omega_10 = -omega_01
+
+        cdef double tmp = 2.0*self.shear_mod
+        cdef double fac = 2.0/3.0
+
+        # S_00
+        result[0] = tmp*( fac * eps_00 ) + \
+                    ( s_01*omega_01 ) + ( s_10*omega_01 )
+
+        # S_01
+        result[1] = tmp*(eps_01) + \
+                    ( s_00*omega_10 ) + ( s_11*omega_01 )        
+
+        # S_10
+        #result[3] = tmp*(eps_10) + \
+        #            ( s_11*omega_01 ) + ( s_00*omega_10 )
+        result[2] = result[1]
+        
+        # S_11
+        result[3] = tmp*fac*eps_11 + \
+                    ( s_10*omega_10 ) + ( s_01*omega_10 )
+
+
+#############################################################################
+# `MomentumEquationWithStress` class
+#############################################################################
+cdef class MomentumEquationWithStress2D(SPHFunctionParticle):
+    """ Evaluate the momentum equation:
+
+    ..math::
+
+    \frac{D\vec{v_a}^i}{Dt} = \sum_b
+    m_b\left(\frac{\sigma_a^{ij}}{\rho_a^2} +
+    \frac{\sigma_b^{ij}}{\rho_b^2} \right)\nabla_a\,W_{ab}
+
+    Artificial stress to remove the tension instability is added to
+    the momentum equation as described in `SPH elastic dynamics` by
+    J.P. Gray and J.J. Moaghan and R.P. Swift, Computer Methods in
+    Applied Mechanical Engineering. vol 190 (2001) pp 6641 - 6662
+
+    """
+
+    def __init__(self, ParticleArray source, ParticleArray dest, 
+                 bint setup_arrays=True,
+                 double deltap=0, double n=1,
+                 double epsp=0.01,
+                 double epsm=0.2, **kwargs):
+        """ Constructor.
+
+        Parameters:
+        -----------
+        
+        source, dest : ParticleArray
+
+        deltap : double
+            The reference initial particle spacing used to compute the
+            artificial stress term: W(q)/W(deltap)
+
+        n : double
+            The sensitivity parameter for the artificial stress term.
+
+        epsp, epsm : double
+            Factors to govern the magnitude of artificial stress when the
+            stress is positive (p) and negative (m)
+
+        """
+
+        self.deltap = deltap
+        self.with_correction = False
+        if deltap:
+            self.with_correction = True
+
+        self.epsp = epsp
+        self.epsm = epsm
+        self.n = 1
+
+        self.id = 'momentumequation_withstress'
+        self.tag = "velocity"
+
+        # check that the deviatoric stress components are defined. If
+        # not, add them.
+        stress_props = ["S_00", "S_01",
+                        "S_10", "S_11"]
+
+        dest_props = dest.properties.keys()
+        for prop in stress_props:
+            if not prop in dest_props:
+                dest.add_property( dict(name=prop) )
+
+        src_props = source.properties.keys()
+        for prop in stress_props:
+            if not prop in src_props:
+                source.add_property( dict(name=prop) )
+
+        SPHFunctionParticle.__init__(self, source, dest, setup_arrays,
+                                     **kwargs)
+    def set_src_dst_reads(self):
+        pass
+
+    cpdef setup_arrays(self):
+        SPHFunctionParticle.setup_arrays(self)
+        
+        # setup the deviatoric stress components
+        self.d_S_00 = self.dest.get_carray("S_00")
+        self.d_S_01 = self.dest.get_carray("S_01")
+        self.d_S_10 = self.dest.get_carray("S_10")
+        self.d_S_11 = self.dest.get_carray("S_11")
+
+        self.s_S_00 = self.source.get_carray("S_00")
+        self.s_S_01 = self.source.get_carray("S_01")
+        self.s_S_10 = self.source.get_carray("S_10")
+        self.s_S_11 = self.source.get_carray("S_11")
+
+    cdef void eval_nbr(self, size_t source_pid, size_t dest_pid,
+                       KernelBase kernel, double *nr):        
+
+        cdef double mb = self.s_m.data[source_pid]
+        
+        cdef double ha = self.d_h.data[dest_pid]
+        cdef double hb = self.s_h.data[source_pid]
+
+        cdef double pa = self.d_p.data[dest_pid]
+        cdef double pb = self.s_p.data[source_pid]
+
+        cdef double rhoa = self.d_rho.data[dest_pid]
+        cdef double rhob = self.s_rho.data[source_pid]
+
+        self._src.x = self.s_x.data[source_pid]
+        self._src.y = self.s_y.data[source_pid]
+        self._src.z = self.s_z.data[source_pid]
+
+        self._dst.x = self.d_x.data[dest_pid]
+        self._dst.y = self.d_y.data[dest_pid]
+        self._dst.z = self.d_z.data[dest_pid]
+
+        cdef double rhoa2 = 1.0/(rhoa*rhoa)
+        cdef double rhob2 = 1.0/(rhob*rhob)
+
+        cdef double s_00a = self.d_S_00.data[dest_pid]
+        cdef double s_00b = self.s_S_00.data[source_pid]
+
+        cdef double s_01a = self.d_S_01.data[dest_pid]
+        cdef double s_01b = self.s_S_01.data[source_pid]
+
+        cdef double s_10a = self.d_S_10.data[dest_pid]
+        cdef double s_10b = self.s_S_10.data[source_pid]
+
+        cdef double s_11a = self.d_S_11.data[dest_pid]
+        cdef double s_11b = self.s_S_11.data[source_pid]
+
+        cdef cPoint grad, grada, gradb
+        cdef double ax, ay
+        
+        # Add the pressure to the deviatoric stresses
+        s_00a = s_00a - pa
+        s_00b = s_00b - pb
+
+        s_11a = s_11a - pa
+        s_11b = s_11b - pb
+
+        if self.with_correction:
+            pass # Implement the correction here
+        
+        if self.hks:
+            grada = kernel.gradient(self._dst, self._src, ha)
+            gradb = kernel.gradient(self._dst, self._src, hb)
+
+            grad.x = (grada.x + gradb.x) * 0.5
+            grad.y = (grada.y + gradb.y) * 0.5
+            grad.z = (grada.z + gradb.z) * 0.5
+        else:            
+            grad = kernel.gradient( self._dst, self._src, 0.5*(ha+hb) )
+            
+        # compute the accelerations
+        ax = mb*( s_00a*rhoa2 + s_00b*rhob2 ) * grad.x + \
+             mb*( s_01a*rhoa2 + s_01b*rhob2 ) * grad.y
+
+        ay = mb*( s_10a*rhoa2 + s_10b*rhob2 ) * grad.x + \
+             mb*( s_11a*rhoa2 + s_11b*rhob2 ) * grad.y
+
+        nr[0] += ax
+        nr[1] += ay

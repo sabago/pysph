@@ -96,3 +96,57 @@ cdef class PressureAcceleration(MomentumEquation):
 
 cdef class PressureAcceleration2(SPHFunctionParticle):
     pass
+
+cdef class HookesDeviatoricStressRate3D(SPHFunction):
+
+    cdef public double shear_mod
+
+    cdef DoubleArray d_S_00, d_S_01, d_S_02
+    cdef DoubleArray d_S_10, d_S_11, d_S_12
+    cdef DoubleArray d_S_20, d_S_21, d_S_22
+
+    cdef DoubleArray d_v_00, d_v_01, d_v_02
+    cdef DoubleArray d_v_10, d_v_11, d_v_12
+    cdef DoubleArray d_v_20, d_v_21, d_v_22
+
+    cpdef tensor_eval(self, KernelBase kernel,
+                      DoubleArray output1, DoubleArray output2,
+                      DoubleArray output3, DoubleArray output4,
+                      DoubleArray output5, DoubleArray output6,
+                      DoubleArray output7, DoubleArray output8,
+                      DoubleArray output9)
+
+cdef class HookesDeviatoricStressRate2D(SPHFunction):
+
+    cdef public double shear_mod
+
+    cdef DoubleArray d_S_00, d_S_01
+    cdef DoubleArray d_S_10, d_S_11
+
+    cdef DoubleArray d_v_00, d_v_01
+    cdef DoubleArray d_v_10, d_v_11
+
+    cpdef tensor_eval(self, KernelBase kernel,
+                      DoubleArray output1, DoubleArray output2,
+                      DoubleArray output3, DoubleArray output4,
+                      DoubleArray output5, DoubleArray output6,
+                      DoubleArray output7, DoubleArray output8,
+                      DoubleArray output9)    
+
+cdef class MomentumEquationWithStress2D(SPHFunctionParticle):
+    cdef public double deltap
+    cdef public double epsp
+    cdef public double epsm
+    cdef public double n
+
+    cdef public bint with_correction
+
+    cdef DoubleArray d_S_00, d_S_01
+    cdef DoubleArray d_S_10, d_S_11
+
+    cdef DoubleArray s_S_00, s_S_01
+    cdef DoubleArray s_S_10, s_S_11
+    
+cpdef get_K(G, nu)
+cpdef get_nu(G, K)
+cpdef get_G(K, nu)

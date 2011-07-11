@@ -22,11 +22,7 @@ from pysph.base.nnps cimport NNPSManager, FixedDestNbrParticleLocator
 from pysph.base.nnps cimport NbrParticleLocatorBase
 
 from pysph.sph.sph_func cimport SPHFunction
-from pysph.sph.funcs.basic_funcs cimport BonnetAndLokKernelGradientCorrectionTerms,\
-    FirstOrderCorrectionMatrix, FirstOrderCorrectionTermAlpha, \
-    FirstOrderCorrectionMatrixGradient, FirstOrderCorrectionVectorGradient
-
-from pysph.base.carray cimport IntArray, DoubleArray
+from pysph.base.carray cimport DoubleArray
 
 from pysph.solver.cl_utils import (HAS_CL, get_cl_include,
     get_pysph_root, cl_read)
@@ -82,35 +78,122 @@ cdef class SPHCalc:
 
     def __init__(self, particles, list sources, ParticleArray dest,
                   KernelBase kernel, list funcs,
-                  list updates, integrates=False, dnum=0, nbr_info=True,
+                  list updates=[], integrates=False, dnum=0, nbr_info=True,
                   str id = "", bint kernel_gradient_correction=False,
                   kernel_correction=-1, int dim = 1, str snum="",
                   reset_arrays=True):
 
-        self.nbr_info = nbr_info
+        """ Constructor for the SPHCalc object.
+
+        Parameters:
+        ------------
+
+        particles : pysph.base.Particles
+            The collection of particle arrays used in the simulation.
+
+        dest : pysph.base.ParticleArray
+            The particle array on which and SPHOperation is to be evaluated.
+            In an equation, the destination particle array will be the LHS
+            indexed by the subscript `i` or `a`
+
+        sources : list
+            A list of particle arrays that contribute to the destination.
+            In the equation representing the SPHOperation, the source
+            particle arrays are the RHS indexed by `j` or `b`
+
+        funcs : list
+            A list of functions (pysph.sph.sph_func.SPHFunction), one for each
+            source that is responsible for computing the interaction between the
+            source-destination pair.
+
+        kernel : pysph.base.KernelBase
+            The SPH kernel used for the evaluation between the src-dst pair.
+
+        updates : list (default =  [])
+            An optional list of strings indicating destination particle array
+            properties in which to store the results of the computation.
+            By default, the results will be stored in the temporary variables
+            `_tmpx` `_tmpy` and `_tmpz` on the destination particle array.
+            
+        integrates : bool (default = False)
+            A flag to indicate that the RHS evaluated by the function is to
+            be considered an acceleration which is used for integrating the
+            `updates` property when combined with an integrator.
+
+            Example:
+            An SPHCalc with updates = ['u', 'v'] and integrates = True will
+            cause the integrator (pysph.solver.integrator) to create the
+            necessary variables (initial values, step values) which is needed
+            for integration.
+
+        dnum : int (1)
+            The index of the destination particle array in the list of
+            arrays (partilces.arrays).
+
+        nbr_info : bool (True)
+            A flag indicating if the evaluation represented by the functions
+            requires neighbor information.
+            
+        id : str ("")
+            A unique identification for the Calc. When the calc is constructed
+            from the solver interface using operations (pysph.solver.SPHOperation),
+            the id is constructed as:
+
+            <dest.name>_<func.id>
+
+        kernel_gradient_correction: bool (False)
+            Flag for the bonnet and Lok kernel gradient correction
+
+        kernel_correction : int (-1)
+            Integere Identifier for the kind of kernel correction.
+
+        dim : int (1)
+            The dimension of the problem. The kernel dim and dim should match
+
+        reset_arrays : bool (False)
+            Flag indicating if the output arrays are to be reset.
+
+            For integrating calcs, the integrator is responsible for resetting
+            the acceleration arrays to 0 before performing the evaluation.
+
+            For non-integrating calcs, the updates (LHS) list should
+            be set to zero before calling the individual functions.
+
+            For example, if we are calculating the density due to summation
+            on a fluid from itself and a nearby solid,
+
+            updates = ['rho']
+            funcs = [SPHRho(dest=fluid, src=fluid), SPHRho(dest=fluid, src=solid)]
+
+            In this case, we want the density to be set to zero before
+            each function is called so that the result they append to
+            (dest.rho) will not be affected by any previous value.            
+
+        """
         self.particles = particles
+        self.dest = dest
+
         self.sources = sources
         self.nsrcs = len(sources)
-        self.dest = dest
-        self.nbr_locators = []
 
-        self.nnps_manager = particles.nnps_manager
+        self.nbr_info = nbr_info
 
         self.funcs = funcs
         self.kernel = kernel
 
-        self.nbrs = LongArray()
-
         self.integrates = integrates
+
+        self.dim = dim
+
         self.updates = updates
-        self.nupdates = len(updates)
+        self.updates = funcs[0].setup_calc_updates(self)
+        self.nupdates = len(self.updates)
 
         self.kernel_correction = kernel_correction
 
         self.dnum = dnum
         self.id = id
 
-        self.dim = dim
         self.snum = snum
         self.reset_arrays = reset_arrays
 
@@ -131,7 +214,7 @@ cdef class SPHCalc:
 
         self.check_internals()
         self.setup_internals()
-
+        
     cpdef check_internals(self):
         """ Check for inconsistencies and set the neighbor locator. """
 
@@ -148,17 +231,14 @@ cdef class SPHCalc:
             logger.info('dest : %s'%(self.dest))
             logger.info('kernel : %s'%(self.kernel))
             logger.info('sph_funcs : %s'%(self.funcs)) 
-            
             return
 
         # we need one sph_func for each source.
-
         if len(self.funcs) != len(self.sources):
             msg = 'One sph function is needed per source'
             raise ValueError, msg
 
         # ensure that all the funcs are of the same class and have same tag
-
         funcs = self.funcs
         for i in range(len(self.funcs)-1):
             if type(funcs[i]) != type(funcs[i+1]):
@@ -167,8 +247,8 @@ cdef class SPHCalc:
             if funcs[i].tag != funcs[i+1].tag:
                 msg = "All functions should have the same tag"
                 raise ValueError, msg
-        #check that the function src and dsts are the same as the calc's
 
+        #check that the function src and dsts are the same as the calc's
         for i in range(len(self.funcs)):
             if funcs[i].source != self.sources[i]:
                 msg = 'SPHFunction.source not same as'
@@ -186,21 +266,28 @@ cdef class SPHCalc:
 
         cdef FixedDestNbrParticleLocator loc
         cdef SPHFunction func
-        cdef int nsrcs = self.nsrcs
         cdef ParticleArray src
         cdef int i
 
-        self.nbr_locators[:] = []
+        func = self.funcs[0]
 
-        # set the calc's tag from the function tags. Check ensures all are same
-        self.tag = self.funcs[0].tag
-        self.cl_kernel_function_name = self.funcs[0].cl_kernel_function_name
+        # the tag is the same as the function
+        self.tag = func.tag
 
-        # set the list of props to reset from the functions list
-        self.to_reset = self.funcs[0].to_reset
+        # set the cl_kernel_function_name
+        self.cl_kernel_function_name = func.cl_kernel_function_name
 
-        # set the neighbor locators
-        for i in range(nsrcs):
+        # a list of properties to reset before calling the functions
+        self.to_reset = func.to_reset
+
+        # a list of reads for the calc
+        self.src_reads = func.src_reads
+        self.dst_reads = func.dst_reads
+
+        # setup the neighbor locators for the functions
+        self.nnps_manager = self.particles.nnps_manager
+        self.nbr_locators = []
+        for i in range(self.nsrcs):
             src = self.sources[i]
             func = self.funcs[i]
 
@@ -216,11 +303,6 @@ cdef class SPHCalc:
                         %(self.id, src.name, self.dest.name, loc))
             
             self.nbr_locators.append(loc)
-
-        func = self.funcs[0]
-
-        self.src_reads = func.src_reads
-        self.dst_reads = func.dst_reads
 
     cpdef sph(self, str output_array1=None, str output_array2=None, 
               str output_array3=None, bint exclude_self=False): 
@@ -274,6 +356,77 @@ cdef class SPHCalc:
                 func.source, self.dest, self.kernel.radius())
 
             func.eval(self.kernel, output1, output2, output3)
+
+    cpdef tensor_sph(self, str out1=None, str out2=None, str out3=None,
+                     str out4=None, str out5=None, str out6=None,
+                     str out7=None, str out8=None, str out9=None):
+        """Evaluate upto 9 components of a tensor.
+
+        This function is needed to evaluate the nine components of a
+        tensor matrix, when used as an integrating calc.
+
+        Example:
+
+        The deviatoric component of the stress tensor is integrated as:
+
+        .. math::
+
+        \frac{dS^{ij}}{dt} = 2\mu\left(\eps^{ij} -
+        \frac{1}{3}\delta^{ij}\eps^{ij}\right) + S^{ik}\Omega^{jk} +
+        \Omega^{ik}S^{kj}
+
+        The integrator needs to call this function with the
+        corresponding acceleration variables for each component.
+
+        Default values _tmpx, _tmpy and _tmpz are chosen for each
+        redundant evaluation. By redundant we mean that the 2D version
+        of the above function (HookesDeviatoricStressRate2D) will only
+        update S_00, S_01, S_10 and S_11. We don't care about the
+        rest which by default will be the temporary variables.
+
+        """
+        if out1 is None: out1 = "_tmpx"
+        if out2 is None: out2 = "_tmpy"
+        if out3 is None: out3 = "_tmpz"
+
+        if out1 is None: out4 = "_tmpx"
+        if out2 is None: out5 = "_tmpy"
+        if out3 is None: out6 = "_tmpz"
+
+        if out1 is None: out7 = "_tmpx"
+        if out2 is None: out8 = "_tmpy"
+        if out3 is None: out9 = "_tmpz"
+
+        cdef DoubleArray output1 = self.dest.get_carray(out1)
+        cdef DoubleArray output2 = self.dest.get_carray(out2)
+        cdef DoubleArray output3 = self.dest.get_carray(out3)
+        cdef DoubleArray output4 = self.dest.get_carray(out4)
+        cdef DoubleArray output5 = self.dest.get_carray(out5)
+        cdef DoubleArray output6 = self.dest.get_carray(out6)
+        cdef DoubleArray output7 = self.dest.get_carray(out7)
+        cdef DoubleArray output8 = self.dest.get_carray(out8)
+        cdef DoubleArray output9 = self.dest.get_carray(out9)
+
+        # call the tensor eval function
+        self.tensor_sph_array(output1, output2, output3,
+                              output4, output5, output6,
+                              output7, output8, output9)
+
+    cpdef tensor_sph_array(self, DoubleArray output1, DoubleArray output2,
+                           DoubleArray output3, DoubleArray output4,
+                           DoubleArray output5, DoubleArray output6,
+                           DoubleArray output7, DoubleArray output8,
+                           DoubleArray output9):
+
+        cdef SPHFunction func
+        for func in self.funcs:
+            func.nbr_locator = self.nnps_manager.get_neighbor_particle_locator(
+                func.source, self.dest, self.kernel.radius())
+
+            func.tensor_eval(self.kernel,
+                             output1, output2, output3,
+                             output4, output5, output6,
+                             output7, output8, output9)
 
     cdef reset_output_arrays(self, DoubleArray output1, DoubleArray output2,
                              DoubleArray output3):

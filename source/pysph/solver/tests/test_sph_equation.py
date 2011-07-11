@@ -115,7 +115,7 @@ class SPHIntegrationTestCase(SPHOperationTestCase):
         operation = solver.SPHIntegration(
             
             function=function, on_types=[Solid,Fluid],
-            updates=['u', 'v'], id='gravity'
+            id="gravity", updates=['u', 'v']
         
             )
 

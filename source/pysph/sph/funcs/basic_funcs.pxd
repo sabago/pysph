@@ -46,9 +46,13 @@ cdef class CountNeighbors(SPHFunctionParticle):
     """ Count Neighbors.  """
     pass
 
-cdef class VelocityGradient(SPHFunctionParticle):
+cdef class VelocityGradient3D(SPHFunctionParticle):
     """ Compute the velocity gradient matrix. """
     cpdef tensor_eval(self, KernelBase kernel)
+
+cdef class VelocityGradient2D(SPHFunctionParticle):
+    """ Compute the velocity gradient matrix. """
+    cpdef tensor_eval(self, KernelBase kernel)    
 
 cdef class BonnetAndLokKernelGradientCorrectionTerms(CSPHFunctionParticle):
     """ Kernel Gradient Correction terms """
