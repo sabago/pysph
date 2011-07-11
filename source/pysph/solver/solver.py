@@ -379,7 +379,7 @@ class Solver(object):
 
                 if operation.kernel is None:
                     operation.kernel = self.default_kernel
-                
+
                 calcs = operation.get_calcs(particles, operation.kernel)
 
                 self.integrator.calcs.extend(calcs)

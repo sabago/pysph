@@ -185,7 +185,9 @@ cdef class ParticleArray:
         elif name in self.constants:
             return self.constants[name]
         else:
-            raise AttributeError, 'property %s not found'%(name)
+            msg = """ ParticleArray %s has no property %s """%(self.name,
+                                                               name)
+            raise AttributeError(msg)
 
     def __setattr__(self, name, value):
         """ Convenience, to set particle property arrays as an attribute """
@@ -1379,7 +1381,7 @@ def get_particle_array(cl_precision="double", **props):
     """ 
         
     nprops = len(props)
-    
+
     prop_dict = {}
     name = ""
     particle_type = ParticleType.Fluid

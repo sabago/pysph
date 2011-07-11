@@ -9,6 +9,7 @@ import pysph.base.api as base
 import pysph.sph.api as sph
 from pysph.sph.funcs import stress_funcs
 from pysph.sph.funcs import eos_funcs
+from pysph.sph.funcs import viscosity_funcs
 
 from solver import Solver
 from post_step_functions import CFLTimeStepFunction
@@ -186,7 +187,6 @@ class StressSolver(Solver):
         ro = options.get("ro")
 
         #create the sph operation objects
-
         self.add_operation(SPHOperation(
                 stress_funcs.BulkModulusPEqn,
                 on_types=[Solids],
@@ -194,14 +194,6 @@ class StressSolver(Solver):
                 id='eos')
             )
 
-        # self.add_operation(SPHOperation(
-
-        #     eos_funcs.IsothermalEquation.withargs(co=co, ro=ro),
-        #     on_types = [Solids,],
-        #     updates = ['p'], id="eos")
-
-        #                    )
-            
         if xsph:
             self.add_operation(SPHOperation(
                 
@@ -220,7 +212,6 @@ class StressSolver(Solver):
                 updates=['MArtStress00','MArtStress11','MArtStress22'],
                 id='mart_stress_d')
                                )
-            
             self.add_operation(SPHOperation(
 
                 stress_funcs.MonaghanArtStressS.withargs(eps=marts_eps),
@@ -228,7 +219,6 @@ class StressSolver(Solver):
                 updates=['MArtStress12','MArtStress02','MArtStress01'],
                 id='mart_stress_s')
                                )
-            
             self.add_operation(SPHIntegration(
                 
                 stress_funcs.MonaghanArtStressAcc.withargs(n=marts_n),
@@ -254,14 +244,13 @@ class StressSolver(Solver):
                 id='density')
                                )
 
-
         self.add_operation(SPHIntegration(
 
             stress_funcs.SimpleStressAcceleration,
             from_types=[Fluids, Solids], on_types=[Solids],
             updates=['u','v','w'],
             id='stressacc')
-                           )        
+                           )
 
         self.add_operation(SPHIntegration(
 
@@ -272,7 +261,7 @@ class StressSolver(Solver):
             updates=['u','v','w'],
             id='pacc')
                            )
-        
+
         self.add_operation(SPHIntegration(
 
             stress_funcs.StressRateD.withargs(xsph=bool(xsph)),
@@ -280,7 +269,6 @@ class StressSolver(Solver):
             updates=['sigma00','sigma11','sigma22'],
             id='stressD')
                            )
-        
         self.add_operation(SPHIntegration(
             
             stress_funcs.StressRateS.withargs(xsph=bool(xsph)),
@@ -302,7 +290,6 @@ class StressSolver(Solver):
         # xsph correction to position stepping
         if xsph:
             self.add_operation(SPHIntegration(
-
                 PropertyGet.withargs(prop_names=['ubar','vbar','wbar'][:self.dim]),
                 on_types=[Solids],
                 updates=['x','y','z'][:self.dim],
@@ -314,5 +301,70 @@ class StressSolver(Solver):
 
         if cfl:
             self.pre_step_functions.append(CFLTimeStepFunction(cfl))
+
+
+    def _setup_solver(self, options=None):
+        E = 1e7
+        nu = 0.3975
+        K = 1.0/3.0 * E/(1-2*nu)
+        G = 0.5*E/(1+nu)
+        ro = 1.0
+        co = numpy.sqrt(K/ro)
+
+        print "Using ", G, co
+        s=self
+
+        # Velocity Gradient tensor
+        s.add_operation(SPHOperation(
+            
+            sph.VelocityGradient2D.withargs(), on_types=[Solids,],
+            id="vgrad")
+
+                        )
+        # Equation of state
+        s.add_operation(SPHOperation(
+            
+            sph.IsothermalEquation.withargs(ro=ro, co=co), on_types=[Solids,],
+            id="eos", updates=['p'])
+
+                        )
+        # density rate
+        s.add_operation(SPHIntegration(
+            
+            sph.SPHDensityRate.withargs(), on_types=[Solids,], from_types=[Solids],
+            id="density", updates=['rho'])
+                        
+                        )
+        # momentum equation
+        s.add_operation(SPHIntegration(
+            
+            sph.MomentumEquationWithStress2D.withargs(), on_types=[Solids,],
+            from_types=[Solids,], id="momentum", updates=['u','v'])
+                    
+                        )
+        # momentum equation artificial viscosity
+        s.add_operation(SPHIntegration(
+            
+            sph.MonaghanArtificialVsicosity.withargs(alpha=1.0, beta=1.0),
+            on_types=[Solids,], from_types=[Solids,],
+            id="avisc", updates=['u','v'])
+                        
+                        )
+        # stress rate
+        s.add_operation(SPHIntegration(
+            
+            sph.HookesDeviatoricStressRate2D.withargs(shear_mod=G),
+            on_types=[Solids,],
+            id="stressrate")
+                        
+                        )
+        # position stepping
+        s.add_operation(SPHIntegration(
+            
+            sph.PositionStepping.withargs(),
+            on_types=[Solids,],
+            id="step", updates=['x','y'])
+                        
+                        )
 
 #############################################################################

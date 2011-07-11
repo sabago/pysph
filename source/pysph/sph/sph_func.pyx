@@ -241,6 +241,27 @@ cdef class SPHFunction:
         """
         pass
 
+    def setup_calc_updates(self, object calc):
+        """ Set the updates list for an the SPHCalc object.
+
+        The default behavior is to return the updates list for the
+        calc itself. Tensor functions (especially in 3D) would require
+        at times 9 'updates' which could be tedious and error
+        prone. This is left to the function which defines the 'updates'
+        for the calc and sets the calc's tensor eval flag to True.
+
+        This is only required for integrating calcs when we're
+        computing the accelerations for the nine (3D) components of a
+        tensor.
+
+        For non integratig calcs that evaluate the components of a
+        tensor on the LHS, the SPHFunction's eval method can be
+        overrided. Look at VelocityGradient in basic_funcs for an
+        example.
+
+        """
+        return calc.updates        
+
     def setup_cl(self, object program, object context):
         """ OpenCL setup for the function.
 

@@ -454,9 +454,9 @@ cdef class CountNeighbors(SPHFunctionParticle):
         result[0] += self.nbr_locator.get_nearest_particles(dest_pid).length
 
 ################################################################################
-# `VelocityGradient` class.
+# `VelocityGradient3D` class.
 ################################################################################
-cdef class VelocityGradient(SPHFunctionParticle):
+cdef class VelocityGradient3D(SPHFunctionParticle):
     """ Compute the SPH evaluation for the velocity gradient tensor.
 
     The expression for the velocity gradient is:
@@ -482,7 +482,9 @@ cdef class VelocityGradient(SPHFunctionParticle):
         """ Constructor """
 
         SPHFunctionParticle.__init__(self, source, dest, setup_arrays = True)
-        self.id = 'nbrs'
+
+        self.id = 'vgrad3D'
+        self.tag = "vgrad3D"
 
         # setup the default properties if they do not exist
         dest_properties = dest.properties.keys()
@@ -494,8 +496,8 @@ cdef class VelocityGradient(SPHFunctionParticle):
             if prop not in dest_properties:
                 dest.add_property( dict(name=prop) )
 
-        # set the to_reset attribute to the tensor props so that the
-        # gradient variables will be reset at the calc level.
+        # set the to_reset variable to tensor_props as we want each of
+        # the varaibles to be set to zero at the calc level
         self.to_reset = tensor_props
 
     def set_src_dst_reads(self):
@@ -553,9 +555,9 @@ cdef class VelocityGradient(SPHFunctionParticle):
         cdef size_t nnbrs = nbrs.length
         cdef size_t j
 
-        if self.exclude_self:
-            if self.src is self.dest:
-                nnbrs -= 1
+        # the particle itself does not contribute to the gradient
+        if self.source is self.dest:
+            nnbrs -= 1
 
         result[0] = result[1] = result[2] = 0.0
         result[3] = result[4] = result[5] = 0.0
@@ -615,6 +617,149 @@ cdef class VelocityGradient(SPHFunctionParticle):
         result[6] += tmp * vba.z * grad.x
         result[7] += tmp * vba.z * grad.y
         result[8] += tmp * vba.z * grad.z
+
+################################################################################
+# `VelocityGradient2D` class.
+################################################################################
+cdef class VelocityGradient2D(SPHFunctionParticle):
+    """ Compute the SPH evaluation for the velocity gradient tensor in 2D.
+
+    The expression for the velocity gradient is:
+
+    .. math::
+
+    \frac{\partial v^i}{\partial x^j} = \sum_{b}\frac{m_b}{\rho_b}(v_b
+    - v_a)\frac{\partial W_{ab}}{\partial x_a^j}
+
+
+    The tensor properties are stored in the variables v_ij where 'i'
+    refers to the velocity component and 'j' refers to the spatial
+    component. Thus v_21 is
+
+    .. math::
+
+    \frac{\partial w}{\partial y}
+
+    """
+
+    def __init__(self, ParticleArray source, ParticleArray dest,
+                 *args, **kwargs):
+        """ Constructor """
+
+        SPHFunctionParticle.__init__(self, source, dest, setup_arrays = True)
+
+        self.id = 'vgrad2D'
+        self.tag = "vgrad2D"
+
+        # setup the default properties if they do not exist
+        dest_properties = dest.properties.keys()
+        tensor_props = ["v_00", "v_01",
+                        "v_10", "v_11"]
+
+        for prop in tensor_props:
+            if prop not in dest_properties:
+                dest.add_property( dict(name=prop) )
+
+        # set the to_reset variable to tensor_props as we want each of
+        # the varaibles to be set to zero at the calc level
+        self.to_reset = tensor_props
+
+    def set_src_dst_reads(self):
+        pass
+
+    cpdef eval(self, KernelBase kernel, DoubleArray output1,
+               DoubleArray output2, DoubleArray output3):
+        """ Overide the basic function to call the tensor eval function """
+        self.tensor_eval(kernel)
+
+    cpdef tensor_eval(self, KernelBase kernel):
+
+        # get the tag array pointer
+        cdef LongArray tag_arr = self.dest.get_carray('tag')
+
+        # perform any iteration specific setup
+        self.setup_iter_data()
+        cdef size_t np = self.dest.get_number_of_particles()
+        cdef size_t a
+
+        cdef double result[4]
+
+        cdef DoubleArray v_00 = self.dest.get_carray("v_00")
+        cdef DoubleArray v_01 = self.dest.get_carray("v_01")
+
+        cdef DoubleArray v_10 = self.dest.get_carray("v_10")
+        cdef DoubleArray v_11 = self.dest.get_carray("v_11")
+
+        for a in range( np ):
+            if tag_arr.data[a] == LocalReal:
+                self.eval_single(a, kernel, result)
+
+                v_00.data[a] += result[0]
+                v_01.data[a] += result[1]
+                
+                v_10.data[a] += result[2]
+                v_11.data[a] += result[3]
+
+    cdef void eval_single(self, size_t dest_pid,
+                          KernelBase kernel, double *result):
+        
+        cdef LongArray nbrs = self.nbr_locator.get_nearest_particles(dest_pid)
+        cdef size_t nnbrs = nbrs.length
+        cdef size_t j
+
+        # the particle itself does not contribute to the gradient
+        if self.source is self.dest:
+            nnbrs -= 1
+
+        result[0] = result[1] = result[2] = result[3] = 0.0
+
+        for j in range(nnbrs):
+            self.eval_nbr( nbrs.data[j], dest_pid, kernel, result )
+
+    cdef void eval_nbr(self, size_t source_pid, size_t dest_pid,
+                       KernelBase kernel, double * result):
+
+        cdef double ha = self.d_h.data[dest_pid]
+        cdef double hb = self.s_h.data[source_pid]
+
+        cdef double mb = self.s_m.data[source_pid]
+        cdef double rhob = self.s_rho.data[source_pid]
+
+        cdef cPoint vba, grad, grada, gradb
+        cdef double tmp
+
+        self._src.x = self.s_x.data[source_pid]
+        self._src.y = self.s_y.data[source_pid]
+        self._src.z = self.s_z.data[source_pid]
+
+        self._dst.x = self.d_x.data[dest_pid]
+        self._dst.y = self.d_y.data[dest_pid]
+        self._dst.z = self.d_z.data[dest_pid]
+
+        vba.x = self.s_u.data[source_pid] - self.d_u.data[dest_pid]
+        vba.y = self.s_v.data[source_pid] - self.d_v.data[dest_pid]
+        vba.z = self.s_w.data[source_pid] - self.d_w.data[dest_pid]
+
+        if self.hks:
+            grada = kernel.gradient(self._dst, self._src, ha)
+            gradb = kernel.gradient(self._dst, self._src, hb)
+
+            grad.x = 0.5 * ( grada.x + gradb.x )
+            grad.y = 0.5 * ( grada.y + gradb.y )
+            grad.z = 0.5 * ( grada.z + gradb.z )
+
+        else:
+            grad = kernel.gradient( self._dst, self._src, 0.5*(ha+hb) )
+
+        tmp = mb/rhob
+
+        # the first row is for u,x and u,y
+        result[0] += tmp * vba.x * grad.x
+        result[1] += tmp * vba.x * grad.y
+
+        # the second row is for v,x and v,y
+        result[2] += tmp * vba.y * grad.x
+        result[3] += tmp * vba.y * grad.y
 
 ################################################################################
 # `KernelGradientCorrectionTerms` class.

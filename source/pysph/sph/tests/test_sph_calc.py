@@ -151,6 +151,8 @@ class CLCalcTestCase(unittest.TestCase):
             self.assertAlmostEqual( tmpx[i], -1.0, 10)
             self.assertAlmostEqual( tmpy[i], -1.0, 10)
             self.assertAlmostEqual( tmpz[i], -1.0, 10)
+
+
         
 if __name__ == '__main__':
     test_sph_calc()

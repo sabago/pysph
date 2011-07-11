@@ -85,7 +85,7 @@ def create_particles():
     print 'K', pa.K
     print 'c_s', pa.c_s
     print 'Number of particles: ', len(pa.x)
-    
+
     return pa
 
 

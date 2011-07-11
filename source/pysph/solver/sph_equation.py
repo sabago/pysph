@@ -53,7 +53,7 @@ class SPHOperation(object):
 
     """
     
-    def __init__(self, function, on_types, updates, id, kernel=None,
+    def __init__(self, function, on_types, id, updates=[], kernel=None,
                  from_types=[], kernel_correction=-1, integrates=False):
         """ Constructor
 
@@ -79,7 +79,7 @@ class SPHOperation(object):
         self.from_types = from_types
         self.on_types = on_types
         self.function = function
-        self.updates = updates        
+        self.updates = updates
         self.id = id
         self.integrates = integrates
 
@@ -248,10 +248,9 @@ class SPHIntegration(SPHOperation):
     :class:`SPHOperation` with integrates=True
     
     """    
-    def __init__(self, function, on_types, updates, id, kernel=None,
+    def __init__(self, function, on_types, id, updates=[], kernel=None,
                  from_types=[], kernel_correction=-1):
-
-        SPHOperation.__init__(self, function, on_types, updates, id, kernel,
+        SPHOperation.__init__(self, function, on_types, id, updates, kernel,
                               from_types=from_types, integrates=True,
                               kernel_correction=kernel_correction,)
         

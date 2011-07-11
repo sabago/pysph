@@ -123,7 +123,6 @@ cfl = 0.1
 # s = StressSolver(dim=2, integrator_type=solver.RK2Integrator)
 s = StressSolver(dim=2, integrator_type=solver.PredictorCorrectorIntegrator,
                  xsph=0.5, marts_eps=0.3, marts_n=4, CFL=cfl)
-#s = StressSolver(dim=2, integrator_type=solver.LeapFrogIntegrator)
 
 
 # can be overriden by commandline arguments

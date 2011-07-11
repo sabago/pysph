@@ -41,6 +41,9 @@ cdef class SPHCalc:
     cdef public dict dst_writes
     cdef public list initial_props
 
+    # flag to call the tensor eval function
+    cdef public bint tensor_eval
+
     # OpenCL context, kernel and command queue
     cdef public object context
     cdef public object queue
@@ -86,3 +89,14 @@ cdef class SPHCalc:
     cdef reset_output_arrays(self, DoubleArray output1, DoubleArray output2,
                              DoubleArray output3)
 
+
+    # perform a tensor evaluation. Upto 9 components can be evaluated.
+    cpdef tensor_sph(self, str out1=*, str out2=*, str out3=*,
+                     str out4=*, str out5=*, str out6=*,
+                     str out7=*, str out8=*, str out9=*)
+
+    cpdef tensor_sph_array(self, DoubleArray output1, DoubleArray output2,
+                           DoubleArray output3, DoubleArray output4,
+                           DoubleArray output5, DoubleArray output6,
+                           DoubleArray output7, DoubleArray output8,
+                           DoubleArray output9)
