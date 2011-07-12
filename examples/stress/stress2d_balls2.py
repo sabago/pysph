@@ -88,7 +88,7 @@ s.add_operation(solver.SPHOperation(
 # Equation of state
 s.add_operation(solver.SPHOperation(
 
-    sph.IsothermalEquation.withargs(ro=ro, co=ro), on_types=[Solid,],
+    sph.IsothermalEquation.withargs(ro=ro, co=co), on_types=[Solid,],
     id="eos", updates=['p'])
 
                 )
@@ -159,3 +159,165 @@ s.set_kernel_correction(-1)
 s.pfreq = 100
 
 app.run()
+
+###############################################################################
+# DEBUG
+s1 = solver.Solver(dim=2, integrator_type=solver.PredictorCorrectorIntegrator)
+                   
+# Velocity Gradient tensor
+s1.add_operation(solver.SPHOperation(
+
+    sph.VelocityGradient2D.withargs(), on_types=[Solid,],
+    id="vgrad")
+
+                )
+
+# Equation of state
+s1.add_operation(solver.SPHOperation(
+
+    sph.IsothermalEquation.withargs(ro=ro, co=co), on_types=[Solid,],
+    id="eos", updates=['p'])
+
+                )
+
+# density rate
+s1.add_operation(solver.SPHIntegration(
+
+    sph.SPHDensityRate.withargs(), on_types=[Solid,], from_types=[Solid],
+    id="density", updates=['rho'])
+
+                )
+
+
+# s1.add_operation(solver.SPHOperation(
+                
+#     stress_funcs.MonaghanArtStressD.withargs(eps=0.3, stress="S_"),
+#     on_types=[Solid],
+#     updates=['MArtStress00','MArtStress11','MArtStress22'],
+#     id='mart_stress_d')
+#                    )
+
+# s1.add_operation(solver.SPHOperation(
+
+#     stress_funcs.MonaghanArtStressS.withargs(eps=0.3, stress="S_"),
+#     on_types=[Solid],
+#     updates=['MArtStress12','MArtStress02','MArtStress01'],
+#     id='mart_stress_s')
+#                  )
+
+# s1.add_operation(solver.SPHIntegration(
+    
+#     stress_funcs.MonaghanArtStressAcc.withargs(n=4),
+#     from_types=[Solid], on_types=[Solid],
+#     updates=['u','v','w'],
+#     id='mart_stressacc')
+#                  )
+
+# momentum equation
+s1.add_operation(solver.SPHIntegration(
+
+    sph.MomentumEquationWithStress2D.withargs(theta_factor=fac,
+                                              deltap=deltap, n=4,
+                                              epsp=0.3, epsm=0),
+                                              
+    on_types=[Solid,],
+    from_types=[Solid,], id="momentum", updates=['u','v'])
+
+                )
+
+# s1.add_operation(solver.SPHIntegration(
+
+#     stress_funcs.SimpleStressAcceleration.withargs(stress="S_"),
+#     from_types=[Solid], on_types=[Solid],
+#     updates=['u','v','w'],
+#     id='stressacc')
+
+#                  )
+
+
+# momentum equation artificial viscosity
+s1.add_operation(solver.SPHIntegration(
+
+    sph.MonaghanArtificialVsicosity.withargs(alpha=1.0, beta=1.0, eta=0.0),
+    on_types=[Solid,], from_types=[Solid,],
+    id="avisc", updates=['u','v'])
+
+                )
+
+# stress rate
+s1.add_operation(solver.SPHIntegration(
+
+    sph.HookesDeviatoricStressRate2D.withargs(shear_mod=G),
+    on_types=[Solid,],
+    id="stressrate")
+
+                )
+
+# position stepping
+s1.add_operation(solver.SPHIntegration(
+
+    sph.PositionStepping.withargs(),
+    on_types=[Solid,],
+    id="step", updates=['x','y','z'])
+    
+                )
+
+dt = 1e-8
+tf = 1e-2
+s1.set_time_step(dt)
+s1.set_final_time(tf)
+s1.set_kernel_correction(-1)
+s1.pfreq = 100
+
+app1.set_solver(s1, callable=create_particles)
+
+
+
+#app.run()
+
+# can be overriden by commandline arguments
+dt = 1e-8
+tf = 1e-2
+s.set_time_step(dt)
+s.set_final_time(tf)
+s.set_kernel_correction(-1)
+s.pfreq = 100
+
+app2.set_solver(s, callable=create_particles)
+
+#print [calc.id for calc in s.integrator.calcs]
+#print [calc.id for calc in s1.integrator.calcs]
+
+# particles = s.particles
+# pa = particles.arrays[0]
+
+def check():
+    array1 = s.particles.arrays[0]
+    array2 = s1.particles.arrays[0]
+
+    props = ['x','y','u','v','rho','p']
+    np = array1.get_number_of_particles()
+    nk = array2.get_number_of_particles()
+
+    assert np == nk
+
+    for prop in props:
+        p = array1.get(prop)
+        k = array2.get(prop)
+
+        err = abs(p - k)
+        print prop, sum(err)/nk, max(err)
+
+t = 0.0
+while t < tf:
+
+    print "Checkking at %g ", t
+    check()
+    print
+    
+    t += dt
+    s.set_final_time(t)
+    s1.set_final_time(t)
+
+    s.solve(dt)
+    s1.solve(dt)

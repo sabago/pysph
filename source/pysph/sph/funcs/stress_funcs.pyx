@@ -164,7 +164,7 @@ cdef class SimpleStressAcceleration(StressFunction):
             self.bonnet_and_lok_gradient_correction(dest_pid, &grad)
 
         cdef double * dgrad = &grad.x
-        
+
         for i in range(3): # result
             for j in range(3): # stress term
                 add = self.s_m[source_pid] * (self._d_s[i][j][dest_pid]/(rhoa*rhoa) +
@@ -951,10 +951,10 @@ cdef class HookesDeviatoricStressRate3D(SPHFunction):
         cdef double omega_21 = -omega_12
 
         cdef double tmp = 2.0*self.shear_mod
-        cdef double fac = 2.0/3.0
+        cdef double trace = 1.0/3.0 * (eps_00 + eps_11 + eps_22)
 
         # S_00
-        result[0] = tmp*( fac * eps_00 ) + \
+        result[0] = tmp*( eps_00 - trace ) + \
                     ( s_01*omega_01 + s_02*omega_02 ) + \
                     ( s_10*omega_01 + s_20*omega_02 )
 
@@ -974,7 +974,7 @@ cdef class HookesDeviatoricStressRate3D(SPHFunction):
                     ( s_00*omega_10 + s_20*omega_12 )
 
         # S_11
-        result[4] = tmp*fac*eps_11 + \
+        result[4] = tmp*( eps_11 - trace ) + \
                     ( s_10*omega_10 + s_12*omega_12 ) + \
                     ( s_01*omega_10 + s_21*omega_12 )
 
@@ -994,7 +994,7 @@ cdef class HookesDeviatoricStressRate3D(SPHFunction):
                     ( s_01*omega_20 + s_11*omega_21 )
 
         # S_22
-        result[8] = tmp*fac*eps_22 + \
+        result[8] = tmp*( eps_22 - trace)  + \
                     ( s_20*omega_20 + s_21*omega_21 ) + \
                     ( s_02*omega_20 + s_12*omega_21 )
 
@@ -1042,7 +1042,7 @@ cdef class HookesDeviatoricStressRate2D(SPHFunction):
 
         # the velocity gradient tensor props should be defined on the
         # destination. This means, a previous operation of
-        # VelocityGradient3D should have been defined for the dest.
+        # VelocityGradient2D should have been defined for the dest.
         vgrad_props = ["v_00", "v_01",
                         "v_10", "v_11"]
 
@@ -1175,10 +1175,10 @@ cdef class HookesDeviatoricStressRate2D(SPHFunction):
         cdef double omega_10 = -omega_01
 
         cdef double tmp = 2.0*self.shear_mod
-        cdef double fac = 2.0/3.0
+        cdef double trace = 1.0/3.0 * (eps_00 + eps_11)
 
         # S_00
-        result[0] = tmp*( fac * eps_00 ) + \
+        result[0] = tmp*( eps_00 - trace ) + \
                     ( s_01*omega_01 ) + ( s_10*omega_01 )
 
         # S_01
@@ -1191,7 +1191,7 @@ cdef class HookesDeviatoricStressRate2D(SPHFunction):
         result[2] = result[1]
         
         # S_11
-        result[3] = tmp*fac*eps_11 + \
+        result[3] = tmp*( eps_11 - trace ) + \
                     ( s_10*omega_10 ) + ( s_01*omega_10 )
 
 
@@ -1323,15 +1323,13 @@ cdef class MomentumEquationWithStress2D(SPHFunctionParticle):
         self._dst.z = self.d_z.data[dest_pid]
 
         cdef double s_00a = self.d_S_00.data[dest_pid]
-        cdef double s_00b = self.s_S_00.data[source_pid]
-
         cdef double s_01a = self.d_S_01.data[dest_pid]
-        cdef double s_01b = self.s_S_01.data[source_pid]
-
         cdef double s_10a = self.d_S_10.data[dest_pid]
-        cdef double s_10b = self.s_S_10.data[source_pid]
-
         cdef double s_11a = self.d_S_11.data[dest_pid]
+
+        cdef double s_00b = self.s_S_00.data[source_pid]
+        cdef double s_01b = self.s_S_01.data[source_pid]
+        cdef double s_10b = self.s_S_10.data[source_pid]
         cdef double s_11b = self.s_S_11.data[source_pid]
 
         cdef cPoint grad, grada, gradb
@@ -1365,7 +1363,7 @@ cdef class MomentumEquationWithStress2D(SPHFunctionParticle):
 
         s_11a = s_11a - pa
         s_11b = s_11b - pb
-        
+
         if self.with_correction:
 
             # evaluate the artificial stress for `a`

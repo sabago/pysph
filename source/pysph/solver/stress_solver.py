@@ -269,6 +269,7 @@ class StressSolver(Solver):
             updates=['sigma00','sigma11','sigma22'],
             id='stressD')
                            )
+
         self.add_operation(SPHIntegration(
             
             stress_funcs.StressRateS.withargs(xsph=bool(xsph)),
@@ -311,6 +312,9 @@ class StressSolver(Solver):
         ro = 1.0
         co = numpy.sqrt(K/ro)
 
+        deltap = 0.001
+        fac = 1e-10
+
         print "Using ", G, co
         s=self
 
@@ -335,13 +339,18 @@ class StressSolver(Solver):
             id="density", updates=['rho'])
                         
                         )
+
         # momentum equation
         s.add_operation(SPHIntegration(
             
-            sph.MomentumEquationWithStress2D.withargs(), on_types=[Solids,],
+            sph.MomentumEquationWithStress2D.withargs(deltap=deltap,
+                                                      n=4.0, epsp=0.3,
+                                                      theta_factor=1e-10),
+            on_types=[Solids,],
             from_types=[Solids,], id="momentum", updates=['u','v'])
                     
                         )
+        
         # momentum equation artificial viscosity
         s.add_operation(SPHIntegration(
             
