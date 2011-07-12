@@ -1,0 +1,5 @@
+numpy
+Cython>=0.14
+setuptools
+mpi4py
+numpydoc
