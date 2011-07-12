@@ -9,6 +9,8 @@ import sys
 import math
 import numpy
 import socket
+import os
+import os.path
 
 from enthought.traits.api import (HasTraits, Instance, on_trait_change,
         List, Str, Int, Range, Float, Bool, Password, Property)
@@ -63,6 +65,9 @@ class ParticleArrayHelper(HasTraits):
     # The name of the particle array.
     name = Str
 
+    # Current time.
+    time = Float(0.0)
+
     # The active scalar to view.
     scalar = Str('rho', desc='name of the active scalar to view') 
 
@@ -80,9 +85,15 @@ class ParticleArrayHelper(HasTraits):
     # Sync'd trait with the dataset to turn on/off visibility.
     visible = Bool(True, desc='if the particle array is to be displayed')
 
+    # Show the time of the simulation on screen.
+    show_time = Bool(False, desc='if the current time is displayed')
+
     # Do we show the hidden arrays?
     show_hidden_arrays = Bool(False, 
                               desc='if hidden arrays are to be listed')
+
+    # Private attribute to store the Text module.
+    _text = Instance(PipelineBase)
 
     ########################################
     # View related code.
@@ -96,6 +107,7 @@ class ParticleArrayHelper(HasTraits):
                            editor=EnumEditor(name='scalar_list')
                           ),
                       Item(name='show_legend'),
+                      Item(name='show_time'),
                       ),
                 )
 
@@ -133,6 +145,9 @@ class ParticleArrayHelper(HasTraits):
             else:
                 p.mlab_source.reset(x=x, y=y, z=z, scalars=s, u=u, v=v, w=w)
 
+        # Setup the time.
+        self._show_time_changed(self.show_time)
+
     def _scalar_changed(self, value):
         p = self.plot
         if p is not None:
@@ -147,7 +162,28 @@ class ParticleArrayHelper(HasTraits):
         else:
             self.scalar_list = sorted([x for x in sc_list 
                                        if not x.startswith('_')])
-        
+
+    def _show_time_changed(self, value):
+        txt = self._text
+        mlab = self.scene.mlab
+        if value:
+            if txt is not None:
+                txt.visible = True
+            elif self.plot is not None:
+                mlab.get_engine().current_object = self.plot
+                txt = mlab.text(0.01, 0.01, 'Time = 0.0', 
+                                width=0.35,
+                                color=(1,1,1))
+                self._text = txt
+                self._time_changed(self.time)
+        else:
+            if txt is not None:
+                txt.visible = False
+
+    def _time_changed(self, value):
+        txt = self._text
+        if txt is not None:
+            txt.text = 'Time = %.3e'%(value)
 
 
 ##############################################################################
@@ -187,6 +223,16 @@ class MayaviViewer(HasTraits):
     pause_solver = Bool(False, desc='if the solver should be paused')
 
     ########################################
+    # Movie.
+    record = Bool(False, desc='if PNG files are to be saved for animation')
+    frame_interval = Range(1, 100, 5, desc='the interval between screenshots')
+    movie_directory = Str
+    # internal counters.
+    _count = Int(0)
+    _frame_count = Int(0)
+    _last_time = Float
+
+    ########################################
     # The layout of the dialog created
     view = View(HSplit(
                   Group(
@@ -197,13 +243,23 @@ class MayaviViewer(HasTraits):
                           label='Connection',
                           ),
                     Group(
-                          Item(name='current_time'),
-                          Item(name='time_step'),
-                          Item(name='iteration'),
-                          Item(name='pause_solver'),
-                          Item(name='interval'),
-                          label='Solver',
-                          ),
+                        Group(
+                              Item(name='current_time'),
+                              Item(name='time_step'),
+                              Item(name='iteration'),
+                              Item(name='pause_solver'),
+                              Item(name='interval'),
+                              label='Solver',
+                             ),
+                        Group(
+                              Item(name='record'),
+                              Item(name='frame_interval'),
+                              Item(name='movie_directory'),
+                              label='Movie',
+                            ),
+                        layout='tabbed',
+
+                        ),
                     Group(
                           Item(name='particle_arrays',
                                style='custom',
@@ -216,7 +272,7 @@ class MayaviViewer(HasTraits):
                          ),
                   ),
                   Item('scene', editor=SceneEditor(scene_class=MayaviScene),
-                         height=480, width=500, show_label=False),
+                         height=500, width=500, show_label=False),
                       ),
                 resizable=True,
                 title='PySPH Particle Viewer'
@@ -241,11 +297,43 @@ class MayaviViewer(HasTraits):
         if controller is None:
             return
         
-        self.current_time = controller.get_t()
+        self.current_time = t = controller.get_t()
         self.time_step = controller.get_dt()
+
         for idx, name in enumerate(self.pa_names):
             pa = controller.get_named_particle_array(name)
-            self.particle_arrays[idx].particle_array = pa
+            pah = self.particle_arrays[idx]
+            pah.set(particle_array=pa, time=t)
+
+        if self.record:
+            self._do_snap()
+
+    def _do_snap(self):
+        """Generate the animation."""
+        p_arrays = self.particle_arrays
+        if len(p_arrays) == 0:
+            return
+        if self.current_time == self._last_time:
+            return
+
+        if len(self.movie_directory) == 0:
+            controller = self.controller
+            output_dir = controller.get_output_directory()
+            movie_dir = os.path.join(output_dir, 'movie')
+            self.movie_directory = movie_dir
+        else:
+            movie_dir = self.movie_directory
+        if not os.path.exists(movie_dir):
+            os.mkdir(movie_dir)
+
+        interval = self.frame_interval
+        count = self._count
+        if count%interval == 0:
+            fname = 'frame%03d.png'%(self._frame_count)
+            p_arrays[0].scene.save_png(os.path.join(movie_dir, fname))
+            self._frame_count += 1
+            self._last_time = self.current_time
+        self._count += 1
 
     ######################################################################
     # Private interface.
@@ -295,7 +383,7 @@ class MayaviViewer(HasTraits):
                                 self.pa_names]
         # Turn on the legend for the first particle array.
         if len(self.particle_arrays) > 0:
-            self.particle_arrays[0].show_legend = True
+            self.particle_arrays[0].set(show_legend=True, show_time=True)
 
     def _timer_event(self):
         # catch all Exceptions else timer will stop
@@ -323,6 +411,10 @@ class MayaviViewer(HasTraits):
             c.pause_on_next()
         else:
             c.cont()
+
+    def _record_changed(self, value):
+        if value:
+            self._do_snap()
 
 ######################################################################
 def usage():
@@ -363,8 +455,12 @@ def main(args=None):
             usage()
             sys.exit(1)
         key, arg = [x.strip() for x in arg.split('=')]
-        kw[key] = eval(arg, math.__dict__)
-
+        try:
+            val = eval(arg, math.__dict__)
+            # this will fail if arg is a string.
+        except NameError:
+            val = arg
+        kw[key] = val
 
     m = MayaviViewer(**kw)
     m.configure_traits()
