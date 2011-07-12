@@ -17,6 +17,10 @@ K = sph.get_K(G, nu)
 ro = 1.0
 co = numpy.sqrt(K/ro)
 
+deltap = 0.001
+#fac = 1e-6 * ro * co*co
+fac=1e-10
+
 def create_particles(two_arr=False):
     #x,y = numpy.mgrid[-1.05:1.05+1e-4:dx, -0.105:0.105+1e-4:dx]
     dx = 0.001 # 1mm
@@ -100,7 +104,11 @@ s.add_operation(solver.SPHIntegration(
 # momentum equation
 s.add_operation(solver.SPHIntegration(
 
-    sph.MomentumEquationWithStress2D.withargs(), on_types=[Solid,],
+    sph.MomentumEquationWithStress2D.withargs(theta_factor=fac,
+                                              deltap=deltap, n=4,
+                                              epsp=0.3, epsm=0),
+                                              
+    on_types=[Solid,],
     from_types=[Solid,], id="momentum", updates=['u','v'])
 
                 )
@@ -111,6 +119,15 @@ s.add_operation(solver.SPHIntegration(
     sph.MonaghanArtificialVsicosity.withargs(alpha=1.0, beta=1.0),
     on_types=[Solid,], from_types=[Solid,],
     id="avisc", updates=['u','v'])
+
+                )
+
+# XSPH
+s.add_operation(solver.SPHIntegration(
+
+    sph.XSPHCorrection.withargs(eps=0.5),
+    on_types=[Solid,], from_types=[Solid,],
+    id="xsph", updates=['u','v'])
 
                 )
 
@@ -130,15 +147,6 @@ s.add_operation(solver.SPHIntegration(
     on_types=[Solid,],
     id="step", updates=['x','y'])
     
-                )
-
-# XSPH
-s.add_operation(solver.SPHIntegration(
-
-    sph.XSPHCorrection.withargs(eps=0.5),
-    on_types=[Solid,], from_types=[Solid,],
-    id="xsph", updates=['x','y'])
-
                 )
 
 app.set_solver(s, callable=create_particles)

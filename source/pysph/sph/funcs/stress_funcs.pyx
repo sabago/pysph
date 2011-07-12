@@ -20,7 +20,10 @@ from pysph.base.particle_array cimport LocalReal
 
 cdef extern from "math.h":
     double fabs(double)
-
+    double cos(double)
+    double sin(double)
+    double pow(double,double)
+    double atan2(double, double)
 
 cdef void symm_to_points(double * mat[3][3], long idx, cPoint& d, cPoint& s):
     ''' convert arrays of matrix elements for index idx into d,s components '''
@@ -54,7 +57,31 @@ cpdef get_G(K, nu):
     ''' Get the shear modulus from bulk modulus and Poisson ratio '''
     return 3.0*K*(1-2*nu)/(2*(1+nu))
 
+cpdef double get_principal_stress_angle2D(double s_00, double s_01,
+                                          double s_11, double fac):
+    """ Return the angle in the plane for which shear stresses are zero.
 
+    .. math::
+
+    \tan2\theta_a = \frac{2\sigma^{xy}}{\sigma_a^{xx} - \sigma_a^{yy}}
+
+    Parameters:
+    -----------
+
+    s_00 : double
+        Plane stress in the first coordinate
+
+    s_01 : double
+        Shear stress
+
+    s_11 : dobule
+        Plae stress in the second coordinate
+
+    """
+
+    cdef double denominator = s_00 - s_11 + fac
+    cdef double numerator = 2.0*s_01
+    return 0.5 * atan2(numerator,denominator)
 
 cdef class StressFunction(SPHFunctionParticle):
     ''' base class for functions operating on stress
@@ -638,7 +665,9 @@ cdef class MonaghanArtStressAcc(SPHFunctionParticle):
         cdef double * dgrad = [grad.x, grad.y, grad.z]
         cdef double f = kernel.function(cPoint_new(self.dr0*(self.rho0/rho_ab)**(1.0/kernel.dim),0,0),
                                         cPoint_new(0,0,0), h)
+
         f = kernel.function(self._dst, self._src, h) / f
+        #print dest_pid, f**self.n
         
         for i in range(3): # result
             for j in range(3): # stress term
@@ -1187,9 +1216,12 @@ cdef class MomentumEquationWithStress2D(SPHFunctionParticle):
 
     def __init__(self, ParticleArray source, ParticleArray dest, 
                  bint setup_arrays=True,
-                 double deltap=0, double n=1,
-                 double epsp=0.01,
-                 double epsm=0.2, **kwargs):
+                 double deltap=0,
+                 double n=1,
+                 double epsp=0.3,
+                 double epsm=0.0,
+                 double theta_factor = 0.0,
+                 **kwargs):
         """ Constructor.
 
         Parameters:
@@ -1208,16 +1240,24 @@ cdef class MomentumEquationWithStress2D(SPHFunctionParticle):
             Factors to govern the magnitude of artificial stress when the
             stress is positive (p) and negative (m)
 
+        fac : double
+            Factor to stabilize the computation of theta
+
         """
 
         self.deltap = deltap
         self.with_correction = False
+
+        if deltap < 0:
+            raise RuntimeError("deltap cannot be negative!")        
+
         if deltap:
             self.with_correction = True
 
         self.epsp = epsp
         self.epsm = epsm
         self.n = 1
+        self.theta_factor = theta_factor
 
         self.id = 'momentumequation_withstress'
         self.tag = "velocity"
@@ -1263,12 +1303,16 @@ cdef class MomentumEquationWithStress2D(SPHFunctionParticle):
         
         cdef double ha = self.d_h.data[dest_pid]
         cdef double hb = self.s_h.data[source_pid]
+        cdef double hab = 0.5 * (ha + hb)
 
         cdef double pa = self.d_p.data[dest_pid]
         cdef double pb = self.s_p.data[source_pid]
 
         cdef double rhoa = self.d_rho.data[dest_pid]
         cdef double rhob = self.s_rho.data[source_pid]
+
+        cdef double rhoa2 = 1.0/(rhoa*rhoa)
+        cdef double rhob2 = 1.0/(rhob*rhob)
 
         self._src.x = self.s_x.data[source_pid]
         self._src.y = self.s_y.data[source_pid]
@@ -1277,9 +1321,6 @@ cdef class MomentumEquationWithStress2D(SPHFunctionParticle):
         self._dst.x = self.d_x.data[dest_pid]
         self._dst.y = self.d_y.data[dest_pid]
         self._dst.z = self.d_z.data[dest_pid]
-
-        cdef double rhoa2 = 1.0/(rhoa*rhoa)
-        cdef double rhob2 = 1.0/(rhob*rhob)
 
         cdef double s_00a = self.d_S_00.data[dest_pid]
         cdef double s_00b = self.s_S_00.data[source_pid]
@@ -1295,6 +1336,28 @@ cdef class MomentumEquationWithStress2D(SPHFunctionParticle):
 
         cdef cPoint grad, grada, gradb
         cdef double ax, ay
+
+        cdef double w, wdeltap, fab
+        cdef cPoint _ra, _rb
+
+        # angle in the rotated frame
+        cdef double theta
+        cdef double cos_theta, cos_theta2, sin_theta, sin_theta2
+
+        # principal stresses in the rotated frame
+        cdef double sig_00, sig_11
+
+        # corrections in the rotated frame
+        cdef double R_00, R_11
+
+        # corrections in the original frame
+        cdef double R_00a, R_01a, R_11a
+        cdef double R_00b, R_01b, R_11b
+
+        # artificial stress terms to be added to the accelerations
+        cdef double artificial_stress_00 = 0.0
+        cdef double artificial_stress_01 = 0.0
+        cdef double artificial_stress_11 = 0.0
         
         # Add the pressure to the deviatoric stresses
         s_00a = s_00a - pa
@@ -1302,9 +1365,78 @@ cdef class MomentumEquationWithStress2D(SPHFunctionParticle):
 
         s_11a = s_11a - pa
         s_11b = s_11b - pb
-
+        
         if self.with_correction:
-            pass # Implement the correction here
+
+            # evaluate the artificial stress for `a`
+            theta = get_principal_stress_angle2D(s_00a, s_01a, s_11a,
+                                                 self.theta_factor)
+            cos_theta = cos(theta)
+            sin_theta = sin(theta)
+
+            cos_theta2 = cos_theta * cos_theta
+            sin_theta2 = sin_theta * sin_theta
+
+            sig_00 = cos_theta2*s_00a + 2.0*cos_theta*sin_theta*s_01a + \
+                     sin_theta2*s_11a
+
+            sig_11 = sin_theta2*s_00a + 2.0*cos_theta*sin_theta*s_01a + \
+                     cos_theta2*s_11a
+
+            R_00 = 0.0
+            if sig_00 > 0:
+                R_00 = -self.epsp * sig_00 * rhoa2
+
+            R_11 = 0.0
+            if sig_11 > 0:
+                R_11 = -self.epsp * sig_11 * rhoa2
+
+            R_00a = cos_theta2*R_00 + sin_theta2*R_11
+            R_11a = sin_theta2*R_00 + cos_theta2*R_11
+
+            R_01a = cos_theta*sin_theta*(R_00 - R_11)
+
+            # evaluate the artificial stress for `b`
+            theta = get_principal_stress_angle2D(s_00b, s_01b, s_11b,
+                                                 self.theta_factor)
+            cos_theta = cos(theta)
+            sin_theta = sin(theta)
+
+            cos_theta2 = cos_theta*cos_theta
+            sin_theta2 = sin_theta*sin_theta
+
+            sig_00 = cos_theta2*s_00b + 2.0*cos_theta*sin_theta*s_01b + \
+                     sin_theta2*s_11b
+
+            sig_11 = sin_theta2*s_00b + 2.0*cos_theta*sin_theta*s_01b + \
+                     cos_theta2*s_11b
+
+            R_00 = 0.0
+            if sig_00 > 0:
+                R_00 = -self.epsp * sig_00 * rhob2
+
+            R_11 = 0.0
+            if sig_11 > 0:
+                R_11 = -self.epsp * sig_11 * rhob2
+
+            R_00b = cos_theta2*R_00 + sin_theta2*R_11
+            R_11b = sin_theta2*R_00 + cos_theta2*R_11
+
+            R_01b = cos_theta*sin_theta*(R_00 - R_11)
+
+            # compute the correction term W(q)/W(deltap)
+            _ra = cPoint_new(self.deltap, 0.0, 0.0)
+            _rb = cPoint_new(0.0, 0.0, 0.0)
+            
+            wdeltap = kernel.function(_ra, _rb, hab)
+            w = kernel.function(self._dst, self._src, hab)
+
+            fab = w/wdeltap
+            fab = pow(fab, self.n)
+
+            artificial_stress_00 = fab * (R_00a + R_00b)
+            artificial_stress_01 = fab * (R_01a + R_01b)
+            artificial_stress_11 = fab * (R_11a + R_11b)
         
         if self.hks:
             grada = kernel.gradient(self._dst, self._src, ha)
@@ -1313,9 +1445,9 @@ cdef class MomentumEquationWithStress2D(SPHFunctionParticle):
             grad.x = (grada.x + gradb.x) * 0.5
             grad.y = (grada.y + gradb.y) * 0.5
             grad.z = (grada.z + gradb.z) * 0.5
-        else:            
-            grad = kernel.gradient( self._dst, self._src, 0.5*(ha+hb) )
-            
+        else:
+            grad = kernel.gradient( self._dst, self._src, hab )
+
         # compute the accelerations
         ax = mb*( s_00a*rhoa2 + s_00b*rhob2 ) * grad.x + \
              mb*( s_01a*rhoa2 + s_01b*rhob2 ) * grad.y
@@ -1323,5 +1455,10 @@ cdef class MomentumEquationWithStress2D(SPHFunctionParticle):
         ay = mb*( s_10a*rhoa2 + s_10b*rhob2 ) * grad.x + \
              mb*( s_11a*rhoa2 + s_11b*rhob2 ) * grad.y
 
+        # add the artificial stress terms (default: 0)
+        ax = ax + mb*( artificial_stress_00*grad.x + artificial_stress_01*grad.y )
+        ay = ay + mb*( artificial_stress_01*grad.x + artificial_stress_11*grad.y )
+
         nr[0] += ax
         nr[1] += ay
+

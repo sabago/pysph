@@ -138,6 +138,7 @@ cdef class MomentumEquationWithStress2D(SPHFunctionParticle):
     cdef public double epsp
     cdef public double epsm
     cdef public double n
+    cdef public double theta_factor
 
     cdef public bint with_correction
 
