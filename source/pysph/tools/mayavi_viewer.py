@@ -223,13 +223,13 @@ class MayaviViewer(HasTraits):
     pause_solver = Bool(False, desc='if the solver should be paused')
 
     ########################################
-    # Animation.
-    animate = Bool(False, desc='if PNG files are to be saved for animation')
-    anim_interval = Range(1, 100, 5, desc='the interval between screenshots')
-    anim_directory = Str
+    # Movie.
+    record = Bool(False, desc='if PNG files are to be saved for animation')
+    frame_interval = Range(1, 100, 5, desc='the interval between screenshots')
+    movie_directory = Str
     # internal counters.
     _count = Int(0)
-    _anim_count = Int(0)
+    _frame_count = Int(0)
     _last_time = Float
 
     ########################################
@@ -252,10 +252,10 @@ class MayaviViewer(HasTraits):
                               label='Solver',
                              ),
                         Group(
-                              Item(name='animate'),
-                              Item(name='anim_interval'),
-                              Item(name='anim_directory'),
-                              label='Animation',
+                              Item(name='record'),
+                              Item(name='frame_interval'),
+                              Item(name='movie_directory'),
+                              label='Movie',
                             ),
                         layout='tabbed',
 
@@ -305,10 +305,10 @@ class MayaviViewer(HasTraits):
             pah = self.particle_arrays[idx]
             pah.set(particle_array=pa, time=t)
 
-        if self.animate:
-            self._do_anim()
+        if self.record:
+            self._do_snap()
 
-    def _do_anim(self):
+    def _do_snap(self):
         """Generate the animation."""
         p_arrays = self.particle_arrays
         if len(p_arrays) == 0:
@@ -316,22 +316,22 @@ class MayaviViewer(HasTraits):
         if self.current_time == self._last_time:
             return
 
-        if len(self.anim_directory) == 0:
+        if len(self.movie_directory) == 0:
             controller = self.controller
             output_dir = controller.get_output_directory()
-            anim_dir = os.path.join(output_dir, 'anim')
-            self.anim_directory = anim_dir
+            movie_dir = os.path.join(output_dir, 'movie')
+            self.movie_directory = movie_dir
         else:
-            anim_dir = self.anim_directory
-        if not os.path.exists(anim_dir):
-            os.mkdir(anim_dir)
+            movie_dir = self.movie_directory
+        if not os.path.exists(movie_dir):
+            os.mkdir(movie_dir)
 
-        interval = self.anim_interval
+        interval = self.frame_interval
         count = self._count
         if count%interval == 0:
-            fname = 'anim%03d.png'%(self._anim_count)
-            p_arrays[0].scene.save_png(os.path.join(anim_dir, fname))
-            self._anim_count += 1
+            fname = 'frame%03d.png'%(self._frame_count)
+            p_arrays[0].scene.save_png(os.path.join(movie_dir, fname))
+            self._frame_count += 1
             self._last_time = self.current_time
         self._count += 1
 
@@ -412,9 +412,9 @@ class MayaviViewer(HasTraits):
         else:
             c.cont()
 
-    def _animate_changed(self, value):
+    def _record_changed(self, value):
         if value:
-            self._do_anim()
+            self._do_snap()
 
 ######################################################################
 def usage():
