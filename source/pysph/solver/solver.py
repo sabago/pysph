@@ -524,7 +524,7 @@ class Solver(object):
         self.dump_output(dt, *self.print_properties)
 
         # set the time for the integrator
-        self.integrator.t = self.t
+        self.integrator.time = self.t
 
         while self.t < self.tf:
             self.t += dt
@@ -549,7 +549,7 @@ class Solver(object):
 
             # perform the integration and update the time
             self.integrator.integrate(dt)
-            self.integrator.t += dt            
+            self.integrator.time += dt
 
             # perform any post step functions            
             for func in self.post_step_functions:

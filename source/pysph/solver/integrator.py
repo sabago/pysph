@@ -150,6 +150,10 @@ class Integrator(object):
         # counter for the current stage of the integrator.
         self.cstep = 1
 
+        # global and local time
+        self.time = 0.0
+        self.local_time = 0.0
+
         # list of particle properties to be updated across processors.
         self.rupdate_list = []
 
@@ -281,7 +285,21 @@ class Integrator(object):
             array.copy_over_properties( self.initial_properties[array.name] )
 
     def eval(self):
-        """ Evaluate the LHS as defined by the calcs. """
+        """ Evaluate the LHS as defined by the calcs.
+
+        For evaluations that are time dependant, we rely on the
+        itnegrator's local time variable to determine what time we're
+        at.
+
+        As an example, an RK2 integrator would perorm two evaluations:
+
+        K1 is evaluated at self.local_time = self.time
+        K2 is evaluated at self.local_time = self.time + dt/2
+
+        It is the responsibility of the integrator's `integrate`
+        method to update the local time variable used by `eval`
+
+        """
 
         calcs = self.calcs
         ncalcs = len(calcs)
@@ -422,6 +440,8 @@ class EulerIntegrator(Integrator):
         # Euler step
         self.reset_accelerations(step=1)
 
+        # set the local time to the integrator's time
+        self.local_time = self.time
         self.eval()                    # F(X) = k1
         self.step( dt )                # X(t + h) = X0 + h*k1
 
@@ -459,6 +479,8 @@ class RK2Integrator(Integrator):
         #############################################################
         self.reset_accelerations(step=1)
 
+        # set the local time to the integrator's time
+        self.local_time = self.time
         self.eval()                # K1 = F(X)
         self.step(dt/2)            # F(X+h/2) = X0 + h/2*K1
 
@@ -471,6 +493,8 @@ class RK2Integrator(Integrator):
         #############################################################
         self.reset_accelerations(step=1)
 
+        # update the local time
+        self.local_time = self.time + dt/2
         self.eval()                # K1 = F( X(t+h/2) )
         self.step(dt)              # F(X+h) = X0 + h*K1
 
@@ -543,6 +567,8 @@ class RK4Integrator(Integrator):
         #############################################################
         self.reset_accelerations(step=1)
 
+        # set the local time to the integrator's time
+        self.local_time = self.time
         self.eval()                 # K1 = F(X)
         self.step(dt/2)             # X(t + h/2) = X0 + h/2*K1
 
@@ -553,6 +579,8 @@ class RK4Integrator(Integrator):
         #############################################################
         self.reset_accelerations(step=2)
 
+        # update the local time
+        self.local_time = self.time + dt/2
         self.eval()                 # K2 = F( X(t+h/2) )
         self.step(dt/2)             # X(t+h/2) = X0 + h/2*K2
 
@@ -563,9 +591,11 @@ class RK4Integrator(Integrator):
         #############################################################
         self.reset_accelerations(step=3)
 
+        # update the local time
+        self.local_time = self.time + dt/2
         self.eval()                 # K3 = F( X(t+h/2) )
         self.step(dt)               # X(t+h) = X0 + h*K3
-
+        
         self.particles.update()
 
         #############################################################
@@ -573,6 +603,8 @@ class RK4Integrator(Integrator):
         #############################################################
         self.reset_accelerations(step=4)
 
+        # update the local_time
+        self.local_time = self.time + dt
         self.eval()                 # K4 = F( X(t+h) )
         self.final_step(dt)          # X(t + h) = X0 + h/6(K1 + 2K2 + 2K3 + K4)
 
@@ -626,6 +658,8 @@ class PredictorCorrectorIntegrator(Integrator):
         ############################################################
         self.reset_accelerations(step=1)
 
+        # set the local time to the integrator's time
+        self.local_time = self.time
         self.eval()                  # K1 = F(X)
         self.step(dt/2)              # X(t+h/2) = X0 + h/2*K1
 
@@ -638,6 +672,8 @@ class PredictorCorrectorIntegrator(Integrator):
         ##############################################################
         self.reset_accelerations(step=1)
 
+        # udpate the local time
+        self.local_time = self.time + dt/2
         self.eval()                  # K1 = F( X(t+h/2) )
         self.step(dt/2)              # X(t+h/2) = X0 + h/2*K1
 
