@@ -102,9 +102,11 @@ class Particles(object):
     """
     
     def __init__(self, arrays=[], in_parallel=False, variable_h=False,
-                 load_balancing=True, update_particles=True,
+                 load_balancing=True,
                  locator_type = SPHNeighborLocator,
-                 periodic_domain=None, min_cell_size=-1):
+                 periodic_domain=None,
+                 min_cell_size=-1,
+                 update_particles=True):
         
         """ Constructor
 
@@ -129,6 +131,8 @@ class Particles(object):
         self.in_parallel = in_parallel
         self.load_balancing = load_balancing
         self.locator_type = locator_type
+        self.min_cell_size = min_cell_size
+        self.periodic_domain = periodic_domain
 
         # Some sanity checks on the input arrays.
         assert len(arrays) > 0, "Particles must be given some arrays!"
@@ -138,36 +142,36 @@ class Particles(object):
             assert arr.cl_precision == prec, msg
 
         self.arrays = arrays
-
         self.kernel = None
 
-        # create the cell manager
+        # set defaults
+        self.correction_manager = None        
+        self.misc_prop_update_functions = []
 
-        if not in_parallel:
-            self.cell_manager = CellManager(arrays_to_bin=arrays,
-                                            min_cell_size=min_cell_size,
-                                            periodic_domain=periodic_domain)
+        # initialize the cell manager and nnps manager
+        self.initialize()
+
+    def initialize(self):
+        """ Perform all initialization tasks here """
+
+        # create the cell manager
+        if not self.in_parallel:
+            self.cell_manager = CellManager(arrays_to_bin=self.arrays,
+                                            min_cell_size=self.min_cell_size,
+                                            periodic_domain=self.periodic_domain)
         else:
             self.cell_manager = ParallelCellManager(
-                arrays_to_bin=arrays, load_balancing=load_balancing)
+                arrays_to_bin=self.arrays, load_balancing=self.load_balancing)
 
             self.pid = self.cell_manager.pid
 
         # create the nnps manager
-
         self.nnps_manager = NNPSManager(cell_manager=self.cell_manager,
-                                        variable_h=variable_h,
+                                        variable_h=self.variable_h,
                                         locator_type=self.locator_type)
 
-        # set defaults
-        
-        self.correction_manager = None        
-        self.misc_prop_update_functions = []
-
         # call an update on the particles (i.e index)
-        
-        if update_particles:
-            self.update()
+        self.update()
 
     def update(self, cache_neighbors=False):
         """ Update the status of the Particles.

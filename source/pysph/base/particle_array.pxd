@@ -101,6 +101,7 @@ cdef class ParticleArray:
 
     cdef np.ndarray _get_real_particle_prop(self, str prop)
 
+    # set/get the time
     cpdef set_time(self, double time)
     cpdef double get_time(self)
 
