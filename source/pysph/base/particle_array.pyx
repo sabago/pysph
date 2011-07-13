@@ -328,6 +328,8 @@ cdef class ParticleArray:
         for prop in props.keys():
             # if self.properties.has_key(prop):
             #     raise ValueError, 'property %s already exists'%(prop)
+
+            # add any scalar value to the constants dict
             prop_info = props[prop]
             prop_info['name'] = prop
             self.add_property(prop_info)
@@ -624,6 +626,24 @@ cdef class ParticleArray:
                 return prop_array.get_npy_array()[:self.num_real_particles]
             else:
                 return None
+
+    def get_property_arrays(self, all=False):
+
+        ret = {}
+        
+        if all:
+            props = [i for i in self.properties.keys()]
+        else:
+            props = [i for i in self.properties.keys() if not i.startswith('_')]
+            props += ['_tmpx', '_tmpy', '_tmpz']
+        
+        for prop in props:
+            ret[prop] = self.properties[prop].get_npy_array()
+
+        for prop in self.constants:
+            ret[prop] = self.constants[prop]
+
+        return ret
 
     def get(self, *args, only_real_particles=True):
         """ Return the numpy array/constant for the  property names in *args
@@ -1404,10 +1424,22 @@ def get_particle_array(cl_precision="double", **props):
     
     np = 0
 
+    constants = {}
+
     for prop in props.keys():
         if prop in ['name','type']:
             pass
         else:
+            try:
+                np = len(props[prop])
+                if type(props[prop]) == str:
+                    constants[prop] = props[prop]
+                    continue
+                    
+            except TypeError:
+                constants[prop] = props[prop]
+                continue
+            
             np = len(props[prop])
             if prop == 'idx':
                 prop_dict[prop] = {'data':numpy.asarray(props[prop]), 
@@ -1441,6 +1473,10 @@ def get_particle_array(cl_precision="double", **props):
 
     pa = ParticleArray(name=name, particle_type=particle_type,
                        cl_precision=cl_precision, **prop_dict)
+
+    # add the constants
+    for prop in constants:
+        pa.constants[prop] = constants[prop]
 
     return pa
 

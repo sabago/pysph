@@ -4,6 +4,7 @@
 from pysph.base.particle_types import ParticleType
 from pysph.base.carray import LongArray
 from pysph.base.kernels import CubicSplineKernel
+from pysph.base.particle_array import get_particle_array
 
 from pysph.sph.kernel_correction import KernelCorrectionManager
 from pysph.sph.sph_calc import SPHCalc, CLCalc
@@ -513,7 +514,6 @@ class Solver(object):
         the stepping within the integrator.
 
         """
-        self.count = 0
 
         dt = self.dt
 
@@ -546,7 +546,7 @@ class Solver(object):
             
             logger.info("Time %f, time step %f, rank  %d"%(self.t, dt,
                                                            self.rank))
-
+            print self.t, self.count
             # perform the integration and update the time
             self.integrator.integrate(dt)
             self.integrator.time += dt
@@ -606,26 +606,18 @@ class Solver(object):
         if not self.with_cl:
             cell_size = self.particles.cell_manager.cell_size
 
+            _fname = os.path.join(self.output_directory,
+                                  fname  + str(self.count) +'.npz')
+
         if self.t == 0:
             arrays_to_print = self.particles.arrays
         else:
             arrays_to_print = self.arrays_to_print
 
-        for pa in arrays_to_print:
-            name = pa.name
-            _fname = os.path.join(self.output_directory,
-                                  fname + name + '_' + str(self.count) +'.npz')
-            
-            if self.detailed_output:
-                savez(_fname, dt=dt, t=self.t, np=pa.num_real_particles,
-                       cell_size=cell_size,**pa.properties)
+        for array in self.particles.arrays:
+            props[array.name] = array.get_property_arrays()
 
-            else:
-                for prop in print_properties:
-                    props[prop] = pa.get(prop)
-
-                savez(_fname, dt=dt, t=self.t, cell_size=cell_size, 
-                      np = pa.num_real_particles, **props)
+        savez(_fname, dt=dt, t=self.t, count=self.count, **props)
 
     def load_output(self, count):
         """ Load particle data from dumped output file.
@@ -655,33 +647,31 @@ class Solver(object):
             l = sorted(set(l), key=float)
             count = l[-1]
 
-        for pa in self.particles.arrays:
-            name = pa.name
+        array_names = [pa.name for pa in self.particles.arrays]
+        arrays = []
+
+        for name in array_names:
+            array_constants = {}
 
             data = numpy.load(os.path.join(self.output_directory,
-                                           self.fname+'_'+name+'_'+count+'.npz'))
+                                           self.fname+'_'+str(count)+'.npz'))
 
-            cleared = False
-            for prop in data.files:
-                val = data[prop]
-                if val.ndim == 0:
-                    pa.constants[prop] = val
+            array_props = data[name].astype(object)
 
-            # cleared = False
-            # for prop, val in data.iteritems():
-            #     if val.ndim==0: # constants become 0 dim arrays
-            #         pa.constants[prop] = val
-                else:
-                    if not cleared and len(val) != pa.get_number_of_particles():
-                        idx = LongArray(pa.get_number_of_particles())
-                        idxn = idx.get_npy_array()
-                        idxn[:] = range(pa.get_number_of_particles())
-                        pa.remove_particles(idx)
-                        cleared = True
-                    
-                    pa.add_property(dict(name=prop, data=val))
+            # create the particle array
+            pa = get_particle_array(name=name, cl_precision="single",
+                                    **array_props)
+
+            arrays.append(pa)
+
+        # set the Particle's arrays
+        self.particles.arrays = arrays
+
+        # call the particle's initialize
+        self.particles.initialize()
 
         self.t = float(data['t'])
+        self.count = int(data['count'])
 
     def setup_cl(self):
         """ Setup the OpenCL context and other initializations """
