@@ -149,6 +149,9 @@ cdef class ParticleArray:
         self.constants = {}
         self.constants.update(constants)
 
+        # set the default time
+        self.time = 0.0
+
         self.name = name
         self.is_dirty = True
         self.indices_invalid = True
@@ -265,6 +268,12 @@ cdef class ParticleArray:
         self.temporary_arrays.clear()
         self.is_dirty = True
         self.indices_invalid = True
+
+    cpdef set_time(self, double time):
+        self.time = time
+
+    cpdef double get_time(self):
+        return self.time
 
     cpdef set_name(self, str name):
         self.name = name
@@ -994,10 +1003,10 @@ cdef class ParticleArray:
         """
         cdef size_t i, num_particles
         cdef size_t next_insert
+        cdef size_t num_arrays
         cdef long tmp
         cdef LongArray index_array, tag_arr
         cdef BaseArray arr
-        cdef int num_arrays
         cdef list arrays
         cdef long num_real_particles = 0
         cdef long num_moves = 0

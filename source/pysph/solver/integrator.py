@@ -314,6 +314,9 @@ class Integrator(object):
                 logger.info("Integrator:eval: operating on calc %d, %s"%(
                         i, calc.id))
 
+            # set the time for the destination particle array
+            calc.dest.set_time(self.local_time)
+
             # Evaluate the calc
             if calc.integrates:
 
@@ -414,7 +417,7 @@ class Integrator(object):
                            numpy.max(numpy.sqrt(k1_x*k1_x + \
                                                 k1_y*k1_y + \
                                                 k1_z*k1_z)) )
-        return acc        
+        return acc
 
     def integrate(self, dt):
         raise NotImplementedError
