@@ -81,6 +81,9 @@ cdef class ParticleArray:
     # bool indicating CL is setup
     cdef public bint cl_setup_done
 
+    # time for the particle array
+    cdef public double time 
+
     # The OpenCL CommandQueue Context and Device
     cdef public object queue
     cdef public object context
@@ -97,6 +100,9 @@ cdef class ParticleArray:
     cdef _check_property(self, str)
 
     cdef np.ndarray _get_real_particle_prop(self, str prop)
+
+    cpdef set_time(self, double time)
+    cpdef double get_time(self)
 
     cpdef set_name(self, str name)
     cpdef set_particle_type(self, int particle_type)

@@ -551,6 +551,9 @@ class Solver(object):
             self.integrator.integrate(dt)
             self.integrator.time += dt
 
+            # update the time for all arrays
+            self.update_particle_time()
+
             # perform any post step functions            
             for func in self.post_step_functions:
                 func.eval(self)
@@ -569,6 +572,10 @@ class Solver(object):
                     self.execute_commands(self)
 
         bar.finish()
+
+    def update_particle_time(self):
+        for array in self.particles.arrays:
+            array.set_time(self.t)
 
     def compute_global_time_step(self, dt):
 
