@@ -25,6 +25,7 @@ import logging
 logger = logging.getLogger()
 
 import os
+import sys
 import numpy
 
 Fluids = ParticleType.Fluid
@@ -546,7 +547,6 @@ class Solver(object):
             
             logger.info("Time %f, time step %f, rank  %d"%(self.t, dt,
                                                            self.rank))
-            print self.t, self.count
             # perform the integration and update the time
             self.integrator.integrate(dt)
             self.integrator.time += dt
@@ -593,6 +593,27 @@ class Solver(object):
         property for each named particle array.
         
         The higher detail level dumps all particle array properties.
+
+        Format:
+        -------
+
+        A single file named as: <fname>_<rank>_<count>.npz
+        The properties for the individual arrays can be obtained like so:
+
+        data = load(fname)
+        array = data[array_name].astype(object)
+
+        This returns a dictionary of properties for the array, so the
+        pressure for example can be accessed as: array['x']
+
+        Other than the particle array properties, the time of the
+        dump, the time step and iteration count are saved as
+        well.        
+
+        Note:
+        -----
+
+        The version number for this style of dumping is 1. 
         
         """
 
@@ -617,7 +638,8 @@ class Solver(object):
         for array in self.particles.arrays:
             props[array.name] = array.get_property_arrays()
 
-        savez(_fname, dt=dt, t=self.t, count=self.count, **props)
+        savez(_fname, dt=dt, t=self.t, count=self.count,
+              version=1, **props)
 
     def load_output(self, count):
         """ Load particle data from dumped output file.
@@ -637,24 +659,32 @@ class Solver(object):
         dumped
 
         """
+        # get the list of available files
+        available_files = [i.rsplit('_',1)[1][:-4] for i in os.listdir(self.output_directory) if i.startswith(self.fname) and i.endswith('.npz')]
+
         if count == '?':
-            l = [i.rsplit('_',1)[1][:-4] for i in os.listdir(self.output_directory) if i.startswith(self.fname) and i.endswith('.npz')]
-            return sorted(set(l), key=int)
+            return sorted(set(available_files), key=int)
 
         else:
-        #elif count == '*':
-            l = [i.rsplit('_',1)[1][:-4] for i in os.listdir(self.output_directory) if i.startswith(self.fname) and i.endswith('.npz')]
-            l = sorted(set(l), key=float)
-            count = l[-1]
+            if not count in available_files:
+                msg = """File with iteration count `%s` does not exist"""%(count)
+                msg += "\nValid iteration counts are %s"%(available_files)
+                print msg
+                sys.exit(0)
 
         array_names = [pa.name for pa in self.particles.arrays]
-        arrays = []
 
+        arrays = []
         for name in array_names:
-            array_constants = {}
 
             data = numpy.load(os.path.join(self.output_directory,
                                            self.fname+'_'+str(count)+'.npz'))
+            if not 'version' in data.files:
+                msg = "Wrong file type! No version nnumber recorded."
+                raise RuntimeError(msg)
+            if not data['version'] == 1:
+                msg = "Output file with version number 1 is required"
+                raise RuntimeError(msg)
 
             array_props = data[name].astype(object)
 

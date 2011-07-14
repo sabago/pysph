@@ -217,11 +217,11 @@ class Application(object):
         
         # solver job resume support
         parser.add_option('--resume', action='store', dest='resume',
-                          metavar='TIME|*|?',
+                          metavar='COUNT|count|?',
                           help=('Resume solver from specified time (as stored '
-                                'in the data in output directory); * chooses '
-                                'the latest available time; ? lists all '
-                                'available times')
+                                'in the data in output directory); count chooses '
+                                'a particular file; ? lists all '
+                                'available files')
                           )
 
     def _process_command_line(self):
@@ -470,7 +470,7 @@ class Application(object):
             solver.particles = self.particles # needed to be able to load particles
             r = solver.load_output(self.options.resume)
             if r is not None:
-                print 'available times for resume:'
+                print 'available files for resume:'
                 print r
                 sys.exit(0)
 
