@@ -291,7 +291,7 @@ def get_pysph_root():
 # Load an output file
 ############################################################################## 
 def load(fname):
-    """ Load aand return data from an  output (.npz) file dumped by PySPH.
+    """ Load and return data from an  output (.npz) file dumped by PySPH.
 
     For output file version 1, the function returns a dictionary with
     the keys:
@@ -306,7 +306,7 @@ def load(fname):
     from pysph.base.particle_array import get_particle_array
     data = numpy.load(fname)
 
-    ret = {}
+    ret = {"arrays":{}}
 
     if not 'version' in data.files:
         msg = "Wrong file type! No version nnumber recorded."
@@ -322,7 +322,7 @@ def load(fname):
                                        cl_precision="single",
                                        **arrays[array_name])
             
-            ret[array_name] = array
+            ret["arrays"][array_name] = array
             
         ret["solver_data"] = data["solver_data"].astype(object)
 

@@ -640,7 +640,7 @@ class Solver(object):
 
         if self.detailed_output:
             for array in self.particles.arrays:
-                props["arays"][array.name] = array.get_property_arrays(all=True)
+                props["arrays"][array.name] = array.get_property_arrays(all=True)
         else:
             for array in self.particles.arrays:
                 props["arrays"][array.name] = array.get_property_arrays(all=False)
@@ -679,7 +679,7 @@ class Solver(object):
         else:
             if not count in available_files:
                 msg = """File with iteration count `%s` does not exist"""%(count)
-                msg += "\nValid iteration counts are %s"%(available_files)
+                msg += "\nValid iteration counts are %s"%(sorted(set(available_files), key=int))
                 print msg
                 sys.exit(0)
 
@@ -689,7 +689,7 @@ class Solver(object):
         data = load(os.path.join(self.output_directory,
                                  self.fname+'_'+str(count)+'.npz'))
         
-        arrays = [data[i] for i in array_names]
+        arrays = [data["arrays"][i] for i in array_names]
 
         # set the Particle's arrays
         self.particles.arrays = arrays
