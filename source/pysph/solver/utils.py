@@ -286,3 +286,47 @@ def get_pickled_data(fname):
 def get_pysph_root():
     return os.path.split(pysph.__file__)[0]    
     
+
+##############################################################################
+# Load an output file
+############################################################################## 
+def load(fname):
+    """ Load aand return data from an  output (.npz) file dumped by PySPH.
+
+    For output file version 1, the function returns a dictionary with
+    the keys:
+
+    solver_data : Solver constants at the time of output like time,
+    time step and iteration count.
+
+    arrays : ParticleArrays keyed on names with the ParticleArray
+    object as value.
+
+    """
+    from pysph.base.particle_array import get_particle_array
+    data = numpy.load(fname)
+
+    ret = {}
+
+    if not 'version' in data.files:
+        msg = "Wrong file type! No version nnumber recorded."
+        raise RuntimeError(msg)
+    
+    version = data['version']
+
+    if version == 1:
+        arrays = data["arrays"].astype(object)
+
+        for array_name in arrays:
+            array = get_particle_array(name=array_name,
+                                       cl_precision="single",
+                                       **arrays[array_name])
+            
+            ret[array_name] = array
+            
+        ret["solver_data"] = data["solver_data"].astype(object)
+
+    else:
+        raise RuntimeError("Version not understood!")
+
+    return ret

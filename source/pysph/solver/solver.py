@@ -14,7 +14,7 @@ from pysph.sph.funcs.xsph_funcs import XSPHCorrection
 from sph_equation import SPHOperation, SPHIntegration
 from integrator import EulerIntegrator
 from cl_integrator import CLEulerIntegrator
-from utils import PBar, savez_compressed, savez
+from utils import PBar, savez_compressed, savez, load
 from cl_utils import get_cl_devices, HAS_CL, create_some_context
 from time_step_functions import TimeStep
 
@@ -598,30 +598,38 @@ class Solver(object):
         -------
 
         A single file named as: <fname>_<rank>_<count>.npz
-        The properties for the individual arrays can be obtained like so:
 
-        data = load(fname)
-        array = data[array_name].astype(object)
+        The output file contains the following fields:
 
-        This returns a dictionary of properties for the array, so the
-        pressure for example can be accessed as: array['x']
+        solver_data : Solver related data like time step, time and
+        iteration count. These are used to resume a simulation.
 
-        Other than the particle array properties, the time of the
-        dump, the time step and iteration count are saved as
-        well.        
+        arrays : A dictionary keyed on particle array names and with
+        particle properties as value.
 
-        Note:
-        -----
+        version : The version number for this format of file
+        output. The current version number is 1
 
-        The version number for this style of dumping is 1. 
+        Example:
+        --------
+
+        data = load('foo.npz')
+
+        version = data['version']
+
+        dt = data['solver_data']['dt']
+        t = data['solver_data']['t']
         
+        array = data['arrays'][array_name].astype(object)
+        array['x']
+
         """
 
         if self.with_cl:
             self.particles.read_from_buffer()
 
         fname = self.fname + '_' 
-        props = {}
+        props = {"arrays":{}, "solver_data":{}}
 
         cell_size = None
         if not self.with_cl:
@@ -630,16 +638,19 @@ class Solver(object):
             _fname = os.path.join(self.output_directory,
                                   fname  + str(self.count) +'.npz')
 
-        if self.t == 0:
-            arrays_to_print = self.particles.arrays
+        if self.detailed_output:
+            for array in self.particles.arrays:
+                props["arays"][array.name] = array.get_property_arrays(all=True)
         else:
-            arrays_to_print = self.arrays_to_print
+            for array in self.particles.arrays:
+                props["arrays"][array.name] = array.get_property_arrays(all=False)
 
-        for array in self.particles.arrays:
-            props[array.name] = array.get_property_arrays()
+        # Add the solver data
+        props["solver_data"]["dt"] = dt
+        props["solver_data"]["t"] = self.t
+        props["solver_data"]["count"] = self.count
 
-        savez(_fname, dt=dt, t=self.t, count=self.count,
-              version=1, **props)
+        savez(_fname, version=1, **props)
 
     def load_output(self, count):
         """ Load particle data from dumped output file.
@@ -674,25 +685,11 @@ class Solver(object):
 
         array_names = [pa.name for pa in self.particles.arrays]
 
-        arrays = []
-        for name in array_names:
-
-            data = numpy.load(os.path.join(self.output_directory,
-                                           self.fname+'_'+str(count)+'.npz'))
-            if not 'version' in data.files:
-                msg = "Wrong file type! No version nnumber recorded."
-                raise RuntimeError(msg)
-            if not data['version'] == 1:
-                msg = "Output file with version number 1 is required"
-                raise RuntimeError(msg)
-
-            array_props = data[name].astype(object)
-
-            # create the particle array
-            pa = get_particle_array(name=name, cl_precision="single",
-                                    **array_props)
-
-            arrays.append(pa)
+        # load the output file
+        data = load(os.path.join(self.output_directory,
+                                 self.fname+'_'+str(count)+'.npz'))
+        
+        arrays = [data[i] for i in array_names]
 
         # set the Particle's arrays
         self.particles.arrays = arrays
@@ -700,8 +697,8 @@ class Solver(object):
         # call the particle's initialize
         self.particles.initialize()
 
-        self.t = float(data['t'])
-        self.count = int(data['count'])
+        self.t = float(data["solver_data"]['t'])
+        self.count = int(data["solver_data"]['count'])
 
     def setup_cl(self):
         """ Setup the OpenCL context and other initializations """
