@@ -15,7 +15,7 @@ import os.path
 from enthought.traits.api import (HasTraits, Instance, on_trait_change,
         List, Str, Int, Range, Float, Bool, Password, Property)
 from enthought.traits.ui.api import (View, Item, Group, HSplit, 
-        ListEditor, EnumEditor, TitleEditor)
+        ListEditor, EnumEditor, TitleEditor, HGroup)
 from enthought.mayavi.core.api import PipelineBase
 from enthought.mayavi.core.ui.api import (MayaviScene, SceneEditor, 
                 MlabSceneModel)
@@ -25,6 +25,7 @@ from enthought.tvtk.array_handler import array2vtk
 
 from pysph.base.api import ParticleArray, get_particle_array
 from pysph.solver.solver_interfaces import MultiprocessingClient
+from pysph.solver.utils import load
 
 import logging
 logger = logging.getLogger()
@@ -98,8 +99,8 @@ class ParticleArrayHelper(HasTraits):
     ########################################
     # View related code.
     view = View(Item(name='name', 
-                           show_label=False,
-                           editor=TitleEditor()),
+                     show_label=False,
+                     editor=TitleEditor()),
                 Group(
                       Item(name='visible'),
                       Item(name='show_hidden_arrays'),
@@ -216,7 +217,7 @@ class MayaviViewer(HasTraits):
     file_count = Range(low='_low', high='n_files', value=0, 
                        desc='the file counter')
     play = Bool(False, desc='if all files are played automatically')
-    loop = Bool(False, desc='if the files are looped')
+    loop = Bool(False, desc='if the animation is looped')
     # This is len(files) - 1.
     n_files = Int(-1)
     _low = Int(0)
@@ -257,10 +258,11 @@ class MayaviViewer(HasTraits):
                           defined_when='n_files==-1',
                           ),
                     Group(
-                          Item(name='file_count'),
-                          Item(name='play'),
-                          Item(name='loop'),
                           Item(name='current_file'),
+                          Item(name='file_count'),
+                          HGroup(Item(name='play'),
+                                 Item(name='loop'),
+                                ),
                           label='Saved Data',
                           defined_when='n_files>-1',
                           ),
@@ -296,10 +298,12 @@ class MayaviViewer(HasTraits):
                          ),
                   ),
                   Item('scene', editor=SceneEditor(scene_class=MayaviScene),
-                         height=500, width=500, show_label=False),
+                         height=400, width=600, show_label=False),
                       ),
                 resizable=True,
-                title='PySPH Particle Viewer'
+                title='PySPH Particle Viewer',
+                height=550,
+                width=880
                 )
 
     ######################################################################
@@ -362,7 +366,7 @@ class MayaviViewer(HasTraits):
         interval = self.frame_interval
         count = self._count
         if count%interval == 0:
-            fname = 'frame%03d.png'%(self._frame_count)
+            fname = 'frame%06d.png'%(self._frame_count)
             p_arrays[0].scene.save_png(os.path.join(movie_dir, fname))
             self._frame_count += 1
             self._last_time = self.current_time
@@ -406,6 +410,8 @@ class MayaviViewer(HasTraits):
         return self.client.controller
     
     def _client_changed(self, old, new):
+        if self.n_files > -1:
+            return
         if self.client is None:
             return
         else:
@@ -473,21 +479,20 @@ class MayaviViewer(HasTraits):
         fname = self.files[value]
         self.current_file = os.path.basename(fname)
         # Code to read the file, create particle array and setup the helper.
-        data = numpy.load(fname)
-        ignore = ['count', 'dt', 't', 'version']
-        self.current_time = t = float(data['t'])
-        self.time_step = float(data['dt'])
-        self.iteration = int(data['count'])
-        names = [x for x in data.files if x not in ignore]
+        data = load(fname)
+        solver_data = data["solver_data"]
+        arrays = data["arrays"]
+        self.current_time = t = float(solver_data['t'])
+        self.time_step = float(solver_data['dt'])
+        self.iteration = int(solver_data['count'])
+        names = arrays.keys()
         pa_names = self.pa_names
 
         if len(pa_names) == 0:
             self.pa_names = names
             pas = []
             for name in names:
-                array_props = data[name].astype(object)
-                pa = get_particle_array(name=name, cl_precision="single",
-                                        **array_props)
+                pa = arrays[name]
                 pah = ParticleArrayHelper(scene=self.scene, 
                                           name=name)
                 # Must set this after setting the scene.
@@ -500,9 +505,7 @@ class MayaviViewer(HasTraits):
             self.particle_arrays = pas
         else:
             for idx, name in enumerate(pa_names):
-                array_props = data[name].astype(object)
-                pa = get_particle_array(name=name, cl_precision="single",
-                                        **array_props)
+                pa = arrays[name]
                 pah = self.particle_arrays[idx]
                 pah.set(particle_array=pa, time=t)
 

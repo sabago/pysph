@@ -1430,13 +1430,7 @@ def get_particle_array(cl_precision="double", **props):
         if prop in ['name','type']:
             pass
         else:
-            try:
-                np = len(props[prop])
-                if type(props[prop]) == str:
-                    constants[prop] = props[prop]
-                    continue
-                    
-            except TypeError:
+            if not isinstance(type(props[prop], numpy.ndarray)):
                 constants[prop] = props[prop]
                 continue
             
