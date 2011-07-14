@@ -2,7 +2,7 @@
 
 This code uses the :py:class:`MultiprocessingClient` solver interface to
 communicate with a running solver and displays the particles using
-Mayavi.
+Mayavi.  It can also display a list of supplied files.
 """
 
 import sys
@@ -19,11 +19,11 @@ from enthought.traits.ui.api import (View, Item, Group, HSplit,
 from enthought.mayavi.core.api import PipelineBase
 from enthought.mayavi.core.ui.api import (MayaviScene, SceneEditor, 
                 MlabSceneModel)
-from enthought.pyface.timer.api import Timer
+from enthought.pyface.timer.api import Timer, do_later
 from enthought.tvtk.api import tvtk
 from enthought.tvtk.array_handler import array2vtk
 
-from pysph.base.api import ParticleArray
+from pysph.base.api import ParticleArray, get_particle_array
 from pysph.solver.solver_interfaces import MultiprocessingClient
 
 import logging
@@ -197,17 +197,30 @@ class MayaviViewer(HasTraits):
 
     particle_arrays = List(Instance(ParticleArrayHelper), [])
     pa_names = List(Str, [])
-
-    client = Instance(MultiprocessingClient)
     
+    scene = Instance(MlabSceneModel, ())
+
+    ########################################
+    # Traits to pull data from a live solver.
     host = Str('localhost', desc='machine to connect to')
     port = Int(8800, desc='port to use to connect to solver')
     authkey = Password('pysph', desc='authorization key')
     host_changed = Bool(True)
-
-    scene = Instance(MlabSceneModel, ())
-
+    client = Instance(MultiprocessingClient)
     controller = Property()
+
+    ########################################
+    # Traits to view saved solver output.
+    files = List(Str, [])
+    current_file = Str('', desc='the file being viewed currently')
+    file_count = Range(low='_low', high='n_files', value=0, 
+                       desc='the file counter')
+    play = Bool(False, desc='if all files are played automatically')
+    loop = Bool(False, desc='if the files are looped')
+    # This is len(files) - 1.
+    n_files = Int(-1)
+    _low = Int(0)
+    _play_count = Int(0)
 
     ########################################
     # Timer traits.
@@ -241,14 +254,25 @@ class MayaviViewer(HasTraits):
                           Item(name='port'),
                           Item(name='authkey'),
                           label='Connection',
+                          defined_when='n_files==-1',
+                          ),
+                    Group(
+                          Item(name='file_count'),
+                          Item(name='play'),
+                          Item(name='loop'),
+                          Item(name='current_file'),
+                          label='Saved Data',
+                          defined_when='n_files>-1',
                           ),
                     Group(
                         Group(
                               Item(name='current_time'),
                               Item(name='time_step'),
                               Item(name='iteration'),
-                              Item(name='pause_solver'),
-                              Item(name='interval'),
+                              Item(name='pause_solver',
+                                   enabled_when='n_files==-1'),
+                              Item(name='interval', 
+                                   enabled_when='n_files==-1'),
                               label='Solver',
                              ),
                         Group(
@@ -283,6 +307,10 @@ class MayaviViewer(HasTraits):
     ######################################################################
     @on_trait_change('scene.activated')
     def start_timer(self):
+        if self.n_files > -1:
+            # No need for the timer if we are rendering files.
+            return
+
         # Just accessing the timer will start it.
         t = self.timer
         if not t.IsRunning():
@@ -290,9 +318,14 @@ class MayaviViewer(HasTraits):
 
     @on_trait_change('scene.activated')
     def update_plot(self):
+        # No need to do this if files are being used.
+        if self.n_files > -1:
+            return
+        
         # do not update if solver is paused
         if self.pause_solver:
             return
+
         controller = self.controller
         if controller is None:
             return
@@ -416,20 +449,129 @@ class MayaviViewer(HasTraits):
         if value:
             self._do_snap()
 
+    def _files_changed(self, value):
+        if len(value) > 0:
+            d = os.path.dirname(os.path.abspath(value[0]))
+            self.movie_directory = os.path.join(d, 'movie')
+        self.n_files = len(value) - 1
+        self.frame_interval = 1
+        fc = self.file_count
+        self.file_count = 0 
+        if fc == 0:
+            # Force an update when our original file count is 0.
+            self._file_count_changed(fc)
+        t = self.timer
+        if self.n_files > -1:
+            if t.IsRunning():
+                t.Stop()
+        else:
+            if not t.IsRunning():
+                t.Stop()
+                t.Start(self.interval*1000)
+
+    def _file_count_changed(self, value):
+        fname = self.files[value]
+        self.current_file = os.path.basename(fname)
+        # Code to read the file, create particle array and setup the helper.
+        data = numpy.load(fname)
+        ignore = ['count', 'dt', 't', 'version']
+        self.current_time = t = float(data['t'])
+        self.time_step = float(data['dt'])
+        self.iteration = int(data['count'])
+        names = [x for x in data.files if x not in ignore]
+        pa_names = self.pa_names
+
+        if len(pa_names) == 0:
+            self.pa_names = names
+            pas = []
+            for name in names:
+                array_props = data[name].astype(object)
+                pa = get_particle_array(name=name, cl_precision="single",
+                                        **array_props)
+                pah = ParticleArrayHelper(scene=self.scene, 
+                                          name=name)
+                # Must set this after setting the scene.
+                pah.set(particle_array=pa, time=t)
+                pas.append(pah)
+                # Turn on the legend for the first particle array.
+            
+            if len(pas) > 0:
+                pas[0].set(show_legend=True, show_time=True)
+            self.particle_arrays = pas
+        else:
+            for idx, name in enumerate(pa_names):
+                array_props = data[name].astype(object)
+                pa = get_particle_array(name=name, cl_precision="single",
+                                        **array_props)
+                pah = self.particle_arrays[idx]
+                pah.set(particle_array=pa, time=t)
+
+        if self.record:
+            self._do_snap()
+
+    def _play_changed(self, value):
+        t = self.timer
+        if value:
+            self._play_count = 0
+            t.Stop()
+            t.callable = self._play_event
+            t.Start(1000*0.5)
+        else:
+            t.Stop()
+            t.callable = self._timer_event
+
+    def _play_event(self):
+        nf = self.n_files
+        pc = self.file_count
+        pc += 1
+        if pc > nf:
+            if self.loop:
+                pc = 0
+            else:
+                self.timer.Stop()
+                pc = nf
+        self.file_count = pc
+        self._play_count = pc
+
 ######################################################################
 def usage():
     print """Usage:
-mayavi_viewer.py [-v] <trait1=value> <trait2=value> ...
+pysph_viewer [-v] <trait1=value> <trait2=value> [files.npz]
 
-The option -v sets verbose mode which will print solver connection
-    status failures on stdout
-The options <trait1=value> are optional settings
-    host, port and authkey
+If *.npz files are not supplied it will connect to a running solver, if not it
+will display the given files. 
 
+The arguments <trait1=value> are optional settings like host, port and authkey
+etc.  The following traits are available:
 
-Example::
+  host          -- hostname/IP address to connect to.
+  port          -- Port to connect to
+  authkey       -- authorization key to use.
+  interval      -- time interval to refresh display
+  pause_solver  -- Set True/False, will pause running solver
 
-  $ mayavi_viewer.py interval=10 host=localhost port=8900
+  movie_directory -- directory to dump movie files (automatically set if not
+                       supplied)
+  record        -- True/False: record movie, i.e. store screenshots of display.
+
+  play          -- True/False: Play all stored data files.
+  loop          -- True/False: Loop over data files.
+
+Options:
+--------
+
+  -h/--help   prints this message.
+
+  -v          sets verbose mode which will print solver connection
+              status failures on stdout.
+
+Examples::
+----------
+
+  $ pysph_viewer interval=10 host=localhost port=8900
+  $ pysph_viewer foo.npz
+  $ pysph_viewer *.npz play=True loop=True
+
 """
 
 def error(msg):
@@ -450,10 +592,15 @@ def main(args=None):
         args.remove('-v')
 
     kw = {}
+    files = []
     for arg in args:
         if '=' not in arg:
-            usage()
-            sys.exit(1)
+            if arg.endswith('.npz'):
+                files.append(arg)
+                continue
+            else:
+                usage()
+                sys.exit(1)
         key, arg = [x.strip() for x in arg.split('=')]
         try:
             val = eval(arg, math.__dict__)
@@ -462,7 +609,21 @@ def main(args=None):
             val = arg
         kw[key] = val
 
-    m = MayaviViewer(**kw)
+    def _sort_func(x, y):
+        """Sort the files correctly."""
+        def _process(arg):
+            a = os.path.splitext(arg)[0]
+            return int(a[a.rfind('_')+1:])
+        return cmp(_process(x), _process(y))
+
+    files.sort(_sort_func)
+    # This hack to set n_files first is a dirty hack to work around issues with
+    # setting up the UI but setting the files only after the UI is activated.
+    # If we set the particle arrays before the scene is activated, the arrays
+    # are not displayed on screen so we use do_later to set the files.  We set
+    # n_files to number of files so as to set the UI up correctly.
+    m = MayaviViewer(n_files=len(files) - 1)
+    do_later(m.set, files=files, **kw)
     m.configure_traits()
 
 if __name__ == '__main__':
