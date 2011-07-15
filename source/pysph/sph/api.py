@@ -50,7 +50,8 @@ from funcs.adke_funcs import ADKEPilotRho, ADKESmoothingUpdate,\
 
 # Import stress functions
 from funcs.stress_funcs import HookesDeviatoricStressRate2D, \
-     HookesDeviatoricStressRate3D, MomentumEquationWithStress2D
+     HookesDeviatoricStressRate3D, MomentumEquationWithStress2D,\
+     MonaghanArtificialStress, MonaghanArtStressAcc
 
 from funcs.stress_funcs import get_K, get_nu, get_G
 

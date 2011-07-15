@@ -455,6 +455,166 @@ cdef class MonaghanEOS(SPHFunction):
         for i in range(self.d_p.length):
             output1.data[i] = rho0 * c_s2 * ((self.d_rho.data[i]/rho0)**self.gamma-1)/self.gamma
 
+cdef class MonaghanArtificialStress(SPHFunction):
+    """ Evaluate the artificial stress factors for the momentum equation. """
+
+    def __init__(self, ParticleArray source, ParticleArray dest, setup_arrays=True,
+                 double eps=0.3, *args, **kwargs):
+        self.eps = eps
+        self.id = "monaghanartstress"
+
+        # ensure that the deviatoric stress components are defined
+        stress_props = ["S_00", "S_01", "S_02",
+                                "S_11", "S_12",
+                                        "S_22"]
+
+        dest_props = dest.properties.keys()
+
+        for prop in stress_props:
+            if not prop in dest_props:
+                msg = "Adding property %s to array `%s`"%(prop, dest.name)
+                print msg
+                dest.add_property( dict(name=prop) )
+
+        # add the artificial stress variables
+        art_stress = ["R_00", "R_01", "R_02",
+                              "R_11", "R_12",
+                                      "R_22"]
+
+        for prop in art_stress:
+            if not prop in dest_props:
+                msg = "Adding property %s to array `%s`"%(prop, dest.name)
+                print msg
+                dest.add_property( dict(name=prop) )
+
+        SPHFunction.__init__(self, source, dest, setup_arrays, *args, **kwargs)
+
+    cpdef setup_arrays(self):
+        SPHFunction.setup_arrays(self)
+
+        # setup the deviatoric stress components
+        self.d_s = [[None for j in range(3)] for i in range(3)]
+        for i in range(3):
+            for j in range(i+1):
+                self.d_s[i][j] = self.d_s[j][i] = self.dest.get_carray(
+                                                "S_" + str(j) + str(i))
+
+    def set_src_dst_reads(self):
+        stress = []
+        for i in range(3):
+            for j in range(3):
+                stress.append('S_' + str(j) + str(i))
+
+        self.src_reads = stress + ['rho']
+        self.dst_reads = []
+
+    cpdef setup_iter_data(self):
+        """Setup data before each iteration"""
+        cdef DoubleArray tmp
+        for i in range(3):
+            for j in range(i+1):
+                tmp = self.d_s[j][i]
+                self._d_s[i][j] = self._d_s[j][i] = tmp.data
+
+    cpdef eval(self, KernelBase kernel, DoubleArray output1,
+               DoubleArray output2, DoubleArray output3):
+        """ Overide the basic function to call the tensor eval function """
+        self.tensor_eval(kernel)
+
+    cpdef tensor_eval(self, KernelBase kernel):
+
+        # get the tag array 
+        cdef LongArray tag_arr = self.dest.get_carray('tag')
+
+        # perform any iteration specific setup
+        self.setup_iter_data()
+        cdef size_t np = self.dest.get_number_of_particles()
+        cdef size_t a
+
+        cdef double result[6]
+        
+        cdef DoubleArray r_00 = self.dest.get_carray("R_00")
+        cdef DoubleArray r_01 = self.dest.get_carray("R_01")
+        cdef DoubleArray r_02 = self.dest.get_carray("R_02")
+
+        cdef DoubleArray r_11 = self.dest.get_carray("R_11")
+        cdef DoubleArray r_12 = self.dest.get_carray("R_12")
+        cdef DoubleArray r_22 = self.dest.get_carray("R_22")
+
+        # setup the iteration data
+        self.setup_iter_data()
+
+        for a in range(np):
+            if tag_arr.data[a] == LocalReal:
+                self.eval_single(a, kernel, result)
+
+                r_00.data[a] = result[0]
+                r_11.data[a] = result[1]
+                r_22.data[a] = result[2]
+
+                r_12.data[a] = result[3]
+                r_02.data[a] = result[4]
+                r_01.data[a] = result[5]
+
+    cdef void eval_single(self, size_t dest_pid,
+                          KernelBase kernel, double *result):
+
+        cdef int i, j, p
+        cdef double rho = self.d_rho[dest_pid]
+        cdef double rho2 = 1.0/(rho*rho)
+
+        # the diagonal terms for the stress tensor
+        cdef cPoint sd
+
+        # the off diagonal terms for the stress tensor
+        cdef cPoint ss
+
+        # the artificial stress terms in the principal directions
+        cdef cPoint Rd
+
+        # the Matrix of eigenvectors 
+        cdef double R[3][3]
+
+        # the artificial stresses in the original co-ordinates
+        cdef double R_a_b[3][3]
+        
+        # initialize the artificial stress terms to 0
+        for i in range(3):
+            for j in range(3):
+                R_a_b[i][j] = 0
+
+        # get the diagonal/off-diagonal terms from the tensor for this particle
+        symm_to_points(self._d_s, dest_pid, sd, ss)
+
+        # add the pressure term to the diagonal terms
+        for i in range(3):
+            (&sd.x)[i] -= self.d_p[dest_pid]
+
+        # compute principal stresses
+        cdef cPoint S = get_eigenvalvec(sd, ss, &R[0][0])
+
+        # perform the correction
+        for i in range(3):
+            if (&S.x)[i] > 0:
+                (&Rd.x)[i] = -self.eps * (&S.x)[i]/(rho*rho)
+            else:
+                (&Rd.x)[i] = 0.0
+
+        # get the artificial stresses in the original frame
+        transform2inv(Rd, R, R_a_b)
+
+        # store the result.
+        # result[0] = R_00, result[1] = R_11, result[2] = R_22
+        # result[3] = R_12, result[4] = R_02, result[5] = R_01 
+
+        for p in range(3):
+            result[p] = R_a_b[p][p]
+
+        for p in range(3):
+            i = (p==0)
+            j = 2 - (p==2)
+            result[3+p] = R_a_b[i][j]
+        
 cdef class MonaghanArtStressD(SPHFunction):
     
     def __init__(self, ParticleArray source, ParticleArray dest, setup_arrays=True,
@@ -590,14 +750,16 @@ cdef class MonaghanArtStressS(SPHFunction):
             j = 2 - (p==2)
             result[p] = R_a_b[i][j]
 
-
 cdef class MonaghanArtStressAcc(SPHFunctionParticle):
     def __init__(self, ParticleArray source, ParticleArray dest, 
                  bint setup_arrays=True, str R='MArtStress',
-                 double n=4, **kwargs):
+                 double n=4, deltap=1, rho0=1.0,**kwargs):
 
         self.R = R
         self.n = n
+
+        self.rho0 = rho0
+        self.deltap = deltap
 
         SPHFunctionParticle.__init__(self, source, dest, setup_arrays, **kwargs)
 
@@ -640,11 +802,11 @@ cdef class MonaghanArtStressAcc(SPHFunctionParticle):
         cdef double s_m = self.s_m.data[source_pid]
         cdef double rho_ab = 0.5*(self.d_rho.data[dest_pid] +
                                   self.s_rho.data[source_pid])
-        # cdef double s_rho = self.s_rho.data[source_pid]
         
         for i in range(3):
             for j in range(3):
-                R_a_b[i][j] = self._s_R[i][j][source_pid] + self._d_R[i][j][dest_pid]
+                R_a_b[i][j] = self._s_R[i][j][source_pid] + \
+                              self._d_R[i][j][dest_pid]
 
         cdef double h = 0.5*(self.s_h.data[source_pid] +
                              self.d_h.data[dest_pid])
@@ -658,13 +820,20 @@ cdef class MonaghanArtStressAcc(SPHFunctionParticle):
         self._dst.z = self.d_z.data[dest_pid]
 
         cdef cPoint grad = kernel.gradient(self._dst, self._src, h)
+
+        cdef double ratio = self.rho0/rho_ab
+        ratio = pow(ratio, 1.0/kernel.dim)
+
+        cdef cPoint _ra = cPoint_new(self.deltap*ratio, 0.0, 0.0)
+        cdef cPoint _rb = cPoint_new(0.0, 0.0, 0.0)
         
         if self.bonnet_and_lok_correction:
             self.bonnet_and_lok_gradient_correction(dest_pid, &grad)
-        
+
         cdef double * dgrad = [grad.x, grad.y, grad.z]
-        cdef double f = kernel.function(cPoint_new(self.dr0*(self.rho0/rho_ab)**(1.0/kernel.dim),0,0),
-                                        cPoint_new(0,0,0), h)
+        cdef double f = kernel.function(_ra, _rb, h)
+        #cdef double f = kernel.function(cPoint_new(self.dr0*(self.rho0/rho_ab)**(1.0/kernel.dim),0,0),
+         #                               cPoint_new(0,0,0), h)
 
         f = kernel.function(self._dst, self._src, h) / f
         #print dest_pid, f**self.n
@@ -1265,7 +1434,7 @@ cdef class MomentumEquationWithStress2D(SPHFunctionParticle):
         # check that the deviatoric stress components are defined. If
         # not, add them.
         stress_props = ["S_00", "S_01",
-                        "S_10", "S_11"]
+                                 "S_11"]
 
         dest_props = dest.properties.keys()
         for prop in stress_props:
@@ -1277,6 +1446,19 @@ cdef class MomentumEquationWithStress2D(SPHFunctionParticle):
             if not prop in src_props:
                 source.add_property( dict(name=prop) )
 
+        # Ensure that the artificial stress properties are defined
+        artificial_stress = ["R_00", "R_01",
+                                     "R_11"]
+        for prop in artificial_stress:
+            if not prop in dest_props:
+                msg = "Property %s not present in array %s"%(prop,
+                                                             dest.name)
+                raise RuntimeError(msg)
+            if not prop in src_props:
+                msg = "Property %s not present in array %s"%(prop,
+                                                             source.name)
+                raise RuntimeError(msg)
+        
         SPHFunctionParticle.__init__(self, source, dest, setup_arrays,
                                      **kwargs)
     def set_src_dst_reads(self):
@@ -1285,16 +1467,27 @@ cdef class MomentumEquationWithStress2D(SPHFunctionParticle):
     cpdef setup_arrays(self):
         SPHFunctionParticle.setup_arrays(self)
         
-        # setup the deviatoric stress components
+        # setup the deviatoric stress components (symmetric so 01 = 10)
         self.d_S_00 = self.dest.get_carray("S_00")
         self.d_S_01 = self.dest.get_carray("S_01")
-        self.d_S_10 = self.dest.get_carray("S_10")
+        self.d_S_10 = self.dest.get_carray("S_01")
         self.d_S_11 = self.dest.get_carray("S_11")
 
         self.s_S_00 = self.source.get_carray("S_00")
         self.s_S_01 = self.source.get_carray("S_01")
-        self.s_S_10 = self.source.get_carray("S_10")
+        self.s_S_10 = self.source.get_carray("S_01")
         self.s_S_11 = self.source.get_carray("S_11")
+
+        # setup the artificial stress components ( symmetric so 01 = 10 )
+        self.d_R_00 = self.dest.get_carray("R_00")
+        self.d_R_01 = self.dest.get_carray("R_01")
+        self.d_R_10 = self.dest.get_carray("R_01")
+        self.d_R_11 = self.dest.get_carray("R_11")
+
+        self.s_R_00 = self.source.get_carray("R_00")
+        self.s_R_01 = self.source.get_carray("R_01")
+        self.s_R_10 = self.source.get_carray("R_10")
+        self.s_R_11 = self.source.get_carray("R_11")
 
     cdef void eval_nbr(self, size_t source_pid, size_t dest_pid,
                        KernelBase kernel, double *nr):        
@@ -1338,16 +1531,6 @@ cdef class MomentumEquationWithStress2D(SPHFunctionParticle):
         cdef double w, wdeltap, fab
         cdef cPoint _ra, _rb
 
-        # angle in the rotated frame
-        cdef double theta
-        cdef double cos_theta, cos_theta2, sin_theta, sin_theta2
-
-        # principal stresses in the rotated frame
-        cdef double sig_00, sig_11
-
-        # corrections in the rotated frame
-        cdef double R_00, R_11
-
         # corrections in the original frame
         cdef double R_00a, R_01a, R_11a
         cdef double R_00b, R_01b, R_11b
@@ -1366,61 +1549,15 @@ cdef class MomentumEquationWithStress2D(SPHFunctionParticle):
 
         if self.with_correction:
 
-            # evaluate the artificial stress for `a`
-            theta = get_principal_stress_angle2D(s_00a, s_01a, s_11a,
-                                                 self.theta_factor)
-            cos_theta = cos(theta)
-            sin_theta = sin(theta)
+            R_00a = self.d_R_00.data[dest_pid]
+            R_01a = self.d_R_01.data[dest_pid]
+            R_10a = self.d_R_10.data[dest_pid]
+            R_11a = self.d_R_11.data[dest_pid]
 
-            cos_theta2 = cos_theta * cos_theta
-            sin_theta2 = sin_theta * sin_theta
-
-            sig_00 = cos_theta2*s_00a + 2.0*cos_theta*sin_theta*s_01a + \
-                     sin_theta2*s_11a
-
-            sig_11 = sin_theta2*s_00a + 2.0*cos_theta*sin_theta*s_01a + \
-                     cos_theta2*s_11a
-
-            R_00 = 0.0
-            if sig_00 > 0:
-                R_00 = -self.epsp * sig_00 * rhoa2
-
-            R_11 = 0.0
-            if sig_11 > 0:
-                R_11 = -self.epsp * sig_11 * rhoa2
-
-            R_00a = cos_theta2*R_00 + sin_theta2*R_11
-            R_11a = sin_theta2*R_00 + cos_theta2*R_11
-
-            R_01a = cos_theta*sin_theta*(R_00 - R_11)
-
-            # evaluate the artificial stress for `b`
-            theta = get_principal_stress_angle2D(s_00b, s_01b, s_11b,
-                                                 self.theta_factor)
-            cos_theta = cos(theta)
-            sin_theta = sin(theta)
-
-            cos_theta2 = cos_theta*cos_theta
-            sin_theta2 = sin_theta*sin_theta
-
-            sig_00 = cos_theta2*s_00b + 2.0*cos_theta*sin_theta*s_01b + \
-                     sin_theta2*s_11b
-
-            sig_11 = sin_theta2*s_00b + 2.0*cos_theta*sin_theta*s_01b + \
-                     cos_theta2*s_11b
-
-            R_00 = 0.0
-            if sig_00 > 0:
-                R_00 = -self.epsp * sig_00 * rhob2
-
-            R_11 = 0.0
-            if sig_11 > 0:
-                R_11 = -self.epsp * sig_11 * rhob2
-
-            R_00b = cos_theta2*R_00 + sin_theta2*R_11
-            R_11b = sin_theta2*R_00 + cos_theta2*R_11
-
-            R_01b = cos_theta*sin_theta*(R_00 - R_11)
+            R_00b = self.s_R_00.data[source_pid]
+            R_01b = self.s_R_01.data[source_pid]
+            R_10b = self.s_R_10.data[source_pid]
+            R_11b = self.s_R_11.data[source_pid]
 
             # compute the correction term W(q)/W(deltap)
             _ra = cPoint_new(self.deltap, 0.0, 0.0)
@@ -1435,6 +1572,62 @@ cdef class MomentumEquationWithStress2D(SPHFunctionParticle):
             artificial_stress_00 = fab * (R_00a + R_00b)
             artificial_stress_01 = fab * (R_01a + R_01b)
             artificial_stress_11 = fab * (R_11a + R_11b)
+
+            # # evaluate the artificial stress for `a`
+            # theta = get_principal_stress_angle2D(s_00a, s_01a, s_11a,
+            #                                      self.theta_factor)
+            # cos_theta = cos(theta)
+            # sin_theta = sin(theta)
+
+            # cos_theta2 = cos_theta * cos_theta
+            # sin_theta2 = sin_theta * sin_theta
+
+            # sig_00 = cos_theta2*s_00a + 2.0*cos_theta*sin_theta*s_01a + \
+            #          sin_theta2*s_11a
+
+            # sig_11 = sin_theta2*s_00a - 2.0*cos_theta*sin_theta*s_01a + \
+            #          cos_theta2*s_11a
+
+            # R_00 = 0.0
+            # if sig_00 > 0:
+            #     R_00 = -self.epsp * sig_00 * rhoa2
+
+            # R_11 = 0.0
+            # if sig_11 > 0:
+            #     R_11 = -self.epsp * sig_11 * rhoa2
+
+            # R_00a = cos_theta2*R_00 + sin_theta2*R_11
+            # R_11a = sin_theta2*R_00 + cos_theta2*R_11
+
+            # R_01a = cos_theta*sin_theta*(R_00 - R_11)
+
+            # # evaluate the artificial stress for `b`
+            # theta = get_principal_stress_angle2D(s_00b, s_01b, s_11b,
+            #                                      self.theta_factor)
+            # cos_theta = cos(theta)
+            # sin_theta = sin(theta)
+
+            # cos_theta2 = cos_theta*cos_theta
+            # sin_theta2 = sin_theta*sin_theta
+
+            # sig_00 = cos_theta2*s_00b + 2.0*cos_theta*sin_theta*s_01b + \
+            #          sin_theta2*s_11b
+
+            # sig_11 = sin_theta2*s_00b - 2.0*cos_theta*sin_theta*s_01b + \
+            #          cos_theta2*s_11b
+
+            # R_00 = 0.0
+            # if sig_00 > 0:
+            #     R_00 = -self.epsp * sig_00 * rhob2
+
+            # R_11 = 0.0
+            # if sig_11 > 0:
+            #     R_11 = -self.epsp * sig_11 * rhob2
+
+            # R_00b = cos_theta2*R_00 + sin_theta2*R_11
+            # R_11b = sin_theta2*R_00 + cos_theta2*R_11
+
+            # R_01b = cos_theta*sin_theta*(R_00 - R_11)
         
         if self.hks:
             grada = kernel.gradient(self._dst, self._src, ha)
@@ -1454,8 +1647,11 @@ cdef class MomentumEquationWithStress2D(SPHFunctionParticle):
              mb*( s_11a*rhoa2 + s_11b*rhob2 ) * grad.y
 
         # add the artificial stress terms (default: 0)
-        ax = ax + mb*( artificial_stress_00*grad.x + artificial_stress_01*grad.y )
-        ay = ay + mb*( artificial_stress_01*grad.x + artificial_stress_11*grad.y )
+        ax = ax + mb*( artificial_stress_00*grad.x + \
+                       artificial_stress_01*grad.y )
+
+        ay = ay + mb*( artificial_stress_01*grad.x + \
+                       artificial_stress_11*grad.y )
 
         nr[0] += ax
         nr[1] += ay
