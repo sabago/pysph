@@ -6,6 +6,8 @@ import pysph.base.api as base
 import pysph.sph.api as sph
 import pysph.solver.api as solver
 
+import pysph.sph.funcs.stress_funcs as stress_funcs
+
 app = solver.Application()
 
 Solid = base.ParticleType.Solid
@@ -70,6 +72,9 @@ def create_particles(two_arr=False):
     pa.cs[:] = co
     pa.u = pa.cs*u_f*(2*(x<0)-1)
 
+    pa.constants['dr0'] = dx
+    pa.constants["rho0"] = ro
+
     return pa
 
 s = solver.Solver(dim=2, integrator_type=solver.PredictorCorrectorIntegrator)
@@ -93,11 +98,29 @@ s.add_operation(solver.SPHOperation(
 
                 )
 
+# Artificial stress
+s.add_operation(solver.SPHOperation(
+
+    sph.MonaghanArtificialStress.withargs(eps=0.3),
+    on_types=[Solid,],
+    id="art_stress",)
+
+                )
+
 # density rate
 s.add_operation(solver.SPHIntegration(
 
     sph.SPHDensityRate.withargs(), on_types=[Solid,], from_types=[Solid],
     id="density", updates=['rho'])
+
+                )
+
+# momentum equation artificial viscosity
+s.add_operation(solver.SPHIntegration(
+
+    sph.MonaghanArtificialVsicosity.withargs(alpha=1.0, beta=1.0),
+    on_types=[Solid,], from_types=[Solid,],
+    id="avisc", updates=['u','v'])
 
                 )
 
@@ -113,14 +136,15 @@ s.add_operation(solver.SPHIntegration(
 
                 )
 
-# momentum equation artificial viscosity
-s.add_operation(solver.SPHIntegration(
+# s.add_operation(solver.SPHIntegration(
+    
+#     sph.MonaghanArtStressAcc.withargs(n=4, deltap=deltap, rho0=ro,
+#                                       R="R_"),
+#     from_types=[Solid], on_types=[Solid],
+#     updates=['u','v'],
+#     id='mart_stressacc')
 
-    sph.MonaghanArtificialVsicosity.withargs(alpha=1.0, beta=1.0),
-    on_types=[Solid,], from_types=[Solid,],
-    id="avisc", updates=['u','v'])
-
-                )
+#                  )
 
 # XSPH
 s.add_operation(solver.SPHIntegration(

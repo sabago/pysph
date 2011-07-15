@@ -15,6 +15,9 @@ from pysph.sph.funcs.pressure_funcs cimport MomentumEquation
 cdef void symm_to_points(double * mat[3][3], long idx, cPoint& d, cPoint& s)
 cdef void points_to_symm(mat, idx, d, s)
 
+cpdef get_K(G, nu)
+cpdef get_nu(G, K)
+cpdef get_G(K, nu)
 
 cdef class StressFunction(SPHFunctionParticle):
 
@@ -79,7 +82,9 @@ cdef class MonaghanArtStressS(SPHFunction):
     cdef double eps
 
 cdef class MonaghanArtStressAcc(SPHFunctionParticle):
-    cdef double eps, n, rho0, dr0
+    cdef double eps, dr0
+    cdef double deltap, rho0, n
+    
     cdef public str R
     cdef public list d_R
     cdef public list s_R
@@ -131,7 +136,15 @@ cdef class HookesDeviatoricStressRate2D(SPHFunction):
                       DoubleArray output3, DoubleArray output4,
                       DoubleArray output5, DoubleArray output6,
                       DoubleArray output7, DoubleArray output8,
-                      DoubleArray output9)    
+                      DoubleArray output9)
+
+cdef class MonaghanArtificialStress(SPHFunction):
+    cdef public list d_s
+    cdef double *_d_s[3][3]
+
+    cdef public double eps
+
+    cpdef tensor_eval(self, KernelBase kernel)    
 
 cdef class MomentumEquationWithStress2D(SPHFunctionParticle):
     cdef public double deltap
@@ -142,12 +155,16 @@ cdef class MomentumEquationWithStress2D(SPHFunctionParticle):
 
     cdef public bint with_correction
 
+    # deviatoric stress components
     cdef DoubleArray d_S_00, d_S_01
     cdef DoubleArray d_S_10, d_S_11
 
     cdef DoubleArray s_S_00, s_S_01
     cdef DoubleArray s_S_10, s_S_11
-    
-cpdef get_K(G, nu)
-cpdef get_nu(G, K)
-cpdef get_G(K, nu)
+
+    # artificial stress components
+    cdef DoubleArray d_R_00, d_R_01
+    cdef DoubleArray d_R_10, d_R_11
+
+    cdef DoubleArray s_R_00, s_R_01
+    cdef DoubleArray s_R_10, s_R_11
