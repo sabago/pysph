@@ -72,6 +72,7 @@ class Solver(object):
 
         self.integrator_type = integrator_type
         self.dim = dim
+        self.eps = -1
 
         self.cl_integrator_types = {EulerIntegrator:CLEulerIntegrator}
 
@@ -680,8 +681,8 @@ class Solver(object):
             if not count in available_files:
                 msg = """File with iteration count `%s` does not exist"""%(count)
                 msg += "\nValid iteration counts are %s"%(sorted(set(available_files), key=int))
-                print msg
-                sys.exit(0)
+                #print msg
+                raise IOError(msg)
 
         array_names = [pa.name for pa in self.particles.arrays]
 
