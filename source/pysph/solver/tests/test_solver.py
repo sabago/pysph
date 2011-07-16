@@ -292,18 +292,14 @@ class SolverTestCase(unittest.TestCase):
 
         s.dump_output(s.dt)
         pa.q = pa.x = pa.z
-        s.load_output('*')
+        ret = s.load_output('?')
+        self.assertEqual(ret, ["0"])
+        s.load_output('0')
 
         try:
             for name,prop in s.particles.arrays[0].properties.iteritems():
                 self.assertTrue(numpy.allclose(prop,old_props[name]),
                                 msg='prop:%s\nold:%s, new:%s'%(name,old_props[name], pa.get(name)))
-
-            pa = s.particles.arrays[0] = base.get_particle_array(name='pa', x=[], q=[])
-            s.load_output('*')
-            for name,prop in old_props.iteritems():
-                self.assertTrue(numpy.allclose(prop,pa.get(name)),
-                                msg='prop:%s\nold:%s,new:%s'%(name,prop,pa.get(name)))
         finally:
             shutil.rmtree(d, True)
 
