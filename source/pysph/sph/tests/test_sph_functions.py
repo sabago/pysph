@@ -12,6 +12,8 @@ from pysph.sph.sph_calc import SPHCalc
 from pysph.sph.sph_func import get_all_funcs
 from pysph.sph.funcs.stress_funcs import get_G, get_K, get_nu
 
+import nose
+
 funcs = get_all_funcs()
 
 Ns = [100]#, 100000]
@@ -52,12 +54,22 @@ def create_t_func(func_getter):
                                     rkpm_dbeta1dx=z,
                                     rkpm_dbeta1dy=z,
                                     rkpm_dbeta2dx=z,
-                                    rkpm_dbeta2dy=z)
+                                    rkpm_dbeta2dy=z,
+                                    S_00=z, S_01=z, S_02=z,
+                                    S_10=z, S_11=z, S_12=z,
+                                    S_20=z, S_21=z, S_22=z,
+                                    R_00=z, R_01=z, R_02=z,
+                                    R_11=z, R_12=z, R_22=z,
+                                    v_00=z, v_01=z, v_02=z,
+                                    v_10=z, v_11=z, v_12=z,
+                                    v_20=z, v_21=z, v_22=z,
+                                    name="pa")
             pa.constants['E'] = 1e9
             pa.constants['nu'] = 0.3
             pa.constants['G'] = pa.constants['E']/(2.0*1+pa.constants['nu'])
             pa.constants['K'] = get_K(pa.constants['G'], pa.constants['nu'])
             pa.constants['rho0'] = 1.0
+            pa.constants['dr0'] = 1.0
             pa.constants['c_s'] = numpy.sqrt(pa.constants['K']/pa.constants['rho0'])
 
             pb = get_particle_array(x=x+0.1**0.5, y=y, z=z, h=h, mu=mu,
@@ -72,12 +84,22 @@ def create_t_func(func_getter):
                                     rkpm_dbeta1dx=z,
                                     rkpm_dbeta1dy=z,
                                     rkpm_dbeta2dx=z,
-                                    rkpm_dbeta2dy=z)
+                                    rkpm_dbeta2dy=z,
+                                    S_00=z, S_01=z, S_02=z,
+                                    S_10=z, S_11=z, S_12=z,
+                                    S_20=z, S_21=z, S_22=z,
+                                    R_00=z, R_01=z, R_02=z,
+                                    R_11=z, R_12=z, R_22=z,
+                                    v_00=z, v_01=z, v_02=z,
+                                    v_10=z, v_11=z, v_12=z,
+                                    v_20=z, v_21=z, v_22=z,
+                                    name="pb")
             pb.constants['E'] = 1e9
             pb.constants['nu'] = 0.3
             pb.constants['G'] = pb.constants['E']/(2.0*1+pb.constants['nu'])
             pb.constants['K'] = get_K(pb.constants['G'], pb.constants['nu'])
             pb.constants['rho0'] = 1.0
+            pb.constants['dr0'] = 1.0
             pb.constants['c_s'] = numpy.sqrt(pb.constants['K']/pb.constants['rho0'])
             
             particles = Particles(arrays=[pa, pb])
@@ -86,7 +108,10 @@ def create_t_func(func_getter):
             calc = SPHCalc(particles, [pa], pb, kernel, [func], ['_tmpx'])
             print cls.__name__
             t = get_time()
-            calc.sph()
+            if cls.__name__.startswith("Hookes"):
+                calc.tensor_sph()
+            else:
+                calc.sph()
             t = get_time() - t
             
             nam = '%s'%(cls.__name__)
@@ -101,6 +126,7 @@ def create_t_func(func_getter):
 
 def gen_ts():
     """ generate test functions and attach them to test classes """
+    raise nose.SkipTest('Disabling!')
     for i, func in enumerate(funcs.values()):
         t_method = create_t_func(func)
         t_method.__name__ = t_method.__name__ + '_%d'%(i)

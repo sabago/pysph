@@ -21,6 +21,7 @@ from numpy.distutils.extension import Extension
 import numpy
 import sys
 import os
+import platform
 import multiprocessing
 ncpu = multiprocessing.cpu_count()
 
@@ -128,7 +129,8 @@ if 'build_ext' in sys.argv or 'develop' in sys.argv or 'install' in sys.argv:
     d = {'__file__':'source/pysph/base/generator.py'}
     execfile('source/pysph/base/generator.py', d)
     d['main'](None)
-    ext_modules = cythonize(ext_modules, nthreads=ncpu, include_path=inc_dirs)
+    if not platform.system() == "Windows":
+        ext_modules = cythonize(ext_modules,nthreads=ncpu,include_path=inc_dirs)
 
 setup(name='PySPH',
       version = '0.9beta',
