@@ -6,7 +6,8 @@ Module contains some common functions.
 import pickle
 import numpy
 import sys
-import os 
+import os
+import platform
 import commands
 from numpy.lib import format
 
@@ -315,7 +316,19 @@ def load(fname):
     version = data['version']
 
     if version == 1:
-        arrays = data["arrays"].astype(object)
+
+        if platform.system() == "Windows":
+            arrays = data["arrays"]
+            arrays.shape = (1,)
+            arrays = arrays[0]
+
+            solver_data = data["solver_data"]
+            solver_data.shape = (1,)
+            solver_data = solver_data[0]
+
+        else:
+            arrays = data["arrays"].astype(object)
+            solver_data = data["solver_data"].astype(object)
 
         for array_name in arrays:
             array = get_particle_array(name=array_name,
@@ -324,7 +337,7 @@ def load(fname):
             
             ret["arrays"][array_name] = array
             
-        ret["solver_data"] = data["solver_data"].astype(object)
+        ret["solver_data"] = solver_data
 
     else:
         raise RuntimeError("Version not understood!")
