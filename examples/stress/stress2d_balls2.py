@@ -173,7 +173,7 @@ s.add_operation(solver.SPHIntegration(
     
                 )
 
-app.set_solver(s, callable=create_particles)
+app.set_solver(s, create_particles=create_particles)
 
 dt = 1e-8
 tf = 1e-2
@@ -293,7 +293,7 @@ s1.set_final_time(tf)
 s1.set_kernel_correction(-1)
 s1.pfreq = 100
 
-app1.set_solver(s1, callable=create_particles)
+app1.set_solver(s1, create_particles=create_particles)
 
 
 
@@ -307,7 +307,7 @@ s.set_final_time(tf)
 s.set_kernel_correction(-1)
 s.pfreq = 100
 
-app2.set_solver(s, callable=create_particles)
+app2.set_solver(s, create_particles=create_particles)
 
 #print [calc.id for calc in s.integrator.calcs]
 #print [calc.id for calc in s1.integrator.calcs]

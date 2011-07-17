@@ -367,7 +367,7 @@ class Application(object):
             for o in opt:
                 self.add_option(o)
 
-    def set_solver(self, solver, callable=None,
+    def set_solver(self, solver, create_particles=None,
                    variable_h=False, min_cell_size=-1, **kwargs):
         """Set the application's solver.  This will call the solver's
         `setup_integrator` method.
@@ -398,7 +398,7 @@ class Application(object):
 
         Parameters
         ----------
-        callable : callable or None
+        create_particles : callable or None
             If supplied, particles will be created for the solver using the
             particle arrays returned by the callable. Else particles for the
             solver need to be set before calling this method
@@ -415,8 +415,8 @@ class Application(object):
             self.add_option(solver_opts)
         self._process_command_line()
 
-        if callable:
-            self._create_particles(variable_h, callable, min_cell_size,
+        if create_particles:
+            self._create_particles(variable_h, create_particles, min_cell_size,
                                    **kwargs)
 
         self._solver.setup_solver(self.options.__dict__)
