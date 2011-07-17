@@ -182,7 +182,7 @@ s.set_final_time(tf)
 s.set_kernel_correction(-1)
 s.pfreq = 100
 
-app.set_solver(s, callable=create_particles)
+app.set_solver(s, create_particles=create_particles)
 
 particles = s.particles
 pa, pb = particles.arrays
