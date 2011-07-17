@@ -319,7 +319,7 @@ s.set_time_step(1e-4)
 
 app.set_solver(
     solver=s,
-    variable_h=False, callable=get_particles,
+    variable_h=False, create_particles=get_particles,
     locator_type=base.NeighborLocatorType.SPHNeighborLocator,
     domain_manager=base.DomainManagerType.DomainManager,
     cl_locator_type=base.OpenCLNeighborLocatorType.AllPairNeighborLocator

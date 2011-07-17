@@ -73,7 +73,7 @@ app.set_solver(
     
     min_cell_size=4*h0,
     variable_h=True,
-    callable=get_particles,
+    create_particles=get_particles,
     locator_type=Locator.SPHNeighborLocator,
     cl_locator_type=CLLocator.AllPairNeighborLocator,
     domain_manager_type=CLDomain.DomainManager,

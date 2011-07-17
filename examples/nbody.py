@@ -48,7 +48,7 @@ s.add_operation_step([Fluid])
 
 app.set_solver(
     solver=s,    
-    variable_h=False, callable=get_particles,
+    variable_h=False, create_particles=get_particles,
     locator_type=base.NeighborLocatorType.NSquareNeighborLocator,
     cl_locator_type=base.OpenCLNeighborLocatorType.AllPairNeighborLocator,
     domain_manager=base.DomainManager
