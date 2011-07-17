@@ -21,7 +21,7 @@ s.set_final_time(tf)
 app.set_solver(
     solver=s,
     variable_h=False,
-    callable=solver.fluid_solver.get_circular_patch, name='fluid', type=0,
+    create_particles=solver.fluid_solver.get_circular_patch, name='fluid', type=0,
     locator_type=base.NeighborLocatorType.SPHNeighborLocator,
     cl_locator_type=base.OpenCLNeighborLocatorType.LinkedListSPHNeighborLocator,
     domain_manager_type=base.DomainManagerType.LinkedListManager)

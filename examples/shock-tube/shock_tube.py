@@ -38,7 +38,7 @@ s.set_time_step(3e-4)
 app.set_solver(
     solver=s,
     variable_h=False,
-    callable=solver.shock_tube_solver.standard_shock_tube_data,
+    create_particles=solver.shock_tube_solver.standard_shock_tube_data,
     name='fluid', type=0,
     locator_type=Locator.SPHNeighborLocator,
     cl_locator_type=CLLocator.AllPairNeighborLocator,

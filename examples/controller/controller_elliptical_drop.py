@@ -8,12 +8,10 @@ app = solver.Application()
 app.process_command_line(['-q', '--interactive',
                     '--xml-rpc=0.0.0.0:8900', '--multiproc=pysph@0.0.0.0:8800'])
 
-particles = app.create_particles(False,
-    solver.fluid_solver.get_circular_patch, name='fluid', type=0)
-
 s = solver.FluidSolver(dim=2, integrator_type=solver.EulerIntegrator)
 
-app.set_solver(s)
+app.set_solver(s, create_particles=solver.fluid_solver.get_circular_patch, 
+               variable_h=False, name='fluid', type=0)
 s.set_time_step(1e-5)
 s.set_final_time(1e-1)
 s.pfreq = 1000
