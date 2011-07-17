@@ -17,9 +17,10 @@ rank = comm.Get_rank()
 # logging setup
 import logging
 logger = logging.getLogger()
-log_file_name = 'parallel_cell_check.log.'+str(rank)
-logging.basicConfig(level=logging.DEBUG, filename=log_file_name,
-                    filemode='w')
+#log_file_name = 'parallel_cell_check.log.'+str(rank)
+#logging.basicConfig(level=logging.DEBUG, filename=log_file_name,
+#                    filemode='w')
+logger.setLevel(logging.DEBUG)
 logger.addHandler(logging.StreamHandler())
 
 # local imports
