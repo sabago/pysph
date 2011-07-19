@@ -9,6 +9,8 @@ from pysph.base.particle_array cimport ParticleArray
 
 from pysph.base.particle_array cimport GhostParticle
 
+from pysph.parallel.fast_utils cimport arange_long 
+
 # python c-api imports
 from cpython cimport *
 
@@ -772,9 +774,16 @@ cdef class CellManager:
 
     """Cell Manager class
 
-    The CellManager manages all the cells that are used for binning
-    the particles. This mainly involves creating the mapping from the
-    cell ids to the cells containing particles.
+    The CellManager uses the standard box sort algorithm for spatial
+    indexing of particles. Essentially, a particle identified by it's
+    tuple of coordinate values (x, y, z) is put into a Cell,
+    identified by a integer tuple (cid.x, cid.y, cid.z) denoting it's
+    spatial location in the domain.
+
+    The CellManager indexes a list of ParticleArrays using this
+    mapping between cell indices (cid) and particle indices. Each cell
+    maintains list of indices, one for each ParticleArray being
+    `binned`.
 
     Data Attributes:
     ----------------
@@ -811,49 +820,82 @@ cdef class CellManager:
     def __init__(self, list arrays_to_bin=[], double min_cell_size=-1.0,
                  double max_cell_size=0, PeriodicDomain periodic_domain=None,
                  bint initialize=True, double max_radius_scale=2.0):
+        """ Constructor for the CellManager.
+
+        Paramters:
+        ----------
+
+        arrays_to_bin : list
+            A list of particle arrays which need to be indexed.
+
+        min_cell_size : double
+            An optional argument suggesting the minimum cell size to use for
+            for binning.
+
+        max_radius_scale : double
+            An optional argument suggesting the maximum cell size to use for
+            binning.
+
+        periodic_domain : base.PeriodicDomain
+            Optional periodicity information
+
+        max_radius_scale : double
+            The maximum radius scale to use while looking for cell neighbors.
+
+        """
         
         self.max_radius_scale = max_radius_scale
         self.min_cell_size = min_cell_size
         self.max_cell_size = max_cell_size
 
-        self.array_indices = dict()
-        self.arrays_to_bin = list()
-        self.arrays_to_bin[:] = arrays_to_bin
-
-        self.num_arrays = len(arrays_to_bin)
-        
-        self.cells_dict = dict()
-        
         self.coord_x = 'x'
         self.coord_y = 'y'
         self.coord_z = 'z'
 
+        # the list of ParticleArrasy
+        self.arrays_to_bin = list()
+        self.arrays_to_bin[:] = arrays_to_bin
+
+        # mapping between array name and number within the  arrays_to_bin list
+        self.array_indices = dict()
+
+        # set the number of arrays
+        self.num_arrays = len(arrays_to_bin)
+
+        # the Cells used for binning
+        self.cells_dict = dict()
+
+        # the Ghost Cells used in the simulation 
+        self.ghost_cells = dict()
+
+        # set the initial jump tolerance to 1
         self.jump_tolerance = 1
+
+        # set the cell size temporarily
         self.cell_size = 0
 
         self.periodic_domain = periodic_domain
-        
+
+        # set the dirty bit to True
         self.is_dirty = True
 
+        # indicate that the CellManager is not initialized
         self.initialized = False
 
-        self.ghost_cells = dict()
-
+        # intialize ( build the initial cell structure )
         if initialize == True:
             self.initialize()
 
     cpdef initialize(self):
-        """
-        Initialize the cell manager.
-    
-        Algorithm::
-        -----------
-        clear current data
-        build the cell structure
+        """ Bin the partices given the particle arrays.
 
-    	Warning:
-        ------
-        All previously stored data will be cleared
+        This function clears all existing data and effectively
+        performs a fresh rebin of the particles with bin size computed
+        from the particle smoothing lengths.
+    
+        This is similar to `rebin` which also computes the new
+        structure from the particle arrays but does not compute a
+        new cell size.        
 
     	"""
         if self.initialized == True:
@@ -861,31 +903,24 @@ cdef class CellManager:
             return
 
         # clear the cells dict
+        self.cells_dict.clear()
 
-        self.clear()
-
-        # build the array indices dict 
-
+        # build the array indices dict
         self._rebuild_array_indices()
 
         # create the cells dict
-
-        self._setup_cells_dict()
+        self.cells_dict = dict()
         
         # recompute cell sizes.
-
         self.compute_cell_size(self.min_cell_size, self.max_cell_size)
         
         # build cell.
-
         self._build_cell()
 
-        # update
-
+        # Update the cell structure
         self.update()
 
         # reset the jump tolerance back to 1
-
         self._reset_jump_tolerance()
 
         self.initialized = True
@@ -935,24 +970,19 @@ cdef class CellManager:
         if self.is_dirty:
 
             # delete ghost cells and particles from a previous step
-
             self.remove_ghost_particles()
 
-            # update the cells.
-
-            self.cells_update()
+            # rebin the particles
+            self.rebin_particles()
 
             # delete empty cells if any.
-
             self.delete_empty_cells()
 
             # create ghost cells
-
             if self.periodic_domain:
                 self.create_ghost_cells()
 
             # reset the dirty bit of all particle arrays.
-
             for i in range(num_arrays):
                 parray = self.arrays_to_bin[i]
                 parray.set_dirty(False)
@@ -960,59 +990,6 @@ cdef class CellManager:
             self.is_dirty = False
 
         return 0
-
-    cpdef int cells_update(self) except -1:
-        """ Perform the binning.
-        
-        Algorithm:
-        ----------
-
-        for each cell in cells dict:
-          for each particle in cell:
-            find to which cell has this particle escaped to
-
-            if it is a new cell:
-              create new cell and add it to the cells_dict. Delete the particle
-              from the current cell
-
-            if the cell exists:
-              add the particle to the corresponding cell. Delete the partilce
-              from the current cell.
-
-       
-        """
-
-        cdef list new_cells
-        cdef Cell cell, new_cell
-        cdef int i, num_new_cells
-
-        cdef list cells = PyDict_Values( self.cells_dict)
-        cdef list cids = PyDict_Keys( self.cells_dict )
-
-        cdef int num_cells = PyList_Size( cids )
-
-        cdef dict collected_data = dict()
-
-        # collect all escaped particles from cells.
-
-        for i in range(num_cells):
-
-            cell = cells[i]
-            cell.update(collected_data)
-
-        new_cells = PyDict_Values( collected_data )
-        num_new_cells = PyList_Size( new_cells )
-
-        for i in range(num_new_cells):
-            new_cell = new_cells[i]
-            
-            if PyDict_Contains( self.cells_dict, new_cell.id ):
-                cell = <Cell>PyDict_GetItem( self.cells_dict, new_cell.id )
-                cell.add_particles( new_cell )
-            else:
-                self.cells_dict[new_cell.id] = new_cell
-
-        return 0    
     
     cpdef set_jump_tolerance(self, int jump_tolerance):
         """Sets the jump tolerance value of the cells."""
@@ -1034,15 +1011,11 @@ cdef class CellManager:
     cpdef int update_status(self):
         """Updates the is_dirty flag to indicate that an update is required.
 
-        Algorithm:
-        ----------
-        if any particle array's is_dirty bit is True
-            set cell manager's is_dirty bit to True
+        The CellManager's dirty bit is set to True if any of the
+        particle arrays are dirty.
 
-        Notes:
-        ------
-        Any module that may modify the particle data, should call the cell
-        managers update_status function.
+        This is called by the NeighborLocators that interface with this cell
+        manager to prvide nearest neighbors.
 
         """
         cdef int i,  num_arrays
@@ -1059,7 +1032,7 @@ cdef class CellManager:
         return 0
 
     cpdef _build_cell(self):
-        """ Build the base cell and add it to `cells_dict`
+        """ Construct a cell and add all particle indices to it.        
         
         Algorithm::
         -----------
@@ -1068,7 +1041,6 @@ cdef class CellManager:
         add all particle indices to this cell
 
     	"""
-
         cdef numpy.ndarray index_arr_source
         cdef ParticleArray parry
         cdef LongArray index_arr
@@ -1079,14 +1051,12 @@ cdef class CellManager:
         cdef int num_arrays = self.num_arrays
         self.jump_tolerance = INT_MAX
  
-        # create a leaf cell with all particles.
-
+        # create a leaf cell 
         cell = Cell(id=IntPoint(0, 0, 0), cell_manager=self,
                     cell_size=self.cell_size, jump_tolerance=INT_MAX,
                     periodic_domain=self.periodic_domain)
         
-        # now add all particles of all arrays to this cell.
-
+        # add all particles of all arrays to this cell.
         for i in range(num_arrays):
             parray = cell.arrays_to_bin[i]
             np = parray.get_number_of_particles()
@@ -1098,8 +1068,7 @@ cdef class CellManager:
 
             index_arr.set_data(index_arr_source)
         
-        # now add the cell to the cells dict
-
+        # add the cell to the cells dict
         self.cells_dict.clear()
         self.cells_dict[IntPoint(0, 0, 0)] = cell
         
@@ -1126,11 +1095,12 @@ cdef class CellManager:
         cdef Cell cell
         cdef unsigned int i
 
-        # construct ids of all neighbors around cell_id, including self
+        cdef int distance = <int>ceil(radius/self.cell_size)
 
+        # construct ids of all neighbors around cell_id, including self
         cdef vector[cIntPoint] v = construct_immediate_neighbor_list(
                                         find_cell_id(pnt, self.cell_size),
-                                        True, <int>ceil(radius/self.cell_size))
+                                        True, distance)
 
         for i in range(v.size()):
             cell_id.data = v[i]
@@ -1141,82 +1111,29 @@ cdef class CellManager:
 
         return 0
 
-    cdef int _get_cells_within_radius(self, cPoint pnt, double radius,
-                                      list cell_list) except -1:
-        """
-        Find all cells within a given radius from a point
-
-        Parameters:
-        -----------
-        
-        pnt -- point around which cells are to be searched for.
-        radius -- search radius
-        cell_list -- output parameter to store the neighbor cells.
-
-        Algorithm:
-        -----------
-        
-        find the 6 farthest points (one in each direction from given point)
-         
-        find the cell ids corresponding to those points.
-         
-        enumerate all cell ids between the enclosing cells, checking if the
-        cells are valid and adding them to the cell list.
-
-    	"""
-        cdef int  i, j, k
-
-        cdef cIntPoint max_cell
-        cdef cIntPoint min_cell
-
-        cdef cIntPoint curr_id, diff
-        cdef IntPoint id = IntPoint_new(0,0,0)
-        cdef cPoint tmp_pt
-
-        cdef Cell cell
-
-        # find the cell within which this point is located.
-
-        curr_id = find_cell_id(pnt, self.cell_size)
-
-        tmp_pt.x = pnt.x - radius
-        tmp_pt.y = pnt.y - radius
-        tmp_pt.z = pnt.z - radius
-
-        min_cell = find_cell_id(tmp_pt, self.cell_size)
-
-        tmp_pt.x = pnt.x + radius
-        tmp_pt.y = pnt.y + radius
-        tmp_pt.z = pnt.z + radius
-
-        max_cell = find_cell_id(tmp_pt, self.cell_size)
-
-        diff = cIntPoint_sub(max_cell, min_cell)
-        diff.x += 1
-        diff.y += 1
-        diff.z += 1
-
-        for i in range(diff.x):
-            for j from 0 <= j < diff.y:
-                for k from 0 <= k < diff.z:
-                    id.data.x = min_cell.x + i
-                    id.data.y = min_cell.y + j
-                    id.data.z = min_cell.z + k
-
-                    if PyDict_Contains(self.cells_dict, id):
-                        cell = <Cell>PyDict_GetItem(self.cells_dict, id)
-                        PyList_Append(cell_list, cell)
-        return 0
-  
     cpdef insert_particles(self, int parray_id, LongArray indices):
-        """ Insert particles from a given particle array
+        """ Insert particles into the the CellManager.
 
+        Given valid partice indices for a particle array in
+        `arrays_to_bin`, this function effectively rebins using the
+        current cell size.
+
+        New cells are added as required and cell indices are appended
+        for cells that already exist.
+        
         Parameters:
         ------------
 
-        parray_id -- The index of the particle array in arrays_to_bin
+        parray_id : int
+            The index of the particle array in arrays_to_bin for which to
+            insert particle indices
 
-        indices -- The indices of the particle to insert.
+        indices : LongArray
+            The indices for the particle array to insert
+
+        Internally, this function is called from `rebin` after all the
+        cell indices for a `dirty` particle array have been
+        cleared. This way, duplicate particle indices are avoided.
         
         """
         cdef IntPoint id = IntPoint_new(0,0,0)
@@ -1244,14 +1161,14 @@ cdef class CellManager:
                                 indices.data[i], parray_id, num_particles)
                 logger.error(msg)
                 raise ValueError, msg
-            
+
+
+            # find the cell to which this particle belongs to 
             pnt.x = x.data[indices.data[i]]
             pnt.y = y.data[indices.data[i]]
             pnt.z = z.data[indices.data[i]]
-
-            # find the cell to which this particle belongs to 
-
             id.data = find_cell_id(pnt, cell_size)
+
             if PyDict_Contains(particles_for_cells, id) == 1:
                 cell_indices = <LongArray>PyDict_GetItem(particles_for_cells,
                                                          id)
@@ -1273,6 +1190,55 @@ cdef class CellManager:
             cell.insert_particles(parray_id, la)
         
         return cells_created
+
+    cpdef rebin_particles(self):
+        """ Re-insert particle indices.
+
+        Serial:
+        -------
+
+        In serial runs, when particles have moved, we need to find the
+        new cells to which they may have moved. Calling a rebin on the
+        particles effectively calculates the cell indices for each
+        particle, adding any new cell that may not be present in the
+        `cells_dict`
+
+        Parallel:
+        ---------
+
+        In parallel, the particle array may have received remote
+        particles from another processor (remote particles) addition
+        to it's own particles (local particles) moving as in the
+        serial case. Calling a rebin ensures that the cell structure
+        is updated with all the particles, that is local and remote.
+
+
+        Only those particle arrays that have their dirty bit set to
+        True will be rebinned. 
+
+        """
+        cdef int i
+        cdef int num_arrays, num_particles
+        cdef ParticleArray parr
+        cdef LongArray indices
+        cdef Cell cell
+
+        num_arrays = len(self.arrays_to_bin)
+
+        # clear the cell indices for dirty particles
+        for cell in self.cells_dict.values():
+            for i in range(num_arrays):
+                parr = self.arrays_to_bin[i]
+                if parr.is_dirty:
+                    cell.clear_indices(i)
+
+        # reinsert indices for dirty particles
+        for i in range(num_arrays):
+            parr = self.arrays_to_bin[i]
+            if parr.is_dirty:
+                num_particles = parr.get_number_of_particles()
+                indices = arange_long(num_particles, -1)
+                self.insert_particles(i, indices)
 
     cpdef create_ghost_cells(self):
         """ Replicate cells for periodicity """
@@ -1434,15 +1400,11 @@ cdef class CellManager:
             msg += 'new id  : (%d, %d, %d)\n'%(newid.x, newid.y, newid.z)
             msg +='J Tolerance is : %s, %d\n'%(self, 
                                                self.jump_tolerance)
-            raise RuntimeError, msg
+            raise RuntimeError, msg        
 
     def set_dirty(self, bint value):
         """Sets/Resets the dirty flag."""
         self.is_dirty = value
-
-    cpdef clear(self):
-        """Clear the dictionary `cells_dict`."""
-        self.cells_dict.clear()
 
     cpdef _rebuild_array_indices(self):
         """ Reset the mapping from array name to array in arrays_to_bin """
@@ -1456,15 +1418,12 @@ cdef class CellManager:
         for i in range(num_arrays):
             parr  = self.arrays_to_bin[i]
             self.array_indices[parr.name] = i        
-
-    cpdef _setup_cells_dict(self):
-        """ Create an empty dict for `cells_dict`"""
-        self.cells_dict = dict()
   
     def _compute_minmax_h(self):
-        """
-        Find the minimum 'h' value from all particle arrays of all entities.
-        returns -1, -1 if computation fails such as no particles
+        """ Find the minimum 'h' value from all particle arrays of all
+        entities.  returns -1, -1 if computation fails such as no
+        particles
+        
         """
         cdef double min_h = 1e100, max_h = -1.0
         cdef bint size_computed = False
@@ -1502,6 +1461,129 @@ cdef class CellManager:
             cell = cells_list[i]
             cell.jump_tolerance = 1
 
+    ##########################################################################
+    # Possibly deprecated functions
+    ##########################################################################
+    cdef int _get_cells_within_radius(self, cPoint pnt, double radius,
+                                      list cell_list) except -1:
+        """
+        Find all cells within a given radius from a point
+
+        Parameters:
+        -----------
+        
+        pnt -- point around which cells are to be searched for.
+        radius -- search radius
+        cell_list -- output parameter to store the neighbor cells.
+
+        Algorithm:
+        -----------
+        
+        find the 6 farthest points (one in each direction from given point)
+         
+        find the cell ids corresponding to those points.
+         
+        enumerate all cell ids between the enclosing cells, checking if the
+        cells are valid and adding them to the cell list.
+
+    	"""
+        cdef int  i, j, k
+
+        cdef cIntPoint max_cell
+        cdef cIntPoint min_cell
+
+        cdef cIntPoint curr_id, diff
+        cdef IntPoint id = IntPoint_new(0,0,0)
+        cdef cPoint tmp_pt
+
+        cdef Cell cell
+
+        # find the cell within which this point is located.
+
+        curr_id = find_cell_id(pnt, self.cell_size)
+
+        tmp_pt.x = pnt.x - radius
+        tmp_pt.y = pnt.y - radius
+        tmp_pt.z = pnt.z - radius
+
+        min_cell = find_cell_id(tmp_pt, self.cell_size)
+
+        tmp_pt.x = pnt.x + radius
+        tmp_pt.y = pnt.y + radius
+        tmp_pt.z = pnt.z + radius
+
+        max_cell = find_cell_id(tmp_pt, self.cell_size)
+
+        diff = cIntPoint_sub(max_cell, min_cell)
+        diff.x += 1
+        diff.y += 1
+        diff.z += 1
+
+        for i in range(diff.x):
+            for j from 0 <= j < diff.y:
+                for k from 0 <= k < diff.z:
+                    id.data.x = min_cell.x + i
+                    id.data.y = min_cell.y + j
+                    id.data.z = min_cell.z + k
+
+                    if PyDict_Contains(self.cells_dict, id):
+                        cell = <Cell>PyDict_GetItem(self.cells_dict, id)
+                        PyList_Append(cell_list, cell)
+        return 0
+  
+    cpdef int cells_update(self) except -1:
+        """ Perform the binning.
+        
+        Algorithm:
+        ----------
+
+        for each cell in cells dict:
+          for each particle in cell:
+            find to which cell has this particle escaped to
+
+            if it is a new cell:
+              create new cell and add it to the cells_dict. Delete the particle
+              from the current cell
+
+            if the cell exists:
+              add the particle to the corresponding cell. Delete the partilce
+              from the current cell.
+
+       
+        """
+
+        cdef list new_cells
+        cdef Cell cell, new_cell
+        cdef int i, num_new_cells
+
+        cdef list cells = PyDict_Values( self.cells_dict)
+        cdef list cids = PyDict_Keys( self.cells_dict )
+
+        cdef int num_cells = PyList_Size( cids )
+
+        cdef dict collected_data = dict()
+
+        # collect all escaped particles from cells.
+
+        for i in range(num_cells):
+
+            cell = cells[i]
+            cell.update(collected_data)
+
+        new_cells = PyDict_Values( collected_data )
+        num_new_cells = PyList_Size( new_cells )
+
+        for i in range(num_new_cells):
+            new_cell = new_cells[i]
+            
+            if PyDict_Contains( self.cells_dict, new_cell.id ):
+                cell = <Cell>PyDict_GetItem( self.cells_dict, new_cell.id )
+                cell.add_particles( new_cell )
+            else:
+                self.cells_dict[new_cell.id] = new_cell
+
+        return 0 
+
     def get_particle_representation(self, fname):
         
         ret = {} 
@@ -1526,8 +1608,10 @@ cdef class CellManager:
             return True
         else:
             return False        
-   
-    # python functions for each corresponding cython function for testing.
+
+    ###########################################################################
+    # Python wrappers
+    ###########################################################################
     def py_update(self):
         return self.update()
 

@@ -370,8 +370,8 @@ class Solver(object):
             self.particles.kernel = self.default_kernel
 
             # set the process id if in parallel
-            if particles.in_parallel:
-                self.pid = particles.cell_manager.pid
+            #if particles.in_parallel:
+            #    self.pid = particles.cell_manager.pid
 
             # instantiate the Integrator
             self.integrator = self.integrator_type(particles, calcs=[])

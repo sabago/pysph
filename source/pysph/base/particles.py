@@ -133,6 +133,7 @@ class Particles(object):
         self.locator_type = locator_type
         self.min_cell_size = min_cell_size
         self.periodic_domain = periodic_domain
+        self.parallel_manager = None
 
         # Some sanity checks on the input arrays.
         assert len(arrays) > 0, "Particles must be given some arrays!"
@@ -155,15 +156,15 @@ class Particles(object):
         """ Perform all initialization tasks here """
 
         # create the cell manager
-        if not self.in_parallel:
-            self.cell_manager = CellManager(arrays_to_bin=self.arrays,
-                                            min_cell_size=self.min_cell_size,
-                                            periodic_domain=self.periodic_domain)
-        else:
-            self.cell_manager = ParallelCellManager(
-                arrays_to_bin=self.arrays, load_balancing=self.load_balancing)
+        #if not self.in_parallel:
+        self.cell_manager = CellManager(arrays_to_bin=self.arrays,
+                                        min_cell_size=self.min_cell_size,
+                                        periodic_domain=self.periodic_domain)
+        #else:
+        #    self.cell_manager = ParallelCellManager(
+        #        arrays_to_bin=self.arrays, load_balancing=self.load_balancing)
 
-            self.pid = self.cell_manager.pid
+        #self.pid = self.cell_manager.pid
 
         # create the nnps manager
         self.nnps_manager = NNPSManager(cell_manager=self.cell_manager,
@@ -201,6 +202,10 @@ class Particles(object):
         is the UpdateDivergence function in 'sph.update_misc_props.py'
         
         """
+
+        pm = self.parallel_manager
+        if pm is not None:
+            pm.update()
 
         err = self.nnps_manager.py_update()
         assert err != -1, 'NNPSManager update failed! '            
@@ -262,12 +267,12 @@ class Particles(object):
 
         """
         if self.in_parallel:
-            self.cell_manager.update_remote_particle_properties(props=props)
+            self.parallel_manager.update_remote_particle_properties(props=props)
 
     def barrier(self):
         """ Synchronize all processes """
         if self.in_parallel:
-            self.cell_manager.barrier()
+            self.parallel_manager.parallel_controller.comm.barrier()
 
     def get_global_min_max(self, props):
         """ Find the global minimum and maximum values.
@@ -287,7 +292,7 @@ class Particles(object):
             data_min[prop] = props[prop]
             data_max[prop] = props[prop]
 
-        pc = self.cell_manager.parallel_controller
+        pc = self.parallel_manager.parallel_controller
         glb_min, glb_max = pc.get_glb_min_max(data_min, data_max)
 
         return glb_min, glb_max

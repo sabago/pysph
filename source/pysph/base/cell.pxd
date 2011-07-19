@@ -21,6 +21,7 @@ cdef inline bint cell_encloses_sphere(IntPoint id,
 
 cdef class Cell:
     # Member variables.
+
     cdef public IntPoint id
     cdef public double cell_size
     cdef public CellManager cell_manager
@@ -63,16 +64,32 @@ cdef class Cell:
 
 cdef class CellManager:
     
-    # Data attributes
+    # cell size to use for binning
     cdef public double cell_size
-    cdef public bint is_dirty    
+
+    # flag to indicate that particles require to be rebinned
+    cdef public bint is_dirty
+
+    # mapping between array and array index in arrays_to_bin
     cdef public dict array_indices
+
+    # the list of particle arrays to bin
     cdef public list arrays_to_bin
+
+    # the number of arrays
+    cdef int num_arrays
+
+    # the current Cells used for binning 
     cdef public dict cells_dict
+
+    # optional argumnets to overide the default cell size
     cdef public double min_cell_size, max_cell_size
     cdef public double max_radius_scale
+
+    # particle jump tolerance in an update
     cdef public int jump_tolerance
 
+    # flag to indicate the manager is initialized
     cdef public bint initialized
 
     # Periodicity and ghost cells
@@ -80,28 +97,39 @@ cdef class CellManager:
     cdef public dict ghost_cells
     
     cdef public str coord_x, coord_y, coord_z
-
-    cdef int num_arrays
-
     cdef double min_h, max_h
 
-    cpdef int update(self) except -1
-    cpdef int update_status(self) except -1
+    # perform the initial binning
     cpdef initialize(self)
-    cpdef clear(self)
+
+    # perform an update
+    cpdef int update(self) except -1
+
+    # update the dirty bit for the CellManager
+    cpdef int update_status(self) except -1
+
+    # add an array to be binned
     cpdef add_array_to_bin(self, ParticleArray parr)
 
+    # compute the cell size
     cpdef double compute_cell_size(self, double min_size=*, double max_size=*)
-    
+
+    # update the cells
     cpdef int cells_update(self) except -1
-    
+
+    # build the original cell with all particles
     cpdef _build_cell(self)
+
+    # rebin particles
+    cpdef rebin_particles(self)
+
+    # insert particles
+    cpdef insert_particles(self, int parray_id, LongArray indices)
+
     cpdef _rebuild_array_indices(self)
-    cpdef _setup_cells_dict(self)
     cpdef set_jump_tolerance(self, int jump_tolerance)
     cdef check_jump_tolerance(self, cIntPoint myid, cIntPoint newid)
     cpdef list delete_empty_cells(self)
-    cpdef insert_particles(self, int parray_id, LongArray indices)
     cpdef Cell get_new_cell(self, IntPoint id)
     
     cdef int get_potential_cells(self, cPoint pnt, double radius,
@@ -114,7 +142,6 @@ cdef class CellManager:
 
     cpdef create_ghost_cells(self)
     cpdef remove_ghost_particles(self)
-
 
 cdef class PeriodicDomain:
     cdef public double xmin, xmax

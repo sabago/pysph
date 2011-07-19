@@ -14,13 +14,15 @@ import tempfile
 import shutil
 import numpy
 
+from pysph.solver.utils import load
+
 directory = os.path.dirname(os.path.abspath(__file__))
 
 def kill_process(process):
     print 'KILLING PROCESS ON TIMEOUT'
     process.kill()
 
-def run_example_script(filename, args=[], nprocs=2, timeout=20.0, path=None):
+def _run_example_script(filename, args=[], nprocs=2, timeout=20.0, path=None):
     """ run a file python script
     
     Parameters:
@@ -57,51 +59,110 @@ def run_example_script(filename, args=[], nprocs=2, timeout=20.0, path=None):
         raise RuntimeError, msg
     return retcode, out, err
 
-def get_result(dir1, dir2, prefix, props=['x','y','z']):
-    ''' get the results from two runs with output in directories dir1 and dir2 '''
-    f1 = [i for i in os.listdir(dir1) if i.startswith(prefix) and i.endswith('.npz')]
-    pa_names = set([i.split('_')[-2] for i in f1])
-    pa1 = {}
-    for f in f1:
-        pa = f.split('_')[-2]
-        pa1[pa] = {}
-        d = numpy.load(os.path.join(dir1,f))
-        for prop in d.files:
-            val = d[prop]
-        
-            if numpy.array(val).ndim == 0:
-                continue
-            if prop in pa1[pa]:
-                pa1[pa][prop] = numpy.concatenate([pa1[pa][prop], val])
-            else:
-                pa1[pa][prop] = val
+def _concatenate_output(arrays, nprocs):
+    if nprocs <= 0:
+        return 0
 
-    f2 = [i for i in os.listdir(dir2) if i.startswith(prefix) and i.endswith('.npz')]
-    pa2 = {}
-    for f in f2:
-        pa = f.split('_')[-2]
-        if pa not in pa2:
-            pa2[pa] = {}
-        d = numpy.load(os.path.join(dir2,f))
-        for prop in d.files:
-            val = d[prop]
-            if numpy.array(val).ndim == 0:
-                continue
-            if prop in pa2[pa]:
-                pa2[pa][prop] = numpy.concatenate([pa2[pa][prop], val])
-            else:
-                pa2[pa][prop] = val
+    array_names = arrays[0].keys()
+
+    first_processors_arrays = arrays[0]
     
-    return pa1, pa2
+    if nprocs > 1:
+        ret = {}
+        for array_name in array_names:
+            first_array = first_processors_arrays[array_name]
+            for rank in range(1,nprocs):
+                other_processors_arrays = arrays[rank]
+                other_array = other_processors_arrays[array_name]
 
-class ExampleTest(unittest.TestCase):
-    """ Testcase to run example scripts and compare serial/parallel results """
+                # append the other array to the first array
+                first_array.append_parray(other_array)
+
+                # remove the non local particles
+                first_array.remove_tagged_particles(1)
+                
+            ret[array_name] = first_array
+
+    else:
+        ret = arrays[0]
+
+    return ret
+
+def _get_result(directory, nprocs, prefix):
+    """ Return the results from a PySPH run.
+
+    The return value is a dictionary keyed on particle array names and
+    the particle array as value. Results from multiple runs are
+    concatenated to a single particle array.
+
+    Parameters:
+    -----------
+
+    directory : str
+        The directory for the results
+
+    nprocs : int
+        The number of processors the run consisted of
+
+    prefix : str
+        The file name prefix to load the result
+
+    """
+
+    _file = [i.rsplit('_',1)[1][:-4] for i in os.listdir(directory) if i.startswith(prefix) and i.endswith('.npz')][-1]
+
+    arrays = {}
+
+    for rank in range(nprocs):
+        fname = os.path.join(directory, prefix+'_'+str(rank)+'_'+str(_file)+'.npz')
+
+        arrays[rank] = load(fname)["arrays"]
+
+    return _concatenate_output(arrays, nprocs)
+
+class ExampleTestCase(unittest.TestCase):
+    """ A script to run an example in serial and parallel and compare results.
+
+    To test an example in parallel, subclass from ExampleTest and
+    write a test function like so:
+
+    def test_elliptical_drop(self):
+        self.run_example('../../../../examples/elliptical_drop.py',
+                         timestep=1e-5, iters=100, nprocs=2, timeout=60)
+    
+    """
     def run_example(self, filename, timestep=1e-5, iters=10, nprocs=2,
                     timeout=10, path=None):
+        """Run an example and compare the results in serial and parallel.
+
+        Parameters:
+        -----------
+
+        filename : str
+            The name of the file to run
+
+        timestep : double
+            The time step argument to pass to the example script
+
+        iters : double
+            The number of iteations to evolve the example
+
+        nprocs : int
+            Number of processors to use for the example.
+
+        timeout : int
+            Time in seconds to wait for execution before an error is raised.
+
+        path : Not used
+
+        """
         prefix = os.path.splitext(os.path.basename(filename))[0]
         
         try:
+            # dir1 is for the serial run
             dir1 = tempfile.mkdtemp()
+
+            # dir2 is for the parallel run 
             dir2 = tempfile.mkdtemp()
 
             args = ['--output=%s'%prefix,
@@ -109,33 +170,67 @@ class ExampleTest(unittest.TestCase):
                     '--time-step=%g'%timestep,
                     '--final-time=%g'%(timestep*(iters+1)),
                     '--freq=%d'%iters]
-            run_example_script(filename, args, 0, timeout, path)
-            
+
+            # run the example script in serial
+            _run_example_script(filename, args, 0, timeout, path)
+
+            # run the example script in parallel
             args[1] = '--directory=%s'%dir2
-            run_example_script(filename, args, nprocs, timeout, path)
-            
-            pa1, pa2 = get_result(dir1, dir2, prefix)
+            _run_example_script(filename, args, nprocs, timeout, path)
+
+            # get the serial and parallel results
+            serial_result = _get_result(directory=dir1, nprocs=1, prefix=prefix)
+            parallel_result = _get_result(directory=dir2, nprocs=nprocs,
+                                          prefix=prefix)
         finally:
             shutil.rmtree(dir1, True)
             shutil.rmtree(dir2, True)
+
+        # test
+        self._test(serial_result, parallel_result)
+
+    def _test(self, serial_result, parallel_result):
+
+        # make sure the array names are the same
+        serial_arrays = serial_result.keys()
+        parallel_arrays = parallel_result.keys()
+
+        self.assertTrue( serial_arrays == parallel_arrays )
+
+        arrays = serial_arrays
         
-        for pa_name in pa1:
-            for prop in pa1[pa_name]:
-                p1 = numpy.array(pa1[pa_name][prop])
-                if p1.ndim > 0:
-                    p1 = numpy.array(sorted(pa1[pa_name][prop]))
-                    p2 = numpy.array(sorted(pa2[pa_name][prop]))
-                    self.assertTrue(numpy.allclose(p1, p2),
-                                    msg='arrays not equal: %r and %r for property'
-                                        ' %s of array %s, failing indices: %s'%
-                                        (p1, p2, prop, pa_name, numpy.where(p1-p2)))
-                else:
-                    self.assertAlmostEqual(pa1[pa_name][prop], pa2[pa_name][prop])
+        # test the results.
+        for array in arrays:
+            
+            x_serial, y_serial, z_serial  = serial_result[array].get("x","y","z")
+            x_par, y_par, z_par = parallel_result[array].get("x", "y", "z")
+
+            np = len(x_serial)
+            self.assertTrue( len(x_par) == np )
+
+            idx = parallel_result[array].get("idx")
+            for i in range(np):
+                self.assertAlmostEqual( x_serial[idx[i]], x_par[i], 10 )
+                self.assertAlmostEqual( y_serial[idx[i]], y_par[i], 10 )
+                self.assertAlmostEqual( z_serial[idx[i]], z_par[i], 10 )
 
 
-    def test_elliptical_drop(self):
+class EllipticalDropTestCase(ExampleTestCase):
+
+    def _test_elliptical_drop(self, nprocs, iter, timeout):
         self.run_example('../../../../examples/elliptical_drop.py',
-                         timestep=1e-5, iters=10, nprocs=2, timeout=10)
+                         timestep=1e-5, iters=iter,
+                         nprocs=nprocs, timeout=timeout)
+
+    def test_elliptical_drop_2(self):
+        """Test with 2 processors """
+        self.run_example('../../../../examples/elliptical_drop.py',
+                         timestep=1e-5, iters=100, nprocs=2, timeout=60)
+
+    def test_elliptical_drop_4(self):
+        """Test with 4 processors """
+        self.run_example('../../../../examples/elliptical_drop.py',
+                         timestep=1e-5, iters=100, nprocs=4, timeout=240)
 
 if __name__ == "__main__":
     unittest.main()
