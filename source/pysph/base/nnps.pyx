@@ -599,7 +599,8 @@ cdef class FixedDestNbrParticleLocator(NbrParticleLocatorBase):
         cdef long num_particles, i, j
         cdef LongArray index_cache
 
-        num_particles = self.dest.get_number_of_particles()
+        #num_particles = self.dest.get_number_of_particles()
+        num_particles = self.dest.num_real_particles
 
         for i in range(num_particles):
             index_cache = self.particle_cache[i]

@@ -21,6 +21,8 @@ except ImportError:
     HAS_MPI = False
 else:
     from pysph.parallel.load_balancer import LoadBalancer
+    from pysph.parallel.simple_parallel_manager import \
+            SimpleParallelManager
 
 
 def list_option_callback(option, opt, value, parser):
@@ -43,7 +45,13 @@ class Application(object):
                           balancing is to be performed or not
 
         """
-        self._solver = None 
+        self._solver = None
+        self._parallel_manager = None
+
+        # The initial distribution method name to pass to the LoadBalancer's
+        # `distribute_particles` method, can be one of ('auto', 'sfc', 'single'
+        # etc.)
+        self._distr_func = 'auto'
         self.load_balance = load_balance
 
         if fname == None:
@@ -184,7 +192,14 @@ class Application(object):
                           type="string",
                           help="""Only print solution properties for this list
                           of arrays""")
-        
+
+        # --parallel-mode
+        parser.add_option("--parallel-mode", action="store",
+                          dest="parallel_mode", default="simple",
+                          help = """Use 'simple' (which shares all particles) 
+                          or 'auto' (which does block based parallel
+                          distribution of particles).""")
+
         # solver interfaces
         interfaces = OptionGroup(parser, "Interfaces",
                                  "Add interfaces to the solver")
@@ -290,13 +305,14 @@ class Application(object):
         if rank == 0:
             # Only master creates the particles.
             pa = callable(*args, **kw)
-
+            distr_func = self._distr_func
             if num_procs > 1:
                 # Use the offline load-balancer to distribute the data
                 # initially. Negative cell size forces automatic computation. 
                 data = LoadBalancer.distribute_particles(pa, 
                                                          num_procs=num_procs, 
-                                                         block_size=-1)
+                                                         block_size=-1, 
+                                                         distr_func=distr_func)
         if num_procs > 1:
             # Now scatter the distributed data.
             pa = self.comm.scatter(data, root=0)
@@ -415,22 +431,33 @@ class Application(object):
             self.add_option(solver_opts)
         self._process_command_line()
 
+        options = self.options
+
+        if self.num_procs > 1:
+            if options.parallel_mode == 'simple':
+                self.set_parallel_manager(SimpleParallelManager())
+
         if create_particles:
             self._create_particles(variable_h, create_particles, min_cell_size,
                                    **kwargs)
 
-        self._solver.setup_solver(self.options.__dict__)
+        pm = self._parallel_manager
+        if pm is not None:
+            self.particles.parallel_manager = pm
+            pm.initialize(self.particles)
 
-        dt = self.options.time_step
+        self._solver.setup_solver(options.__dict__)
+
+        dt = options.time_step
         if dt is not None:
             solver.set_time_step(dt)
 
-        tf = self.options.final_time
+        tf = options.final_time
         if tf is not None:
             solver.set_final_time(tf)
 
         #setup the solver output file name
-        fname = self.options.output
+        fname = options.output
 
         if HAS_MPI:
             comm = self.comm 
@@ -441,47 +468,48 @@ class Application(object):
 
         # set the rank for the solver
         solver.rank = self.rank                
+        solver.pid = self.rank                
 
         # output file name
         solver.set_output_fname(fname)
 
         # output print frequency
-        solver.set_print_freq(self.options.freq)
+        solver.set_print_freq(options.freq)
 
         # output printing level (default is not detailed)
-        solver.set_output_printing_level(self.options.detailed_output)
+        solver.set_output_printing_level(options.detailed_output)
 
         # output directory
-        solver.set_output_directory(self.options.output_dir)
+        solver.set_output_directory(options.output_dir)
 
         # default kernel
-        if self.options.kernel is not None:
+        if options.kernel is not None:
             solver.default_kernel = getattr(kernels,
-                      kernels.kernel_names[self.options.kernel])(dim=solver.dim)
+                      kernels.kernel_names[options.kernel])(dim=solver.dim)
 
         # Hernquist and Katz kernel correction
         # TODO. Fix the Kernel and Gradient Correction
-        #solver.set_kernel_correction(self.options.kernel_correction)
+        #solver.set_kernel_correction(options.kernel_correction)
 
         # OpenCL setup for the solver
-        solver.set_cl(self.options.with_cl)
+        solver.set_cl(options.with_cl)
         
-        if self.options.resume is not None:
+        if options.resume is not None:
             solver.particles = self.particles # needed to be able to load particles
-            r = solver.load_output(self.options.resume)
+            r = solver.load_output(options.resume)
             if r is not None:
                 print 'available files for resume:'
                 print r
                 sys.exit(0)
 
-        if self.options.integration is not None:
-            solver.integrator_type =integration_methods[self.options.integration][1]
+        if options.integration is not None:
+            solver.integrator_type =integration_methods[options.integration][1]
 
         # setup the solver
         solver.setup_integrator(self.particles)
 
         # print options for the solver
-        solver.set_arrays_to_print(self.options.arrays_to_print)
+        solver.set_arrays_to_print(options.arrays_to_print)
         
         # add solver interfaces
         self.command_manager = CommandManager(solver, self.comm)
@@ -489,23 +517,23 @@ class Application(object):
 
         if self.rank == 0:
             # commandline interface
-            if self.options.cmd_line:
+            if options.cmd_line:
                 from pysph.solver.solver_interfaces import CommandlineInterface
                 self.command_manager.add_interface(CommandlineInterface().start)
         
             # XML-RPC interface
-            if self.options.xml_rpc:
+            if options.xml_rpc:
                 from pysph.solver.solver_interfaces import XMLRPCInterface
-                addr = self.options.xml_rpc
+                addr = options.xml_rpc
                 idx = addr.find(':')
                 host = "0.0.0.0" if idx == -1 else addr[:idx]
                 port = int(addr[idx+1:])
                 self.command_manager.add_interface(XMLRPCInterface((host,port)).start)
         
             # python MultiProcessing interface
-            if self.options.multiproc:
+            if options.multiproc:
                 from pysph.solver.solver_interfaces import MultiprocessingInterface
-                addr = self.options.multiproc
+                addr = options.multiproc
                 idx = addr.find('@')
                 authkey = "pysph" if idx == -1 else addr[:idx]
                 addr = addr[idx+1:]
@@ -530,4 +558,10 @@ class Application(object):
     def run(self):
         """Run the application."""
         self._solver.solve(not self.options.quiet)
+
+    def set_parallel_manager(self, mgr):
+        """Set the parallel manager class to use."""
+        self._parallel_manager = mgr
+        if isinstance(mgr, SimpleParallelManager):
+            self._distr_func = 'auto'
 

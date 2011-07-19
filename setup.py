@@ -90,6 +90,7 @@ extensions = {'base': ['carray.pyx',
 
 parallel_extensions = {'parallel': ['parallel_controller.pyx',
                                     'parallel_cell.pyx',
+                                    'parallel_manager.pyx',
                                     'fast_utils.pyx',
                                     ],
                        }
