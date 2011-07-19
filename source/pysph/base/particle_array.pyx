@@ -141,8 +141,9 @@ cdef class ParticleArray:
 
         """
         self.properties = {'tag':LongArray(0), 'group':LongArray(0),
-                           'local':IntArray(0)}
-        self.default_values = {'tag':default_particle_tag, 'group':0, 'local':1}
+                           'local':IntArray(0), 'pid':IntArray(0)}
+        self.default_values = {'tag':default_particle_tag, 'group':0, 'local':1,
+                               'pid':0}
         
         self.temporary_arrays = {}
         
@@ -261,10 +262,13 @@ cdef class ParticleArray:
     def clear(self):
         """ Clear all data held by this array """
         self.properties = {'tag':LongArray(0),
-                           'group':LongArray(0), 'local':IntArray(0)}
+                           'group':LongArray(0), 'local':IntArray(0),
+                           'pid':IntArray(0)}
         tag_def_values = self.default_values['tag']
         self.default_values.clear()
-        self.default_values = {'tag':tag_def_values, 'group':0, 'local':1}
+        self.default_values = {'tag':tag_def_values, 'group':0, 'local':1,
+                               'pid':0}
+        
         self.temporary_arrays.clear()
         self.is_dirty = True
         self.indices_invalid = True
@@ -1216,6 +1220,14 @@ cdef class ParticleArray:
             
             for a in range(np):
                 prop_arr.data[a] = 0.0
+
+    cpdef set_pid(self, int pid):
+        """ Set the processor id for all particles """
+        cdef IntArray pid_arr = self.properties['pid']
+        cdef long a
+
+        for a in range(self.num_real_particles):
+            pid_arr.data[a] = pid
 
     cpdef remove_property(self, str prop_name):
         """ Removes property prop_name from the particle array """

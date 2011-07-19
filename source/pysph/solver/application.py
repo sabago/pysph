@@ -467,8 +467,12 @@ class Application(object):
                 fname += '_' + str(rank)
 
         # set the rank for the solver
-        solver.rank = self.rank                
-        solver.pid = self.rank                
+        solver.rank = self.rank
+        solver.pid = self.rank
+
+        # set the in parallel flag for the solver
+        if self.num_procs > 1:
+            solver.in_parallel = True
 
         # output file name
         solver.set_output_fname(fname)

@@ -343,3 +343,74 @@ def load(fname):
         raise RuntimeError("Version not understood!")
 
     return ret
+
+def load_and_concatenate(prefix,nprocs=1,directory=".",count=None):
+    """Load the results from multiple files.
+
+    Given a filename prefix and the number of processors, return a
+    concatenated version of the dictionary returned via load.
+
+    Parameters:
+    -----------
+
+    prefix : str
+        A filename prefix for the output file.
+
+    nprocs : int
+        The number of processors (files) to read
+
+    directory : str
+        The directory for the files
+
+    count : int
+        The file iteration count to read. If None, the last available
+        one is read
+
+    """
+
+    if count is None:
+        count = [i.rsplit('_',1)[1][:-4] for i in os.listdir(directory) if i.startswith(prefix) and i.endswith('.npz')][-1]
+
+    arrays_by_rank = {}
+    
+    for rank in range(nprocs):
+        fname = os.path.join(directory, prefix+'_'+str(rank)+'_'+str(count)+'.npz')
+
+        data = load(fname)
+        arrays_by_rank[rank] = data["arrays"]
+
+    arrays = _concatenate_arrays(arrays_by_rank, nprocs)
+
+    data["arrays"] = arrays
+
+    return data
+
+def _concatenate_arrays(arrays_by_rank, nprocs):
+    """Concatenate arrays into one single particle array. """
+
+    if nprocs <= 0:
+        return 0
+
+    array_names = arrays_by_rank[0].keys()
+    first_processors_arrays = arrays_by_rank[0]
+    
+    if nprocs > 1:
+        ret = {}
+        for array_name in array_names:
+            first_array = first_processors_arrays[array_name]
+            for rank in range(1,nprocs):
+                other_processors_arrays = arrays_by_rank[rank]
+                other_array = other_processors_arrays[array_name]
+
+                # append the other array to the first array
+                first_array.append_parray(other_array)
+
+                # remove the non local particles
+                first_array.remove_tagged_particles(1)
+                
+            ret[array_name] = first_array
+
+    else:
+        ret = arrays_by_rank[0]
+
+    return ret

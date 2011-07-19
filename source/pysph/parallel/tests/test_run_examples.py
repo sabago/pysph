@@ -14,7 +14,7 @@ import tempfile
 import shutil
 import numpy
 
-from pysph.solver.utils import load
+import pysph.solver.utils as utils
 
 directory = os.path.dirname(os.path.abspath(__file__))
 
@@ -58,67 +58,6 @@ def _run_example_script(filename, args=[], nprocs=2, timeout=20.0, path=None):
         print '#'*80
         raise RuntimeError, msg
     return retcode, out, err
-
-def _concatenate_output(arrays, nprocs):
-    if nprocs <= 0:
-        return 0
-
-    array_names = arrays[0].keys()
-
-    first_processors_arrays = arrays[0]
-    
-    if nprocs > 1:
-        ret = {}
-        for array_name in array_names:
-            first_array = first_processors_arrays[array_name]
-            for rank in range(1,nprocs):
-                other_processors_arrays = arrays[rank]
-                other_array = other_processors_arrays[array_name]
-
-                # append the other array to the first array
-                first_array.append_parray(other_array)
-
-                # remove the non local particles
-                first_array.remove_tagged_particles(1)
-                
-            ret[array_name] = first_array
-
-    else:
-        ret = arrays[0]
-
-    return ret
-
-def _get_result(directory, nprocs, prefix):
-    """ Return the results from a PySPH run.
-
-    The return value is a dictionary keyed on particle array names and
-    the particle array as value. Results from multiple runs are
-    concatenated to a single particle array.
-
-    Parameters:
-    -----------
-
-    directory : str
-        The directory for the results
-
-    nprocs : int
-        The number of processors the run consisted of
-
-    prefix : str
-        The file name prefix to load the result
-
-    """
-
-    _file = [i.rsplit('_',1)[1][:-4] for i in os.listdir(directory) if i.startswith(prefix) and i.endswith('.npz')][-1]
-
-    arrays = {}
-
-    for rank in range(nprocs):
-        fname = os.path.join(directory, prefix+'_'+str(rank)+'_'+str(_file)+'.npz')
-
-        arrays[rank] = load(fname)["arrays"]
-
-    return _concatenate_output(arrays, nprocs)
 
 class ExampleTestCase(unittest.TestCase):
     """ A script to run an example in serial and parallel and compare results.
@@ -179,9 +118,12 @@ class ExampleTestCase(unittest.TestCase):
             _run_example_script(filename, args, nprocs, timeout, path)
 
             # get the serial and parallel results
-            serial_result = _get_result(directory=dir1, nprocs=1, prefix=prefix)
-            parallel_result = _get_result(directory=dir2, nprocs=nprocs,
-                                          prefix=prefix)
+            serial_result = utils.load_and_concatenate(
+                directory=dir1, nprocs=1, prefix=prefix)["arrays"]
+
+            parallel_result = utils.load_and_concatenate(
+                directory=dir2, nprocs=nprocs, prefix=prefix)["arrays"]
+                                                       
         finally:
             shutil.rmtree(dir1, True)
             shutil.rmtree(dir2, True)

@@ -161,5 +161,8 @@ cdef class ParticleArray:
     # copy properties from one set of variables to another
     cpdef copy_over_properties(self, dict props)
 
+    # set the pid for all local particles
+    cpdef set_pid(self, int pid)
+
     # set the specified properties to zero
     cpdef set_to_zero(self, list props)

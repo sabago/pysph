@@ -118,6 +118,9 @@ class Solver(object):
         # set the default rank to 0
         self.rank = 0
 
+        # set the default mode to serial
+        self.in_parallel = False
+
         # default function to dynamically compute time step
         self.time_step_function = TimeStep()
 
@@ -368,10 +371,6 @@ class Solver(object):
             self.particles = particles
 
             self.particles.kernel = self.default_kernel
-
-            # set the process id if in parallel
-            #if particles.in_parallel:
-            #    self.pid = particles.cell_manager.pid
 
             # instantiate the Integrator
             self.integrator = self.integrator_type(particles, calcs=[])
@@ -690,7 +689,7 @@ class Solver(object):
         data = load(os.path.join(self.output_directory,
                                  self.fname+'_'+str(count)+'.npz'))
         
-        arrays = [data["arrays"][i] for i in array_names]
+        arrays = [ data["arrays"][i] for i in array_names ]
 
         # set the Particle's arrays
         self.particles.arrays = arrays

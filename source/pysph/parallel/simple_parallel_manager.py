@@ -44,10 +44,14 @@ class SimpleParallelManager(ParallelManager):
         size = self.size
         
         local_data = self.particles.arrays
+
         # Remove remotes from the local.
         for arr in local_data:
             remove = arange_long(arr.num_real_particles, arr.get_number_of_particles())
             arr.remove_particles(remove)
+
+            # everybody sets the pid for their local arrays
+            arr.set_pid(rank)
 
         comm.Barrier()
 
