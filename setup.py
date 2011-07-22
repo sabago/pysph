@@ -54,6 +54,7 @@ cy_directives = {'embedsignature':True,
 
 # cython extension modules (subpackage directory:cython file)
 extensions = {'base': ['carray.pyx',
+                       'fast_utils.pyx',
                        'point.pyx',
                        'particle_array.pyx',
                        'cell.pyx',
@@ -92,7 +93,6 @@ extensions = {'base': ['carray.pyx',
 parallel_extensions = {'parallel': ['parallel_controller.pyx',
                                     'parallel_cell.pyx',
                                     'parallel_manager.pyx',
-                                    'fast_utils.pyx',
                                     ],
                        }
 

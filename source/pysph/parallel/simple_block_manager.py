@@ -7,8 +7,8 @@ are exchanged across processors.
 from parallel_controller import ParallelController
 from parallel_manager import ParallelManager
 from parallel_cell import share_data
-from fast_utils import arange_long
 
+from pysph.base.fast_utils import arange_long
 from pysph.base.particle_array import ParticleArray, get_dummy_tag
 from pysph.base.cell import py_construct_immediate_neighbor_list
 from pysph.base.cell import CellManager

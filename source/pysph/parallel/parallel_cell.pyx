@@ -23,8 +23,8 @@ from pysph.base.cell cimport construct_immediate_neighbor_list, find_cell_id
 from pysph.base.cell cimport CellManager, Cell
 from pysph.base.particle_array cimport ParticleArray, get_dummy_tag, LocalReal
 from pysph.base.carray cimport LongArray, DoubleArray
+from pysph.base.fast_utils cimport arange_long
 
-from fast_utils cimport arange_long
 from pysph.parallel.parallel_controller cimport ParallelController
 from pysph.parallel.load_balancer import LoadBalancer
 
