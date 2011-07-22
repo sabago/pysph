@@ -1,12 +1,10 @@
-"""
-Class to hold information required for a parallel solver.
+"""ParallelController sets up and maintains the control tree required for parallel runs.
 """
 # logger imports
 import logging
 logger = logging.getLogger()
 
 # mpi imports
-#cimport mpi4py.MPI as MPI
 from mpi4py cimport MPI
 from mpi4py import MPI
 
@@ -14,29 +12,19 @@ from mpi4py import MPI
 import numpy
 cimport numpy
 
-# local imports
-
-
 cdef class ParallelController:
-    """
-    Class to hold information required for a parallel solver.
+    """The ParallelController sets up and maintains the control tree
+    required for parallel runs.
     """
     
     # some message tags that will be used while communication appear as class
     # attributes here.
     
 
-    def __init__(self, solver=None, cell_manager=None, *args, **kwargs):
+    def __init__(self, *args, **kwargs):
         """
         Constructor.
         """
-        self.solver = solver
-        
-        if solver is not None:
-            self.cell_manager = solver.cell_manager
-        else:
-            self.cell_manager = cell_manager
-        
         self.comm = MPI.COMM_WORLD
         comm = self.comm
         self.num_procs = comm.Get_size()
@@ -46,6 +34,7 @@ cdef class ParallelController:
         self.parent_rank = -1
 
         self.setup_control_tree_done = False
+
         # setup the control tree.
         self.setup_control_tree()
         

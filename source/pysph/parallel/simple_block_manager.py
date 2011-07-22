@@ -182,7 +182,7 @@ class SimpleBlockManager(ParallelManager):
 
     """
 
-    def __init__(self, block_scale_factor=2.0):
+    def __init__(self, block_scale_factor=6.0):
         """Constructor.
 
         Parameters:
