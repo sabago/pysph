@@ -201,6 +201,13 @@ class Application(object):
                           or 'auto' (which does block based parallel
                           distribution of particles).""")
 
+        # --parallel-output-mode
+        parser.add_option("--parallel-output-mode", action="store",
+                          dest="parallel_output_mode", default="collected",
+                          help="""Use 'collected' to dump one output at
+                          root or 'distributed' for every processor. """)
+
+
         # solver interfaces
         interfaces = OptionGroup(parser, "Interfaces",
                                  "Add interfaces to the solver")
@@ -473,6 +480,7 @@ class Application(object):
         # set the rank for the solver
         solver.rank = self.rank
         solver.pid = self.rank
+        solver.comm = self.comm
 
         # set the in parallel flag for the solver
         if self.num_procs > 1:
@@ -489,6 +497,9 @@ class Application(object):
 
         # output directory
         solver.set_output_directory(abspath(options.output_dir))
+
+        # set parallel output mode
+        solver.set_parallel_output_mode(options.parallel_output_mode)
 
         # default kernel
         if options.kernel is not None:
