@@ -83,6 +83,7 @@ extensions = {'base': ['carray.pyx',
                             'stress_funcs.pyx',
                             #'fracture_funcs.pyx',
                             'linalg.pyx',
+                            'test_funcs.pyx'
                             ],
               'solver': ['particle_generator.pyx',
                          ],
