@@ -32,81 +32,85 @@ from pysph.base.point import *
 
 from pysph.parallel.load_balancer import LoadBalancer
 
-pcm = ParallelCellManager(initialize=False)
+from nose.plugins.attrib import attr
 
-# create 2 particles, one with proc 0 another with proc 1
+@attr(parallel=True)
+def test():
+    pcm = ParallelCellManager(initialize=False)
 
-lg = LineGenerator(particle_spacing=0.5)
+    # create 2 particles, one with proc 0 another with proc 1
 
-lg.start_point.x = 0.0
-lg.end_point.x = 10.0
-lg.start_point.y = lg.start_point.z = 0.0
-lg.end_point.y = lg.end_point.z = 0.0
+    lg = LineGenerator(particle_spacing=0.5)
 
-x, y, z = lg.get_coords()
-num_particles = len(x)
+    lg.start_point.x = 0.0
+    lg.end_point.x = 10.0
+    lg.start_point.y = lg.start_point.z = 0.0
+    lg.end_point.y = lg.end_point.z = 0.0
 
-logger.info('Num particles : %d'%(len(x)))
+    x, y, z = lg.get_coords()
+    num_particles = len(x)
 
-parray = ParticleArray(name='p1',
+    logger.info('Num particles : %d'%(len(x)))
+
+    parray = ParticleArray(name='p1',
                        x={'data':x},
                        y={'data':y},
                        z={'data':z},
                        h={'data':None, 'default':0.5})
 
 
-# add parray to the cell manager
-parray.add_property({'name':'u'})
-parray.add_property({'name':'v'})
-parray.add_property({'name':'w'})
-parray.add_property({'name':'rho'})
-parray.add_property({'name':'p'})
+    # add parray to the cell manager
+    parray.add_property({'name':'u'})
+    parray.add_property({'name':'v'})
+    parray.add_property({'name':'w'})
+    parray.add_property({'name':'rho'})
+    parray.add_property({'name':'p'})
+    
+    parray = LoadBalancer.distribute_particles(parray, num_procs, 1.0)[rank]
+    pcm.add_array_to_bin(parray)
+    
+    np = pcm.arrays_to_bin[0].num_real_particles
+    nptot = comm.bcast(comm.reduce(np))
+    assert nptot == num_particles
 
-parray = LoadBalancer.distribute_particles(parray, num_procs, 1.0)[rank]
-pcm.add_array_to_bin(parray)
+    pcm.initialize()
 
-np = pcm.arrays_to_bin[0].num_real_particles
-nptot = comm.bcast(comm.reduce(np))
-assert nptot == num_particles
+    np = pcm.arrays_to_bin[0].num_real_particles
+    nptot = comm.bcast(comm.reduce(np))
+    assert nptot == num_particles
+    
+    pcm.set_jump_tolerance(INT_INF())
 
-pcm.initialize()
+    logger.debug('%d: num_cells=%d'%(rank,len(pcm.cells_dict)))
+    logger.debug('%d:'%rank + ('\n%d '%rank).join([str(c) for c  in pcm.cells_dict.values()]))
 
-np = pcm.arrays_to_bin[0].num_real_particles
-nptot = comm.bcast(comm.reduce(np))
-assert nptot == num_particles
+    # on processor 0 move all particles from one of its cell to the next cell
+    if rank == 0:
+        cell = pcm.cells_dict.get(list(pcm.proc_map.cell_map.values()[0])[0])
+        logger.debug('Cell is %s'%(cell))
+        indices = []
+        cell.get_particle_ids(indices)
+        indices = indices[0]
+        logger.debug('Num particles in Cell is %d'%(indices.length))
+        parr = cell.arrays_to_bin[0]
+        x, y, z = parr.get('x', 'y', 'z', only_real_particles=False)
+        logger.debug(str(len(x)) + str(x))
+        logger.debug(str(indices.length) + str(indices.get_npy_array()))
+        for i in range(indices.length):
+            x[indices[i]] += cell.cell_size
 
-pcm.set_jump_tolerance(INT_INF())
+        parr.set_dirty(True)
 
-logger.debug('%d: num_cells=%d'%(rank,len(pcm.cells_dict)))
-logger.debug('%d:'%rank + ('\n%d '%rank).join([str(c) for c  in pcm.cells_dict.values()]))
+        pcm.update_status()
+        logger.debug('Calling cell manager update')
+        logger.debug('Is dirty %s'%(pcm.is_dirty))
+        pcm.update()
 
-# on processor 0 move all particles from one of its cell to the next cell
-if rank == 0:
-    cell = pcm.cells_dict.get(list(pcm.proc_map.cell_map.values()[0])[0])
-    logger.debug('Cell is %s'%(cell))
-    indices = []
-    cell.get_particle_ids(indices)
-    indices = indices[0]
-    logger.debug('Num particles in Cell is %d'%(indices.length))
-    parr = cell.arrays_to_bin[0]
-    x, y, z = parr.get('x', 'y', 'z', only_real_particles=False)
-    logger.debug(str(len(x)) + str(x))
-    logger.debug(str(indices.length) + str(indices.get_npy_array()))
-    for i in range(indices.length):
-        x[indices[i]] += cell.cell_size
+        np = pcm.arrays_to_bin[0].num_real_particles
+        nptot = comm.bcast(comm.reduce(np))
+        assert nptot == num_particles
 
-    parr.set_dirty(True)
-
-pcm.update_status()
-logger.debug('Calling cell manager update')
-logger.debug('Is dirty %s'%(pcm.is_dirty))
-pcm.update()
-
-np = pcm.arrays_to_bin[0].num_real_particles
-nptot = comm.bcast(comm.reduce(np))
-assert nptot == num_particles
-
-#logger.debug('hierarchy :%s'%(pcm.hierarchy_list))
-logger.debug('cells : %s'%(pcm.cells_dict))
-logger.debug('num particles : %d'%(parray.get_number_of_particles()))
-logger.debug('real particles : %d'%(parray.num_real_particles))
+        #logger.debug('hierarchy :%s'%(pcm.hierarchy_list))
+        logger.debug('cells : %s'%(pcm.cells_dict))
+        logger.debug('num particles : %d'%(parray.get_number_of_particles()))
+        logger.debug('real particles : %d'%(parray.num_real_particles))
