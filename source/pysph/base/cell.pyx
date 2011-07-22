@@ -364,7 +364,6 @@ cdef class Cell:
             parray = self.arrays_to_bin[i]
             
             # do nothing if the particle array has not changed
-
             if parray.is_dirty == False:
                 continue
 
@@ -400,9 +399,8 @@ cdef class Cell:
                             pnt.x += self.periodic_domain.xtranslate
 
                     # find the cell containing this point
-
+                    
                     id.data = find_cell_id(pnt, self.cell_size)
-
                     # check for jump tolerance if not periodic
 
                     if not self.periodic_domain:
@@ -1227,6 +1225,7 @@ cdef class CellManager:
 
         # clear the cell indices for dirty particles
         for cell in self.cells_dict.values():
+            cell.cell_size = self.cell_size
             for i in range(num_arrays):
                 parr = self.arrays_to_bin[i]
                 if parr.is_dirty:
@@ -1634,7 +1633,7 @@ cdef class CellManager:
         self._rebuild_array_indices()
 
     def py_setup_cells_dict(self):
-        self._setup_cells_dict()
+        self.cells_dict = dict()
 
     def py_get_potential_cells(self, Point pnt, double radius, list cell_list):
         self.get_potential_cells(pnt.data, radius, cell_list)

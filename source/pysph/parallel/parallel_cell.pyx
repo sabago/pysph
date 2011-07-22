@@ -589,7 +589,7 @@ cdef class ParallelCellManager(CellManager):
         self.py_rebuild_array_indices()
 
         # setup the cells_dict
-        self.py_setup_cells_dict()
+        self.cells_dict = dict()
         
         # setup information for the processor map.
         self.setup_processor_map()

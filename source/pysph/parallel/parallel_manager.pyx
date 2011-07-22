@@ -17,7 +17,7 @@ cdef class ParallelManager:
         """
         raise NotImplementedError
 
-    cpdef update_remote_particle_properties(self, props):
+    cpdef update_remote_particle_properties(self, list props=None):
         """Update only the remote particle properties.
 
         This is typically called when particles don't move but only some of

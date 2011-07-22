@@ -23,7 +23,8 @@ else:
     from pysph.parallel.load_balancer import LoadBalancer
     from pysph.parallel.simple_parallel_manager import \
             SimpleParallelManager
-
+    from pysph.parallel.parallel_cell import ParallelCellManager
+    from pysph.parallel.simple_block_manager import SimpleBlockManager
 
 def list_option_callback(option, opt, value, parser):
     val = value.split(',')
@@ -436,6 +437,9 @@ class Application(object):
         if self.num_procs > 1:
             if options.parallel_mode == 'simple':
                 self.set_parallel_manager(SimpleParallelManager())
+
+            if options.parallel_mode == "block":
+                self.set_parallel_manager( SimpleBlockManager() )
 
         if create_particles:
             self._create_particles(variable_h, create_particles, min_cell_size,
