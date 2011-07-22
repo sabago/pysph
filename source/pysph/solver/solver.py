@@ -127,6 +127,9 @@ class Solver(object):
         # arrays to print output
         self.arrays_to_print = []
 
+        # the default parallel output mode
+        self.parallel_output_mode = "collected"
+
         # default particle properties to print
         self.print_properties = ['x','u','m','h','p','e','rho',]
         if self.dim > 1:
@@ -463,6 +466,20 @@ class Solver(object):
         for id in self.operation_dict:
             self.operation_dict[id].kernel_correction=kernel_correction
 
+    def set_parallel_output_mode(self, mode="collected"):
+        """Set the default solver dump mode in parallel.
+
+        The available modes are:
+
+        collected : Collect array data from all processors on root and
+                    dump a single file.
+
+
+        distributed : Each processor dumps a file locally.
+
+        """
+        self.parallel_output_mode = mode
+
     def set_cl(self, with_cl=False):
         """ Set the flag to use OpenCL
 
@@ -640,17 +657,47 @@ class Solver(object):
 
         if self.detailed_output:
             for array in self.particles.arrays:
-                props["arrays"][array.name] = array.get_property_arrays(all=True)
+                props["arrays"][array.name]=array.get_property_arrays(all=True)
         else:
             for array in self.particles.arrays:
-                props["arrays"][array.name] = array.get_property_arrays(all=False)
+                props["arrays"][array.name]=array.get_property_arrays(all=False)
 
         # Add the solver data
         props["solver_data"]["dt"] = dt
         props["solver_data"]["t"] = self.t
         props["solver_data"]["count"] = self.count
 
-        savez(_fname, version=1, **props)
+        if self.parallel_output_mode == "collected" and self.in_parallel:
+
+            comm = self.comm
+            
+            arrays = props["arrays"]
+            numarrays = len(arrays)
+            array_names = arrays.keys()
+
+            # gather the data from all processors
+            collected_data = comm.gather(arrays, root=0)
+            
+            if self.rank == 0:
+                props["arrays"] = {}
+
+                size = comm.Get_size()
+
+                # concatenate the arrays
+                for array_name in array_names:
+                    props["arrays"][array_name] = {}
+
+                    _props = collected_data[0][array_name].keys()
+
+                    for prop in _props:
+                        prop_arr = numpy.concatenate( [collected_data[pid][array_name][prop] for pid in range(size)] )
+                        
+                        props["arrays"][array_name][prop] = prop_arr
+
+                savez(_fname, version=1, **props)
+
+        else:
+            savez(_fname, version=1, **props)
 
     def load_output(self, count):
         """ Load particle data from dumped output file.
