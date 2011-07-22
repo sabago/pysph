@@ -140,12 +140,13 @@ setup(name='PySPH',
       author_email = 'pysph-dev@googlegroups.com',
       description = "A general purpose Smoothed Particle Hydrodynamics framework",
       long_description = __doc__,
+      url = 'http://pysph.googlecode.com',
       license = "BSD",
       keywords = "SPH simulation computational fluid dynamics",
       test_suite = "nose.collector",
       packages = find_packages('source'),
       package_dir = {'': 'source'},
-
+      
       ext_modules = ext_modules,
       
       include_package_data = True,
@@ -157,6 +158,23 @@ setup(name='PySPH',
       entry_points = """
           [console_scripts]
           pysph_viewer = pysph.tools.mayavi_viewer:main
-          """
+          """,
+      platforms=['Linux', 'Mac OS-X', 'Unix', 'Windows'],
+      classifiers = [c.strip() for c in """\
+        Development Status :: 4 - Beta
+        Environment :: Console
+        Intended Audience :: Developers
+        Intended Audience :: Science/Research
+        License :: OSI Approved :: BSD License
+        Natural Language :: English
+        Operating System :: MacOS :: MacOS X
+        Operating System :: Microsoft :: Windows
+        Operating System :: POSIX
+        Operating System :: Unix
+        Programming Language :: Python
+        Topic :: Scientific/Engineering
+        Topic :: Scientific/Engineering :: Physics
+        Topic :: Software Development :: Libraries
+        """.splitlines() if len(c.split()) > 0],
       )
 
