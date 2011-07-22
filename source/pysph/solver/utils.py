@@ -369,7 +369,9 @@ def load_and_concatenate(prefix,nprocs=1,directory=".",count=None):
     """
 
     if count is None:
-        count = [i.rsplit('_',1)[1][:-4] for i in os.listdir(directory) if i.startswith(prefix) and i.endswith('.npz')][-1]
+        counts = [i.rsplit('_',1)[1][:-4] for i in os.listdir(directory) if i.startswith(prefix) and i.endswith('.npz')]
+        counts = sorted( [int(i) for i in counts] )
+        count = counts[-1]
 
     arrays_by_rank = {}
     
