@@ -7,6 +7,6 @@ cdef class ParallelManager:
 
     cpdef update(self)
 
-    cpdef update_remote_particle_properties(self, props)
+    cpdef update_remote_particle_properties(self, list props=*)
 
 
