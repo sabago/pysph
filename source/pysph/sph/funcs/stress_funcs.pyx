@@ -824,7 +824,7 @@ cdef class MonaghanArtStressAcc(SPHFunctionParticle):
         cdef double ratio = self.rho0/rho_ab
         ratio = pow(ratio, 1.0/kernel.dim)
 
-        cdef cPoint _ra = cPoint_new(self.deltap*ratio, 0.0, 0.0)
+        cdef cPoint _ra = cPoint_new(self.dr0*ratio, 0.0, 0.0)
         cdef cPoint _rb = cPoint_new(0.0, 0.0, 0.0)
         
         if self.bonnet_and_lok_correction:
