@@ -1,7 +1,7 @@
 # Standard imports.
 import logging, os
 from optparse import OptionParser, OptionGroup, Option
-from os.path import basename, splitext
+from os.path import basename, splitext, abspath
 import sys
 
 from utils import mkdir
@@ -254,7 +254,7 @@ class Application(object):
         level = self._log_levels[options.loglevel]
 
         #save the path where we want to dump output
-        self.path = os.path.abspath(options.output_dir)
+        self.path = abspath(options.output_dir)
         mkdir(self.path)
 
         if level is not None:
@@ -488,7 +488,7 @@ class Application(object):
         solver.set_output_printing_level(options.detailed_output)
 
         # output directory
-        solver.set_output_directory(options.output_dir)
+        solver.set_output_directory(abspath(options.output_dir))
 
         # default kernel
         if options.kernel is not None:
