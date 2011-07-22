@@ -520,7 +520,7 @@ class Solver(object):
 
         bt = (self.tf - self.t)/1000.0
         bcount = 0.0
-        bar = PBar(1000, show=show_progress)
+        bar = PBar(1001, show=show_progress)
 
         self.dump_output(dt, *self.print_properties)
 

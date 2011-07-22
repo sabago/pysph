@@ -112,7 +112,7 @@ s.add_operation(solver.SPHIntegration(
 app.set_solver(
     solver=s,
     variable_h=False,
-    create_particles=create_particles)
+    create_particles=create_particles_2d)
 
 s.set_time_step(1e-2)
 s.set_final_time(10)
