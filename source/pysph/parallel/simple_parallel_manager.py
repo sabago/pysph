@@ -2,7 +2,7 @@ from parallel_manager import ParallelManager
 from parallel_controller import ParallelController
 
 from pysph.base.particle_array import get_local_real_tag, get_dummy_tag
-from fast_utils import arange_long
+from pysph.base.fast_utils import arange_long
 
 # logger imports
 import logging

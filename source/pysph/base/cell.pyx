@@ -9,7 +9,7 @@ from pysph.base.particle_array cimport ParticleArray
 
 from pysph.base.particle_array cimport GhostParticle
 
-from pysph.parallel.fast_utils cimport arange_long 
+from fast_utils cimport arange_long 
 
 # python c-api imports
 from cpython cimport *

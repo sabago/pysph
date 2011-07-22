@@ -171,13 +171,13 @@ class EllipticalDropTestCase(ExampleTestCase):
     @attr(slow=True, parallel=True)
     def test_elliptical_drop_simple_2(self):
         """Test with 2 processors """
-        self._test_elliptical_drop(nprocs=2, iter=100, timeout=60,
+        self._test_elliptical_drop(nprocs=2, iter=100, timeout=120,
                                    parallel_mode="simple")
 
     @attr(slow=True, parallel=True)
     def test_elliptical_drop_simple_4(self):
         """Test with 4 processors """
-        self._test_elliptical_drop(nprocs=4, iter=100, timeout=240,
+        self._test_elliptical_drop(nprocs=4, iter=100, timeout=360,
                                    parallel_mode="simple")
     @attr(slow=True, parallel=True)
     def test_elliptical_drop_block_2(self):
