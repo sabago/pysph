@@ -9,6 +9,9 @@ import numpy
 import pylab
 import time
 
+import nose.plugins.skip as skip
+raise skip.SkipTest("Dont run this test via nose")
+
 # mpi imports
 from mpi4py import MPI
 comm = MPI.COMM_WORLD

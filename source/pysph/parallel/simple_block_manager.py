@@ -245,7 +245,6 @@ class SimpleBlockManager(ParallelManager):
         and remote particles necessary for a simulation.
 
         """
-
         cm = self.cm
         pmap = self.processor_map
 

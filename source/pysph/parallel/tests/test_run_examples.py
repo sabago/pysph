@@ -14,6 +14,8 @@ import tempfile
 import shutil
 import numpy
 
+from nose.plugins.attrib import attr
+
 import pysph.solver.utils as utils
 
 directory = os.path.dirname(os.path.abspath(__file__))
@@ -71,7 +73,7 @@ class ExampleTestCase(unittest.TestCase):
     
     """
     def run_example(self, filename, timestep=1e-5, iters=10, nprocs=2,
-                    timeout=10, path=None):
+                    timeout=10, parallel_mode="simple",path=None):
         """Run an example and compare the results in serial and parallel.
 
         Parameters:
@@ -108,7 +110,8 @@ class ExampleTestCase(unittest.TestCase):
                     '--directory=%s'%dir1,
                     '--time-step=%g'%timestep,
                     '--final-time=%g'%(timestep*(iters+1)),
-                    '--freq=%d'%iters]
+                    '--freq=%d'%iters,
+                    '--parallel-mode=%s'%parallel_mode]
 
             # run the example script in serial
             _run_example_script(filename, args, 0, timeout, path)
@@ -159,20 +162,32 @@ class ExampleTestCase(unittest.TestCase):
 
 class EllipticalDropTestCase(ExampleTestCase):
 
-    def _test_elliptical_drop(self, nprocs, iter, timeout):
+    def _test_elliptical_drop(self, nprocs, iter, timeout, parallel_mode):
         self.run_example('../../../../examples/elliptical_drop.py',
                          timestep=1e-5, iters=iter,
-                         nprocs=nprocs, timeout=timeout)
+                         nprocs=nprocs, timeout=timeout,
+                         parallel_mode=parallel_mode)
 
-    def test_elliptical_drop_2(self):
+    @attr(slow=True, parallel=True)
+    def test_elliptical_drop_simple_2(self):
         """Test with 2 processors """
-        self.run_example('../../../../examples/elliptical_drop.py',
-                         timestep=1e-5, iters=100, nprocs=2, timeout=60)
+        self._test_elliptical_drop(nprocs=2, iter=100, timeout=60,
+                                   parallel_mode="simple")
 
-    def test_elliptical_drop_4(self):
+    @attr(slow=True, parallel=True)
+    def test_elliptical_drop_simple_4(self):
         """Test with 4 processors """
-        self.run_example('../../../../examples/elliptical_drop.py',
-                         timestep=1e-5, iters=100, nprocs=4, timeout=240)
+        self._test_elliptical_drop(nprocs=4, iter=100, timeout=240,
+                                   parallel_mode="simple")
+    @attr(slow=True, parallel=True)
+    def test_elliptical_drop_block_2(self):
+        self._test_elliptical_drop(nprocs=2, iter=100, timeout=240,
+                                   parallel_mode="block")
+
+    @attr(slow=True, parallel=True)
+    def test_elliptical_drop_block_4(self):
+        self._test_elliptical_drop(nprocs=4, iter=100, timeout=360,
+                                   parallel_mode="block")
 
 if __name__ == "__main__":
     unittest.main()
