@@ -43,7 +43,7 @@ cdef class ArtificialPotentialForce(SPHFunctionParticle):
     cdef void eval_nbr(self, size_t source_pid, size_t dest_pid,
                        KernelBase kernel, double *nr):
         cdef double hab, q, w
-        cdef cPoint rba
+        cdef cPoint rab
 
         if self.source.name is not self.dest.name:
 
@@ -60,19 +60,21 @@ cdef class ArtificialPotentialForce(SPHFunctionParticle):
             hab = 0.5 * ( self.d_h.data[dest_pid] + \
                           self.s_h.data[source_pid] )
             
-            rba = cPoint_sub(self._src, self._dst)
-            rba = normalized(rba)
+	    #a-dest, b-src, rab = rb - ra, vector from a-->b
+            rab = cPoint_sub(self._src, self._dst)
+            rab = normalized(rab)
+	    
 
             q = cPoint_distance(self._src, self._dst)/hab
             
-            w = kernel.function(self._dst, self._src, hab)
-            
-            if q > 1:
-                w = w * -10.0
+            w = -100.0 * kernel.function(self._dst, self._src, hab)
+            #large distance - attraction
+            if q > 1:   
+                w = w * -1.0 * 0.01
 
-                nr[0] += rba.x * w
-                nr[1] += rba.y * w
-                nr[2] += rba.z * w
+            nr[0] += rab.x * w
+            nr[1] += rab.y * w
+            nr[2] += rab.z * w
 
 #############################################################################
 # `ArtificialPositionStep` class.

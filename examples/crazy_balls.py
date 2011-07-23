@@ -115,6 +115,6 @@ app.setup(
     create_particles=create_particles_2d)
 
 s.set_time_step(1e-2)
-s.set_final_time(10)
+s.set_final_time(25)
 
 app.run()
