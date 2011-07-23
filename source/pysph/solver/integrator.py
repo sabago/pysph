@@ -310,10 +310,6 @@ class Integrator(object):
         for i in range(ncalcs):
             calc = calcs[i]
 
-            if logger.level < 30:
-                logger.info("Integrator:eval: operating on calc %d, %s"%(
-                        i, calc.id))
-
             # set the time for the destination particle array
             calc.dest.set_time(self.local_time)
 
@@ -330,10 +326,6 @@ class Integrator(object):
 
                 # ensure all processes have reached this point
                 particles.barrier()
-
-                if logger.level < 30:
-                    logger.info("""Integrator:eval: updating remote particle
-                    properties %s"""%(self.rupdate_list))
 
                 # update the properties for remote particles
                 self.rupdate_list[calc.dnum] = [calc.updates]

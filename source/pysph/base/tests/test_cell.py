@@ -837,6 +837,7 @@ class TestCellManager(unittest.TestCase):
         """Tests the update function."""
         p_arrs = generate_sample_dataset_2()
         cm = CellManager(arrays_to_bin=p_arrs, initialize=False)
+        cm.cell_size = 2.0
 
         big_cell = Cell(IntPoint(0, 0, 0), cell_manager=cm,
                                cell_size=2.0)
@@ -851,6 +852,7 @@ class TestCellManager(unittest.TestCase):
         cm.py_update()
 
         # now we should have a total of 5 cells.
+        print cm.cells_dict.values()
         self.assertEqual(len(cm.cells_dict), 5)
 
         self.assertEqual(cm.cells_dict.has_key(IntPoint(-1, 1, 0)), True)

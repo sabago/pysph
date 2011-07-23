@@ -198,7 +198,11 @@ class TestLinalg(unittest.TestCase):
                 # FIXME: check eigenvectors also for repeated eigenvalues
                 continue
 
-            self.assertTrue(allclose(v.T.dot(m.dot(v)), diag(r)))
+            self.assertTrue(allclose(numpy.dot(v.T, numpy.dot(m, v)), diag(r)))
+
+            # this will not work for numpy 1.3.0
+            #self.assertTrue(allclose(v.T.dot(m.dot(v)), diag(r)))
+
             for i in range(3):
                 # check for normalization
                 self.assertTrue(allclose(sum(v[:,i]**2),1))
