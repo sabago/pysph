@@ -7,6 +7,13 @@ Run this script with the following command
 mpiexec -n [num_procs] python controller_check.py
 """
 
+try:
+    import mpi4py.MPI as mpi
+except ImportError:
+    import nose.plugins.skip as skip
+    reason = "mpi4py not installed"
+    raise skip.SkipTest(reason)
+
 # logging setup
 import logging
 logging.basicConfig(level=logging.DEBUG, filename='/tmp/log_pysph', filemode='a')
@@ -22,7 +29,7 @@ rank = comm.Get_rank()
 
 logger.info('(%d)================controller_check====================='%(rank))
 
-p = ParallelController(solver=None, cell_manager=None)
+p = ParallelController()
 
 
 assert p.rank == rank
