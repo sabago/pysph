@@ -317,7 +317,7 @@ s.add_operation_xsph(eps=eps)
 s.set_final_time(10)
 s.set_time_step(1e-4)
 
-app.set_solver(
+app.setup(
     solver=s,
     variable_h=False, create_particles=get_particles,
     locator_type=base.NeighborLocatorType.SPHNeighborLocator,

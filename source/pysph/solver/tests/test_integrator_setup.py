@@ -46,7 +46,7 @@ class TensorCalcIntegratorSetupTestCase(unittest.TestCase):
 
                              )
         particles = base.Particles(arrays=[pa,])
-        s.setup_integrator(particles)
+        s.setup(particles)
 
         self.integrator = s.integrator
 

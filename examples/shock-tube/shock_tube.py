@@ -35,7 +35,7 @@ s.set_time_step(3e-4)
 # Set the application's solver.  We do this at the end since the user
 # may have asked for a different timestep/final time on the command
 # line.
-app.set_solver(
+app.setup(
     solver=s,
     variable_h=False,
     create_particles=solver.shock_tube_solver.standard_shock_tube_data,

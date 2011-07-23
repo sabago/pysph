@@ -52,7 +52,7 @@ class TestShockTube(unittest.TestCase):
 
         particles = base.Particles(arrays=[pa,])
 
-        s.setup_integrator(particles)
+        s.setup(particles)
         s.set_final_time(0.15)
         s.set_time_step(3e-4)
 

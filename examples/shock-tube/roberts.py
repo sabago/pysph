@@ -79,7 +79,7 @@ s = solver.ADKEShockTubeSolver(dim=1,
 s.set_final_time(tf)
 s.set_time_step(dt)
 
-app.set_solver(
+app.setup(
     solver=s,
     min_cell_size=4*h0,
     variable_h=True,

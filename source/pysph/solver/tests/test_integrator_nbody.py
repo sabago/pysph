@@ -117,7 +117,7 @@ class IntegratorTestCase(unittest.TestCase):
 
         # setup the integrator
 
-        s.setup_integrator( self.particles )
+        s.setup( self.particles )
 
     @disabled
     def test_construction(self):

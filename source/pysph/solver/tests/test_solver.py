@@ -30,7 +30,7 @@ class SolverTestCase(unittest.TestCase):
     (c) remove operation
     (d) set_order
     (e) add_operation_step
-    (f) setup_integrator
+    (f) setup
     (g) add_operation_xsph
     
     """
@@ -250,7 +250,7 @@ class SolverTestCase(unittest.TestCase):
 
         self.assertEqual(op.function.get_func_class(), sph.XSPHCorrection)
 
-    def test_setup_integrator(self):
+    def test_setup(self):
         """ Test the setting up of the integrator """
 
         self.setup_solver()
@@ -261,7 +261,7 @@ class SolverTestCase(unittest.TestCase):
 
         s.add_operation_xsph(eps = 0.5)
         
-        s.setup_integrator(self.particles)
+        s.setup(self.particles)
 
         i = s.integrator
 

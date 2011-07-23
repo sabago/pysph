@@ -159,7 +159,7 @@ class Solver(object):
         else:
             self.integrator_type = integrator_type
 
-        self.setup_integrator(self.particles)
+        self.setup(self.particles)
 
     def add_operation_step(self, types, xsph=False, eps=0.5):
         
@@ -355,7 +355,7 @@ class Solver(object):
         """ Setup the position stepping for the solver """
         pass
 
-    def setup_integrator(self, particles=None):
+    def setup(self, particles=None):
         """ Setup the solver.
 
         The solver's processor id is set if the in_parallel flag is set 
@@ -418,7 +418,7 @@ class Solver(object):
                 if array_name == arr.name:
                     array.append_parray(arr)
 
-        self.setup_integrator(self.particles)
+        self.setup(self.particles)
 
     def set_final_time(self, tf):
         """ Set the final time for the simulation """

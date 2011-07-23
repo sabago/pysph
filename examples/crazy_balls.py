@@ -109,7 +109,7 @@ s.add_operation(solver.SPHIntegration(
 
                 )
 
-app.set_solver(
+app.setup(
     solver=s,
     variable_h=False,
     create_particles=create_particles_2d)

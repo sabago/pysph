@@ -18,7 +18,7 @@ s = solver.FluidSolver(dim=2, integrator_type=integrator_type)
 s.set_time_step(dt)
 s.set_final_time(tf)
 
-app.set_solver(
+app.setup(
     solver=s,
     variable_h=False,
     create_particles=solver.fluid_solver.get_circular_patch, name='fluid', type=0,

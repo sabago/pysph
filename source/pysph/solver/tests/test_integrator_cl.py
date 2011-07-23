@@ -262,8 +262,8 @@ class NBodyIntegrationTestCase(unittest.TestCase):
         cl_solver.add_operation_step([0,])
         cl_solver.set_cl(True)
         
-        cy_solver.setup_integrator(cy_particles)
-        cl_solver.setup_integrator(cl_particles)
+        cy_solver.setup(cy_particles)
+        cl_solver.setup(cl_particles)
 
     def test_integrate(self):
 

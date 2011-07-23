@@ -107,7 +107,7 @@ s.set_time_step(dt)
 s.set_final_time(tf)
 s.pfreq = 100
 
-app.set_solver(s, create_particles=create_particles)
+app.setup(s, create_particles=create_particles)
 
 particles = s.particles
 pa = particles.arrays[0]
@@ -118,52 +118,7 @@ s.pre_step_functions.append(FixedBoundary(pa, pa, props=['u'], values=[0],
 s.pre_step_functions.append(FixedBoundary(pa, pa, props=['v'], values=[0],
                                       particle_indices=range(len(pa.x))))
 
-# can be overriden by commandline arguments
-
-# for i in range(len(particles.arrays[0].x)):
-#     app.command_manager.add_function(PrintPos(i, ['x','y','u','p','rho','sigma00','ubar'],
-#                                               'stress2d_axial/stress%s.dat'%i, 100),
-#                                       interval=1)
-
 s.set_kernel_correction(-1)
 
 app.run()
-
-#sys.exit(0)
-
-from pylab import *
-pa = particles.arrays[0]
-
-plot(pa.x, pa.y, '.', label='y')
-legend(loc='best')
-
-figure()
-plot(pa.x, pa.u, '.', label='u')
-legend(loc='best')
-
-figure()
-plot(pa.x, pa.ubar, '.', label='ubar')
-legend(loc='best')
-
-figure()
-plot(pa.x, pa.rho, '.', label='rho')
-legend(loc='best')
-
-figure()
-plot(pa.x, pa.p, '.', label='p')
-legend(loc='best')
-
-figure()
-plot(pa.x, pa.sigma00, '.', label='sigma00')
-legend(loc='best')
-
-
-print pa.x
-print pa.y
-print pa.z
-print pa.u
-print pa.v
-print pa.w
-
-show()
 

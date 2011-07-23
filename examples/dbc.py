@@ -175,6 +175,6 @@ s.add_operation(solver.SPHIntegration(
 s.set_final_time(1)
 s.set_time_step(3e-4)
 
-app.set_solver(s)
+app.setup(s)
 
 app.run()
