@@ -80,7 +80,7 @@ class BoundaryForceTestCase(unittest.TestCase):
                                   
                                   )
                              
-        self.solver.setup_integrator(particles)
+        self.solver.setup(particles)
 
         self.integrator = self.solver.integrator
 

@@ -133,73 +133,9 @@ s.set_final_time(tf)
 s.set_kernel_correction(-1)
 s.pfreq = 100
 
-app.set_solver(s, create_particles=create_particles)
+app.setup(s, create_particles=create_particles)
 
 particles = s.particles
 pa = particles.arrays[0]
 
 app.run()
-
-#sys.exit(0)
-
-from pylab import *
-
-figure()
-plot(pa.x, pa.y, '.', label='y')
-legend(loc='best')
-
-figure()
-plot(pa.x, pa.u, '.', label='u')
-legend(loc='best')
-
-figure()
-plot(pa.x, pa.v, '.', label='v')
-legend(loc='best')
-
-figure()
-plot(pa.x, pa.rho, '.', label='rho')
-legend(loc='best')
-
-figure()
-plot(pa.x, pa.p, '.', label='p')
-legend(loc='best')
-
-figure()
-plot(pa.x, pa.sigma00, '.', label='sigma00')
-legend(loc='best')
-
-figure()
-plot(pa.x, pa.sigma11, '.', label='sigma11')
-legend(loc='best')
-
-figure()
-plot(pa.x, pa.sigma01, '.', label='sigma01')
-legend(loc='best')
-
-
-figure()
-plot(pa.x, pa.MArtStress00, '.', label='MArtStress00')
-legend(loc='best')
-
-figure()
-plot(pa.x, pa.MArtStress01, '.', label='MArtStress01')
-legend(loc='best')
-
-figure()
-plot(pa.x, pa.MArtStress11, '.', label='MArtStress11')
-legend(loc='best')
-
-
-# print pa.x
-# print pa.y
-# print pa.u
-# print pa.v
-# print pa.sigma00
-# print pa.sigma11
-# print pa.sigma01
-
-#p = [(p[0],p[1].get_npy_array()) for p in pa.properties.iteritems()]
-#print [i[0] for i in p if not numpy.isfinite(i[1][0])]
-
-show()
-

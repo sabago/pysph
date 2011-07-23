@@ -249,7 +249,7 @@ s.set_time_step(dt)
 
 
 
-app.set_solver(
+app.setup(
     solver=s,
     variable_h=False, create_particles=get_particles, min_cell_size=4*h,
     locator_type=base.NeighborLocatorType.SPHNeighborLocator,

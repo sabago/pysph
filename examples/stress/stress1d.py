@@ -111,7 +111,7 @@ s = StressSolver(dim=1, integrator_type=solver.PredictorCorrectorIntegrator, xsp
 s.set_time_step(1e-7)
 s.set_final_time(1e-3)
 
-app.set_solver(s, create_particles=create_particles)
+app.setup(s, create_particles=create_particles)
 particles = s.particles
 pa = particles.arrays[0]
 

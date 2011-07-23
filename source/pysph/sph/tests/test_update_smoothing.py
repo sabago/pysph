@@ -237,7 +237,7 @@ class TestUpdateSmoothingSolver(unittest.TestCase):
             self.solver = solver.Solver(self.kernel.dim, integrator)
             self.solver.add_operation(self.adke)
             self.solver.setup_solver()
-            self.solver.setup_integrator(self.particles)
+            self.solver.setup(self.particles)
             self.solver.set_time_step(1e-4)
             self.solver.set_final_time(1e-4)
             

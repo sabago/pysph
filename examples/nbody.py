@@ -46,7 +46,7 @@ s.add_operation(solver.SPHIntegration(
 
 s.add_operation_step([Fluid])
 
-app.set_solver(
+app.setup(
     solver=s,    
     variable_h=False, create_particles=get_particles,
     locator_type=base.NeighborLocatorType.NSquareNeighborLocator,

@@ -591,7 +591,7 @@ class TestStress3D(unittest.TestCase):
         self.output_dir = tempfile.mkdtemp()
         pa = self.create_particles()
         self.particles  = particles = base.Particles(arrays=[pa,])
-        solver.setup_integrator(particles)
+        solver.setup(particles)
 
         #self.app = app = Application()
         #app.set_solver(solver, self.create_particles, False)

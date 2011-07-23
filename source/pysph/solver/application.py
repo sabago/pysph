@@ -391,10 +391,10 @@ class Application(object):
             for o in opt:
                 self.add_option(o)
 
-    def set_solver(self, solver, create_particles=None,
-                   variable_h=False, min_cell_size=-1, **kwargs):
+    def setup(self, solver, create_particles=None,
+              variable_h=False, min_cell_size=-1, **kwargs):
         """Set the application's solver.  This will call the solver's
-        `setup_integrator` method.
+        `setup` method.
 
         The following solver options are set:
 
@@ -525,7 +525,7 @@ class Application(object):
             solver.integrator_type =integration_methods[options.integration][1]
 
         # setup the solver
-        solver.setup_integrator(self.particles)
+        solver.setup(self.particles)
 
         # print options for the solver
         solver.set_arrays_to_print(options.arrays_to_print)
