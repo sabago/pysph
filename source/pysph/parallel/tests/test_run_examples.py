@@ -132,7 +132,7 @@ class ExampleTestCase(unittest.TestCase):
                 directory=dir1, nprocs=1, prefix=prefix)["arrays"]
 
             parallel_result = utils.load_and_concatenate(
-                directory=dir2, nprocs=nprocs, prefix=prefix)["arrays"]
+                directory=dir2, nprocs=1, prefix=prefix)["arrays"]
                                                        
         finally:
             shutil.rmtree(dir1, True)
