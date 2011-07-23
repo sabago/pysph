@@ -1,6 +1,12 @@
 """
 Simple script to check if copies of remote data are properly done.
 """
+try:
+    import mpi4py.MPI as mpi
+except ImportError:
+    import nose.plugins.skip as skip
+    reason = "mpi4py not installed"
+    raise skip.SkipTest(reason)
 
 # mpi import
 from mpi4py import MPI

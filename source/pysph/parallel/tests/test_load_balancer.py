@@ -10,6 +10,13 @@ from pysph.base.api import get_particle_array
 from pysph.solver.basic_generators import LineGenerator, RectangleGenerator, \
         CuboidGenerator
 
+try:
+    import mpi4py.MPI as mpi
+except ImportError:
+    import nose.plugins.skip as skip
+    reason = "mpi4py not installed"
+    raise skip.SkipTest(reason)
+
 from pysph.parallel.parallel_cell import ParallelCellManager
 from pysph.parallel.load_balancer import get_load_balancer_class
 from pysph.parallel.space_filling_curves import sfc_func_dict

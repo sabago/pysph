@@ -1,5 +1,8 @@
 """ Tests for the parallel cell manager """
 
+import nose.plugins.skip as skip
+raise skip.SkipTest("Dont run this test via nose")
+
 import pysph.base.api as base
 import pysph.parallel.api as parallel
 

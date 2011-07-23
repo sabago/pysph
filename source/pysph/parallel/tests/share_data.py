@@ -22,6 +22,13 @@ all neighbors of each other
 
 """
 
+try:
+    import mpi4py.MPI as mpi
+except ImportError:
+    import nose.plugins.skip as skip
+    reason = "mpi4py not installed"
+    raise skip.SkipTest(reason)
+
 # mpi imports
 from mpi4py import MPI
 comm = MPI.COMM_WORLD
