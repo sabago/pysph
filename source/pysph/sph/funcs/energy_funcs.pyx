@@ -385,20 +385,21 @@ cdef class EnergyEquation(SPHFunctionParticle):
 # `ArtificialHeat` class.
 ################################################################################
 cdef class ArtificialHeat(SPHFunctionParticle):        
-    """ Artificial heat conduction term
+    r""" Artificial heat conduction term
     
     Notes
     -----
     The following equation is used in the evaluation
-    
-    .. math::
-        
-        \frac{1}{\rho}\nabla\,\cdot(q\nabla(u)) = -\sum_{b=1}^{b=N}
-        m_b \frac{(q_a + q_b)(u_a - u_b)}{\rho_{ab}(|\vec{x_a} - \vec{x_b}|^2 +
-        (h\eta)^2)}\,(\vec{x_a} - vec{x_b})\cdot \nabla_a W_{ab}
-        
-        q_a = h_a (g1 c_a + g2 h_a (abs(div_a) - div_a))
+   
+    .. raw:: latex
 
+      \[
+        \frac{1}{\rho}\nabla \, \cdot(q\nabla(u)) = -\sum_{b=1}^{b=N}
+        m_b \frac{(q_a + q_b)(u_a - u_b)}{\rho_{ab}(|\vec{x_a} - \vec{x_b}|^2 +
+        (h\eta)^2)} \, (\vec{x_a} - vec{x_b})\cdot \nabla_a W_{ab}
+      \]
+        
+    where :math:`$q_a = h_a (g1 c_a + g2 h_a (abs(div_a) - div_a))$`.
     """
     
     def __init__(self, ParticleArray source, dest,  bint setup_arrays=True,

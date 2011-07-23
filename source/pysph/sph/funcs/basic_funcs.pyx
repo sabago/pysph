@@ -60,13 +60,13 @@ cdef class SPH(CSPHFunctionParticle):
     cdef void eval_nbr_csph(self, size_t source_pid, size_t dest_pid,
                             KernelBase kernel, double *nr, double *dnr):
 
-        """ 
+        r""" 
         Perform an SPH interpolation of the property `prop_name` 
 
         The expression used is:
         
-        ..math :: <f(\vec{r}>_a = \sum_{b = 1}^{N}f_b\frac{m_b}{\rho_b}\, 
-        \W_{ab}
+        :math:`$<f(\vec{r}>_a = \sum_{b = 1}^{N}f_b\frac{m_b}{\rho_b}\, 
+        \W_{ab}$`
             
         """
         
@@ -369,13 +369,13 @@ cdef class SPHLaplacian(SPHFunctionParticle):
 
     cdef void eval_nbr(self, size_t source_pid, size_t dest_pid, 
                        KernelBase kernel, double *nr):
-        """ 
+        r""" 
         Perform an SPH interpolation of the property `prop_name` 
 
         The expression used is:
         
-        ..math :: <f(\vec{r}>_a = \sum_{b = 1}^{N}f_b\frac{m_b}{\rho_b}\, 
-        \\nabla_aW_{ab}
+        :math:`$<f(\vec{r}>_a = \sum_{b = 1}^{N}f_b\frac{m_b}{\rho_b}\, 
+        \\nabla_aW_{ab}$`
         
         """
         cdef double mb, rhob, fb, fa, tmp, dot
@@ -457,23 +457,19 @@ cdef class CountNeighbors(SPHFunctionParticle):
 # `VelocityGradient3D` class.
 ################################################################################
 cdef class VelocityGradient3D(SPHFunctionParticle):
-    """ Compute the SPH evaluation for the velocity gradient tensor.
+    r""" Compute the SPH evaluation for the velocity gradient tensor.
 
     The expression for the velocity gradient is:
 
-    .. math::
-
-    \frac{\partial v^i}{\partial x^j} = \sum_{b}\frac{m_b}{\rho_b}(v_b
-    - v_a)\frac{\partial W_{ab}}{\partial x_a^j}
+    :math:`$\frac{\partial v^i}{\partial x^j} = \sum_{b}\frac{m_b}{\rho_b}(v_b
+    - v_a)\frac{\partial W_{ab}}{\partial x_a^j}$`
 
 
     The tensor properties are stored in the variables v_ij where 'i'
     refers to the velocity component and 'j' refers to the spatial
-    component. Thus v_21 is
+    component. Thus :math:`$v_21$` is
 
-    .. math::
-
-    \frac{\partial w}{\partial y}
+    :math:`$\frac{\partial w}{\partial y}$`
 
     """
 
@@ -622,23 +618,19 @@ cdef class VelocityGradient3D(SPHFunctionParticle):
 # `VelocityGradient2D` class.
 ################################################################################
 cdef class VelocityGradient2D(SPHFunctionParticle):
-    """ Compute the SPH evaluation for the velocity gradient tensor in 2D.
+    r""" Compute the SPH evaluation for the velocity gradient tensor in 2D.
 
     The expression for the velocity gradient is:
 
-    .. math::
-
-    \frac{\partial v^i}{\partial x^j} = \sum_{b}\frac{m_b}{\rho_b}(v_b
-    - v_a)\frac{\partial W_{ab}}{\partial x_a^j}
+    :math:`$\frac{\partial v^i}{\partial x^j} = \sum_{b}\frac{m_b}{\rho_b}(v_b
+    - v_a)\frac{\partial W_{ab}}{\partial x_a^j}$`
 
 
     The tensor properties are stored in the variables v_ij where 'i'
     refers to the velocity component and 'j' refers to the spatial
     component. Thus v_21 is
 
-    .. math::
-
-    \frac{\partial w}{\partial y}
+    :math:`$\frac{\partial w}{\partial y}$`
 
     """
 

@@ -59,7 +59,7 @@ cpdef get_G(K, nu):
 
 cpdef double get_principal_stress_angle2D(double s_00, double s_01,
                                           double s_11, double fac):
-    """ Return the angle in the plane for which shear stresses are zero.
+    r""" Return the angle in the plane for which shear stresses are zero.
 
     .. math::
 
@@ -414,7 +414,7 @@ cdef class StressRateS(DivVStressFunction):
 
 
 cdef class BulkModulusPEqn(SPHFunction):
-    ''' pressure equation P = c_s^2 (rho - rho_0) '''
+    r''' Pressure equation :math:`$P = c_s^2 (\rho - \rho_0)$` '''
     def __init__(self, ParticleArray source, ParticleArray dest=None,
                  bint setup_arrays=True, *args, **kwargs):
         SPHFunction.__init__(self, source, dest, setup_arrays)
@@ -435,7 +435,8 @@ cdef class BulkModulusPEqn(SPHFunction):
 
 
 cdef class MonaghanEOS(SPHFunction):
-    ''' s pressure eqn P = c_s^2 ((rho/rho_0)^gamma - 1)/gamma '''
+    r''' s pressure eqn :math:`$P = c_s^2 ((\rho/\rho_0)^\gamma -
+    1)/\gamma$` '''
     def __init__(self, ParticleArray source, ParticleArray dest=None,
                  bint setup_arrays=True, double gamma=7.0, *args, **kwargs):
         self.gamma = gamma
@@ -902,7 +903,7 @@ cdef class PressureAcceleration2(SPHFunctionParticle):
 # `HookesDeviatoricStressRate` class
 #############################################################################
 cdef class HookesDeviatoricStressRate3D(SPHFunction):
-    """ Compute the RHS for the rate of change of stress equation (3D)
+    r""" Compute the RHS for the rate of change of stress equation (3D)
 
     .. math::
 
@@ -990,7 +991,7 @@ cdef class HookesDeviatoricStressRate3D(SPHFunction):
         self.d_v_22 = self.dest.get_carray("v_22")
 
     def setup_calc_updates(self, calc):
-        """ Setup the updates for the stress variable.
+        r""" Setup the updates for the stress variable.
 
         The stress tensor is written as:
 
@@ -1172,23 +1173,27 @@ cdef class HookesDeviatoricStressRate3D(SPHFunction):
 # `HookesDeviatoricStressRate2D` class
 #############################################################################
 cdef class HookesDeviatoricStressRate2D(SPHFunction):
-    """ Compute the RHS for the rate of change of stress equation (2D)
+    r""" Compute the RHS for the rate of change of stress equation (2D)
 
-    .. math::
+    .. raw:: latex
 
-    \frac{dS^{ij}}{dt} = 2\mu\left(\eps^{ij} -
-    \frac{1}{3}\delta^{ij}\eps^{ij}\right) + S^{ik}\Omega^{jk} +
-    \Omega^{ik}S^{kj}
+      \[
+      \frac{dS^{ij}}{dt} = 2\mu\left(\eps^{ij} -
+      \frac{1}{3}\delta^{ij}\eps^{ij}\right) + S^{ik}\Omega^{jk} +
+      \Omega^{ik}S^{kj}
+      \]
 
     where,
 
-    \eps^{ij} = \frac{1}{2}\left( \frac{\partialv^i}{\partialx^j} +
-                                  \frac{\partialv^j}{\partialx^i} \right )
+    :math:`$\eps^{ij} = \frac{1}{2}\left( \frac{\partialv^i}{\partialx^j} +
+                                  \frac{\partialv^j}{\partialx^i} \right
+                                  )$`
 
     and
 
-    \Omega^{ij} = \frac{1}{2}\left( \frac{\partialv^i}{\partialx^j} -
-                                  \frac{\partialv^j}{\partialx^i} \right )
+    :math:`$\Omega^{ij} = \frac{1}{2}\left( \frac{\partialv^i}{\partialx^j} -
+                                  \frac{\partialv^j}{\partialx^i} \right
+                                  )$`
 
     """
     
@@ -1246,7 +1251,7 @@ cdef class HookesDeviatoricStressRate2D(SPHFunction):
         self.d_v_11 = self.dest.get_carray("v_11")
 
     def setup_calc_updates(self, calc):
-        """ Setup the updates for the stress variable.
+        r""" Setup the updates for the stress variable.
 
         The stress tensor is written as:
 
@@ -1368,13 +1373,12 @@ cdef class HookesDeviatoricStressRate2D(SPHFunction):
 # `MomentumEquationWithStress` class
 #############################################################################
 cdef class MomentumEquationWithStress2D(SPHFunctionParticle):
-    """ Evaluate the momentum equation:
+    r""" Evaluate the momentum equation:
 
-    ..math::
-
+    :math:`$
     \frac{D\vec{v_a}^i}{Dt} = \sum_b
     m_b\left(\frac{\sigma_a^{ij}}{\rho_a^2} +
-    \frac{\sigma_b^{ij}}{\rho_b^2} \right)\nabla_a\,W_{ab}
+    \frac{\sigma_b^{ij}}{\rho_b^2} \right)\nabla_a\,W_{ab}$`
 
     Artificial stress to remove the tension instability is added to
     the momentum equation as described in `SPH elastic dynamics` by
