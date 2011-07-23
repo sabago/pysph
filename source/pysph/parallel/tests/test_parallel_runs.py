@@ -7,6 +7,13 @@ be tested.
 This is done till better strategy for parallel testing is implemented
 """
 
+try:
+    import mpi4py.MPI as mpi
+except ImportError:
+    import nose.plugins.skip as skip
+    reason = "mpi4py not installed"
+    raise skip.SkipTest(reason)
+
 import unittest
 from subprocess import Popen, PIPE
 from threading import Timer

@@ -1,5 +1,8 @@
 """ Tests for the parallel cell manager """
 
+import nose.plugins.skip as skip
+raise skip.SkipTest("Dont run this test via nose")
+
 from pysph.parallel.simple_block_manager import SimpleBlockManager
 from pysph.base.particles import Particles
 from pysph.base.particle_array import get_particle_array
@@ -8,9 +11,6 @@ from pysph.base.point import IntPoint
 import numpy
 import pylab
 import time
-
-import nose.plugins.skip as skip
-raise skip.SkipTest("Dont run this test via nose")
 
 # mpi imports
 from mpi4py import MPI
