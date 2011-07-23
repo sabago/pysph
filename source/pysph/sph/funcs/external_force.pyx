@@ -167,11 +167,10 @@ cdef class MoveCircleY(SPHFunction):
 # `NBodyForce` class.
 ################################################################################
 cdef class NBodyForce(SPHFunctionParticle):
-    """ Compute the force between two particles as
+    r""" Compute the force between two particles as
 
-    ..math::
-
-    \vec{f} = \sum_{j=1}^{N}\frac{m_j}{\norm(x_j-x_i}^3 + \eps} \vec{x_{ji}}
+    :math:`$\vec{f} = \sum_{j=1}^{N}\frac{m_j}{|(x_j-x_i|^3 + \epsilon}
+    \vec{x_{ji}}$`
 
     """
 

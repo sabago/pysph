@@ -20,11 +20,9 @@ cdef class TaitEquation(SPHFunction):
     cdef public double B
 
 cdef class IsothermalEquation(SPHFunction):
-    """ Isothermal equation of state:
+    r""" Isothermal equation of state:
 
-    .. math::
-
-    p = c_0^2(\rho - \rho_0)
+    :math:`$p = c_0^2(\rho - \rho_0)$`
 
     """
     cdef public double co
