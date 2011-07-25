@@ -3,10 +3,7 @@ MAKEFILE = $(ROOT)/Makefile
 SRC = $(ROOT)/source
 PKG = $(SRC)/pysph
 SUBPKG = base sph solver parallel sph/funcs 
-TESTPKG = base sph solver parallel
-TEST = tests
 DIRS := $(foreach dir,$(SUBPKG),$(PKG)/$(dir))
-TESTDIRS := $(foreach dir,$(TESTPKG),$(PKG)/$(dir)/$(TEST))
 
 # this is used for cython files on recursive call to make
 PYX = $(wildcard *.pyx)
@@ -58,7 +55,10 @@ cleanall : clean
 #	-rm $(patsubst %.pyx,%.c,$(wildcard $(PKG)/*/*.pyx))
 
 test :
-	python `which nosetests` --exe  -v $(TESTDIRS)
+	python `which nosetests` --exe -a '!slow' $(PKG)
+
+testall :
+	python `which nosetests` --exe $(PKG)
 
 bench :
 	# try '$$ make bench BENCH="point kernels"' etc to limit the benchmarks run
