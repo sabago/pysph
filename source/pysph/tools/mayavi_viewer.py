@@ -331,6 +331,7 @@ class MayaviViewer(HasTraits):
             return
 
         if self.client is None:
+            self.host_changed = True
             return
 
         controller = self.controller
@@ -393,6 +394,12 @@ class MayaviViewer(HasTraits):
                         'reconnecting: %s'%e)
                 reconnect = True
                 self.client = None
+            else:
+                try:
+                    self.client.controller.get_count()
+                except EOFError:
+                    self.client = None
+                    reconnect = True
 
         if reconnect:
             self.host_changed = False
