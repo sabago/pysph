@@ -330,6 +330,9 @@ class MayaviViewer(HasTraits):
         if self.pause_solver:
             return
 
+        if self.client is None:
+            return
+
         controller = self.controller
         if controller is None:
             return
@@ -382,16 +385,15 @@ class MayaviViewer(HasTraits):
     def _get_controller(self):
         ''' get the controller, also sets the iteration count '''
         reconnect = self.host_changed
-        
         if not reconnect:
             try:
                 c = self.client.controller
-                self.iteration = c.get_count()
             except Exception as e:
-                logger.info('Error: no connection or connection closed: reconnecting:%s'%e)
+                logger.info('Error: no connection or connection closed: '\
+                        'reconnecting: %s'%e)
                 reconnect = True
                 self.client = None
-        
+
         if reconnect:
             self.host_changed = False
             try:
@@ -399,20 +401,25 @@ class MayaviViewer(HasTraits):
                     self.client = MultiprocessingClient(address=(self.host, self.port),
                                                         authkey=self.authkey)
                 else:
-                    logger.info('Could not connect: Multiprocessing Interface not available on %s'%(self.host,self.port))
+                    logger.info('Could not connect: Multiprocessing Interface'\
+                                ' not available on %s:%s'%(self.host,self.port))
                     return None
             except Exception as e:
-                logger.info('Could not connect: check if solver is running:%s'%e)
+                logger.info('Could not connect: check if solver is '\
+                            'running:%s'%e)
                 return None
             c = self.client.controller
             self.iteration = c.get_count()
-        
-        return self.client.controller
+
+        if self.client is None:
+            return None
+        else:
+            return self.client.controller
     
     def _client_changed(self, old, new):
         if self.n_files > -1:
             return
-        if self.client is None:
+        if new is None:
             return
         else:
             self.pa_names = self.client.controller.get_particle_array_names()
@@ -456,7 +463,9 @@ class MayaviViewer(HasTraits):
             self._do_snap()
 
     def _files_changed(self, value):
-        if len(value) > 0:
+        if len(value) == 0:
+            return
+        else:
             d = os.path.dirname(os.path.abspath(value[0]))
             self.movie_directory = os.path.join(d, 'movie')
         self.n_files = len(value) - 1
