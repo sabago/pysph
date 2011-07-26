@@ -397,7 +397,7 @@ class MayaviViewer(HasTraits):
             else:
                 try:
                     self.client.controller.get_count()
-                except EOFError:
+                except IOError:
                     self.client = None
                     reconnect = True
 
