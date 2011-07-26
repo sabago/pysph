@@ -14,8 +14,15 @@ for more information.
 """
 
 from setuptools import find_packages, setup
-from Cython.Distutils import build_ext
-from Cython.Build import cythonize
+HAS_CYTHON=True
+try:
+    from Cython.Distutils import build_ext
+    from Cython.Build import cythonize
+    cmdclass = {'build_ext': build_ext}
+except ImportError:
+    HAS_CYTHON=False
+    cmdclass = {}
+
 from numpy.distutils.extension import Extension
 
 import numpy
@@ -52,6 +59,10 @@ except ImportError:
 cy_directives = {'embedsignature':True,
                  }
 
+C_EXTN = 'c'
+if USE_CPP:
+    C_EXTN = 'cpp'
+
 # cython extension modules (subpackage directory:cython file)
 extensions = {'base': ['carray.pyx',
                        'fast_utils.pyx',
@@ -82,7 +93,6 @@ extensions = {'base': ['carray.pyx',
                             'adke_funcs.pyx',
                             'arithmetic_funcs.pyx',
                             'stress_funcs.pyx',
-                            #'fracture_funcs.pyx',
                             'linalg.pyx',
                             'test_funcs.pyx'
                             ],
@@ -96,19 +106,23 @@ parallel_extensions = {'parallel': ['parallel_controller.pyx',
                                     ],
                        }
 
-ext_modules = []
-for subpkg,files in extensions.iteritems():
-    for filename in files:
-        path = 'pysph/' + subpkg + '/' + filename
-        ext_modules.append(Extension(os.path.splitext(path)[0].replace('/','.'),
-                                     ['source/'+path]))
+def gen_extensions(ext):
+    """Given a dictionary with key package name and value a list of Cython
+    files, return a list of Extension instances."""
+    modules = []
+    for subpkg, files in ext.iteritems():
+        for filename in files:
+            base = os.path.splitext(filename)[0]
+            module = 'pysph.%s.%s'%(subpkg, base)
+            ext = 'pyx'
+            if not HAS_CYTHON:
+                ext = C_EXTN
+            src = 'source/pysph/%s/%s.%s'%(subpkg, base, ext)
+            modules.append(Extension(module, [src]))
+    return modules
 
-par_modules = []
-for subpkg,files in parallel_extensions.iteritems():
-    for filename in files:
-        path = 'pysph/' + subpkg + '/' + filename
-        par_modules.append(Extension(os.path.splitext(path)[0].replace('/','.'),
-                                     ['source/'+path]))
+ext_modules = gen_extensions(extensions)
+par_modules = gen_extensions(parallel_extensions)
 
 
 if HAS_MPI4PY:
@@ -131,7 +145,7 @@ if 'build_ext' in sys.argv or 'develop' in sys.argv or 'install' in sys.argv:
     d = {'__file__':'source/pysph/base/generator.py'}
     execfile('source/pysph/base/generator.py', d)
     d['main'](None)
-    if not platform.system() == "Windows":
+    if HAS_CYTHON and platform.system() != "Windows":
         ext_modules = cythonize(ext_modules,nthreads=ncpu,include_path=inc_dirs)
 
 setup(name='PySPH',
@@ -150,8 +164,8 @@ setup(name='PySPH',
       ext_modules = ext_modules,
       
       include_package_data = True,
-      cmdclass={'build_ext': build_ext},
-      #install_requires=[python>=2.6<3', 'mpi4py>=1.2', 'numpy>=1.0.3', 'Cython>=0.14'],
+      cmdclass=cmdclass,
+      #install_requires=['mpi4py>=1.2', 'numpy>=1.0.3', 'Cython>=0.14'],
       #setup_requires=['Cython>=0.14', 'setuptools>=0.6c1'],
       #extras_require={'3D': 'Mayavi>=3.0'},
       zip_safe = False,
