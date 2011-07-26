@@ -20,7 +20,7 @@ The figure :ref:`image_controller` shows an overview of the classes and objects
 involved in adding an interface to the solver.
 
 .. _image_controller:
-.. figure:: ../images/controller.png
+.. figure:: images/controller.png
     :align: center
     :width: 900
     
@@ -219,7 +219,7 @@ The figure :ref:`fig_html_client` shows a screenshot of the html client
 in action
 
 .. _fig_html_client:
-.. figure:: ../images/html_client.png
+.. figure:: images/html_client.png
     :align: center
     
     PySPH html client using XML-RPC interface
