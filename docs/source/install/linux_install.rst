@@ -113,7 +113,7 @@ like so::
 
 .. _openmpi: http://www.open-mpi.org
 
-.. _mp2: http://www.mcs.anl.gov/research/projects/mpich2
+.. _mpich2: http://www.mcs.anl.gov/research/projects/mpich2
 
 .. _MPI: http://www.mcs.anl.gov/research/projects/mpi
 
@@ -125,6 +125,6 @@ like so::
 
 .. _Mercurial: http://mercurial.selenic.com
 
-.. _SPHINX: http://sphinx.pocoo.org/
+.. _Sphinx: http://sphinx.pocoo.org/
 
 ..  LocalWords:  mpi openmpi Setuptools Virtualenv
