@@ -17,6 +17,15 @@ Welcome to PySPH's documentation!
    application
    solver_interfaces
 
+Tutorials
+====================================
+
+.. toctree::
+   :maxdepth: 2
+   
+   tutorials/index
+   
+   
 Reference Documentation
 =======================
 
