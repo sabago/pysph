@@ -131,7 +131,7 @@ installed, you can view the results interactively::
    $ pysph-viewer
 
 .. _image_controller:
-.. figure:: ../images/pysph-viewer.png
+.. figure:: images/pysph-viewer.png
     :align: center
     :width: 750
 

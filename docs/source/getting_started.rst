@@ -65,7 +65,7 @@ final time. Let's see how to do this in PySPH!
 This example demonstrates the steps used to solve a problem with PySPH.
 
 .. _image_controller:
-.. figure:: ../images/basic-steps.png
+.. figure:: images/basic-steps.png
     :align: center
     :width: 750
 
