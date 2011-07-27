@@ -215,8 +215,8 @@ class PBar(object):
         self.maxval = maxval
         self.show = show 
         if HAS_PBAR and show:
-            widgets = progressbar.default_widgets + \
-                      [progressbar.ETA()]
+            widgets = [progressbar.Percentage(), ' ', progressbar.Bar(),
+                       progressbar.ETA()]
             bar = progressbar.ProgressBar(widgets=widgets,
                                           maxval=maxval).start()
         self.bar = bar
