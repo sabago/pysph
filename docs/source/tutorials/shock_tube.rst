@@ -26,15 +26,15 @@ The conservation equations to be solved, written in SPH form are:
 
 .. math::
 
-   p = \rho(\gamma - 1)u
+   p = \rho(\gamma - 1)e
 
    m_a = \sum_{b=1}^{N} m_b\,W_{ab}
 
-   \frac{Du}{Dt} = -\sum_{b=1}^{N}m_b\left( \frac{P_a}{\rho_a^2} + \frac{P_b}{\rho_b^2} + \Pi_{ab} \right )\,\nabla_a\,W_{ab}
+   \frac{Du_a}{Dt} = -\sum_{b=1}^{N}m_b\left( \frac{P_a}{\rho_a^2} + \frac{P_b}{\rho_b^2} + \Pi_{ab} \right )\,\nabla_a\,W_{ab}
 
-   \frac{De}{Dt} = \frac{1}{2}\sum_{b=1}^{N}m_b\left( \frac{P_a}{\rho_a^2} + \frac{P_b}{\rho_b^2} + \Pi_{ab} \right )\cdot\,\nabla_aW_{ab}
+   \frac{De_a}{Dt} = \frac{1}{2}\sum_{b=1}^{N}m_b\left( \frac{P_a}{\rho_a^2} + \frac{P_b}{\rho_b^2} + \Pi_{ab} \right )\cdot\,\nabla_aW_{ab}
 
-   \frac{D{x}}{Dt} = u
+   \frac{D{x_a}}{Dt} = u_a
 
 These are the equation of state, conservation of mass, conservation of
 momentum, conservation of energy and position stepping equations
@@ -46,12 +46,12 @@ PySPH solution
    
 The code to solve this problem is:
 
-.. sourcecode:: python
+..  sourcecode:: python
 	:linenos:
 
 	import pysph.base.api as base
 	import pysph.solver.api as solver
-	from pysph.base.kernels import CubicSplineKernel
+	import pysph.sph.api as sph
 
 	Fluid = base.Fluid
 
