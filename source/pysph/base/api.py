@@ -18,7 +18,13 @@ from particles import Particles, CLParticles
 
 from point import Point, IntPoint
 
+# ParticleTypes
 from particle_types import ParticleType
+Fluid = ParticleType.Fluid
+Solid = ParticleType.Solid
+Boundary = ParticleType.Boundary
+Probe = ParticleType.Probe
+DummyFluid = ParticleType.DummyFluid
 
 from geometry import MeshPoint, Line, Geometry
 
@@ -31,3 +37,4 @@ from locator import OpenCLNeighborLocator, LinkedListSPHNeighborLocator, \
      AllPairNeighborLocator
 
 from locator import OpenCLNeighborLocatorType
+
