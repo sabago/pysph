@@ -56,6 +56,6 @@ from funcs.stress_funcs import HookesDeviatoricStressRate2D, \
 from funcs.stress_funcs import get_K, get_nu, get_G
 
 # Import test funcs
-from funcs.test_funcs import ArtificialPotentialForce, ArtificialPositionStep
+from funcs.test_funcs import ArtificialPotentialForce
 
 ############################################################################
