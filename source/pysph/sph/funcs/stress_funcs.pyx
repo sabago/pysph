@@ -461,6 +461,7 @@ cdef class MonaghanArtificialStress(SPHFunction):
 
     def __init__(self, ParticleArray source, ParticleArray dest, setup_arrays=True,
                  double eps=0.3, *args, **kwargs):
+
         self.eps = eps
         self.id = "monaghanartstress"
 
@@ -542,6 +543,9 @@ cdef class MonaghanArtificialStress(SPHFunction):
         cdef DoubleArray r_12 = self.dest.get_carray("R_12")
         cdef DoubleArray r_22 = self.dest.get_carray("R_22")
 
+        result[0] = result[1] = result[2] = 0.0
+        result[1] = result[2] = result[3] = 0.0
+
         # setup the iteration data
         self.setup_iter_data()
 
@@ -597,7 +601,7 @@ cdef class MonaghanArtificialStress(SPHFunction):
         # perform the correction
         for i in range(3):
             if (&S.x)[i] > 0:
-                (&Rd.x)[i] = -self.eps * (&S.x)[i]/(rho*rho)
+                (&Rd.x)[i] = -self.eps * (&S.x)[i] * rho2
             else:
                 (&Rd.x)[i] = 0.0
 
@@ -1389,11 +1393,8 @@ cdef class MomentumEquationWithStress2D(SPHFunctionParticle):
 
     def __init__(self, ParticleArray source, ParticleArray dest, 
                  bint setup_arrays=True,
-                 double deltap=0,
+                 deltap=None,
                  double n=1,
-                 double epsp=0.3,
-                 double epsm=0.0,
-                 double theta_factor = 0.0,
                  **kwargs):
         """ Constructor.
 
@@ -1418,19 +1419,16 @@ cdef class MomentumEquationWithStress2D(SPHFunctionParticle):
 
         """
 
-        self.deltap = deltap
         self.with_correction = False
 
-        if deltap < 0:
-            raise RuntimeError("deltap cannot be negative!")        
-
-        if deltap:
+        if deltap is not None:
+            self.deltap = deltap
+            if deltap < 0:
+                raise RuntimeError("deltap cannot be negative!")
+            
             self.with_correction = True
 
-        self.epsp = epsp
-        self.epsm = epsm
-        self.n = 1
-        self.theta_factor = theta_factor
+        self.n = n
 
         self.id = 'momentumequation_withstress'
         self.tag = "velocity"
@@ -1490,7 +1488,7 @@ cdef class MomentumEquationWithStress2D(SPHFunctionParticle):
 
         self.s_R_00 = self.source.get_carray("R_00")
         self.s_R_01 = self.source.get_carray("R_01")
-        self.s_R_10 = self.source.get_carray("R_10")
+        self.s_R_10 = self.source.get_carray("R_01")
         self.s_R_11 = self.source.get_carray("R_11")
 
     cdef void eval_nbr(self, size_t source_pid, size_t dest_pid,

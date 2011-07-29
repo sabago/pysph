@@ -20,8 +20,9 @@ ro = 1.0
 co = numpy.sqrt(K/ro)
 
 deltap = 0.001
-#fac = 1e-6 * ro * co*co
 fac=1e-10
+
+print "co, ro, G = ", co, ro, G
 
 def create_particles(two_arr=False):
     #x,y = numpy.mgrid[-1.05:1.05+1e-4:dx, -0.105:0.105+1e-4:dx]
@@ -127,10 +128,7 @@ s.add_operation(solver.SPHIntegration(
 # momentum equation
 s.add_operation(solver.SPHIntegration(
 
-    sph.MomentumEquationWithStress2D.withargs(theta_factor=fac,
-                                              deltap=deltap, n=4,
-                                              epsp=0.3, epsm=0),
-                                              
+    sph.MomentumEquationWithStress2D.withargs(deltap=deltap, n=4),
     on_types=[Solid,],
     from_types=[Solid,], id="momentum", updates=['u','v'])
 
