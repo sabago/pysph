@@ -13,7 +13,6 @@ Welcome to PySPH's documentation!
 
    PySPH Installation <install/install>
    getting_started
-   overview
    application
    solver_interfaces
 
@@ -24,6 +23,14 @@ Tutorials
    :maxdepth: 2
    
    tutorials/index
+
+Design
+========
+
+.. toctree::
+   :maxdepth: 2
+
+   design/overview
    
    
 Reference Documentation

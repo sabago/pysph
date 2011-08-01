@@ -3,9 +3,8 @@ Getting started
 
 PySPH is a framework for Smoothed Particle Hydrodynamics in `Python
 <http://www.python.org>`_. The framework lets you define arbitrary
-collections of particles and how they interact with each other. All
-you need to do is write a simple python script. Consider the simple
-example.
+collections of particles and how they interact with each other. To get
+a feel for what PySPH can do, consider the following simple example.
 
 ------------------------------
 N-Body simulation using PySPH
@@ -64,52 +63,45 @@ final time. Let's see how to do this in PySPH!
 
 This example demonstrates the steps used to solve a problem with PySPH.
 
-.. _image_controller:
+.. _basic_steps:
 .. figure:: images/basic-steps.png
     :align: center
     :width: 750
 
------------------
-Create Particles
------------------
+-----------------------
+Creating the  Particles
+-----------------------
 
 A particle simulation is governed by a number of particles which have
 properties like mass, density etc. associated with them. The system
 may be heterogeneous in that solid and fluid particles co-exist, each
 having a different set of properties. To satisfy these requirements,
-we represent a homogeneous set of particles in a container
-**ParticleArray** which has an associated type (fluid, solid) and
-property arrays. A **ParticleArray** can be created from Numpy_
-arrays like so .::
+we represent a homogeneous set of particles in a container,
+**ParticleArray**, which has an associated type (fluid, solid) and
+property arrays. A **ParticleArray**, with named properties (x, y...)
+created from Numpy_ arrays like so .::
 
        	pa = base.get_particle_array(name="test", cl_precision="single",
                                      type=Fluid, x=x ...)
 
-**ParticleArrays** are distinguished by the *name* field which
-**must** be unique. We may add, delete, append and extract a 
-subset of the particles. See :doc:`particle_array`
-for more information on the use of **ParticleArray**.
-
+You may define an arbitrary collection of particle arrays with the
+only restriction that the names of each be unique. You may add,
+delete, append and extract a subset of the particles. See
+:doc:`reference/particle_array` for more information on the use of
+**ParticleArray**.
 
 Once we have defined the individual particle arrays, we put them into
-a common container **Partices** which is then passed around to make
+a common container, **Partices**, which is then passed around to make
 access to the arrays easier.::
 
 	particles = base.Particles(arrays=[pa1,pa2,...], 
                                    locator_type=base.NeighborLocatorType.NSquaredNeighborLocator)
 
-We can construct an arbitrary number of arrays and pass it as a list
-to the **Particles**'s constructor.  The constructor also accepts
+The **Particles** constructor (:doc:`reference/particles`)accepts
 arguments for the kind of spatial indexing scheme which is used for
-fast neighbor queries (see :doc:`nnps`). This indexing scheme is used
-to generate a **Locator** which *locates* near particles for a given
-query point.
-
-The default indexing scheme is a box sort with a cell size
-proportional to the particle's smoothing length. For the N-Body
-problem, we do not require any indexing since each particle interacts
-with all the others.
-
+fast neighbor queries. For this example, we need an all-pair neighbor
+locator. See :doc:`design/nnps` for a better understanding of how
+neighbors for a particular particle are sought in PySPH.
 
 --------------------
 Creating the Solver
@@ -123,15 +115,16 @@ type of integration required. ::
 	s = solver.Solver(dim=3, integrator_type=solver.PredictorCorrectorIntegrator)
 
 --------------------
-Add operations
+Adding Operations
 --------------------
 
 The solver constructed can accomplish nothing as it is unaware of the
 particles. Even if it knew about the particles, it couldn't do
 anything with them. This is because we have not told PySPH what the
-particles are going to do. We do this by adding operations to the
-solver which tell PySPH fairly explicitly how the particles are going
-to interact.::
+particles are going to do. That is, how are they going to interact
+with each other. We do this by adding **Operations** to the solver
+which tell PySPH fairly explicitly how the particles are going to
+interact.::
 
 
 	s.add_operation(solver.SPHIntegration
@@ -143,14 +136,15 @@ to interact.::
 			)
 
 We typically add an operation for each equation in the problem
-statement. In our example, we have two. The code above tells PySPH to
-add an integration operation to the system, using the **NBodyForce**
-for the forcing function which updates three variables (u, v, w). 
+statement. In our example, we have two equations and thus, two
+operations. The code above tells PySPH to add an integration operation
+to the system, using the **NBodyForce** for the forcing function which
+updates three variables (u, v, w).
 
 In addition, the *on_types* and *from_types* parameter tell PySPH to:
 
-   "Consider all particle arrays of type *FLUID* for the lhs of the
-    equation (subscript i) and all particle arrays of type *FLUID* for 
+   "Consider all particle arrays of type *Fluid* for the lhs of the
+    equation (subscript i) and all particle arrays of type *Fluid* for 
     the rhs (subscript j) " 
 
 Along similar lines, the second operation could have been added as::
@@ -169,8 +163,11 @@ But we opt for the simpler statement::
 
 which does just that.
 
+See :doc:`design/sph_operations` for the different types of operations
+that can be defined with PySPH.
+
 -------
-solve
+Solve
 -------
 
 Now that the operations are defined, we setup the integrator, solver
@@ -197,10 +194,9 @@ One would run the above script like so::
 But what if we wanted to change the final time or time step for the
 run? If we have a GPU available, we might want to accelerate
 computations by taking advantage of the processing power available to
-us and visualize the results live. It turns out that the Solver is
-configurable from the command through use of the recommended
-application (:doc:`application`) interface.
-
+us. Moreover, we would like to visualize the results live. This and
+many more options are configurable from the command line through the
+use of the recommended application (see :doc:`application`) interface.
 
 .. _PyOpenCL: http://mathema.tician.de/software/pyopencl
 .. _Numpy: http://numpy.scipy.org/
