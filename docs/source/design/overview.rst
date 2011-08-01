@@ -33,8 +33,8 @@ PySPH Design
 
 PySPH attempts to abstract out the operations represented in the
 flowchart. To do this, PySPH is divided into four modules as shown in
-the figure: `pysph_modules`_. The functions of these modules is
-implied by the color scheme used.
+the figure: `pysph_modules`_. The module breakup is implied by the
+color scheme used.
 
 .. _pysph_modules:
 .. figure:: images/pysph-modules.png
@@ -48,8 +48,12 @@ pysph.base
 The :mod:`base` module defines the data structures to hold particle
 information and index the particle positions for fast neighbor queries
 and as such, is the building block for the particle framework that is
-PySPH. As seen in the flowchart (`sph-flowchart`_), the *find neighbors* 
-process is within the inner loop, iterating over each particle.
+PySPH. 
+
+As seen in the flowchart (`sph-flowchart`_), the *find neighbors*
+process is within the inner loop, iterating over each particle. This
+module can be thought of as the *base* over which all of the other
+functionality of PySPH is built.
 
 .. toctree::
    :maxdepth: 2
