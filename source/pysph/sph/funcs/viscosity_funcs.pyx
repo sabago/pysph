@@ -170,6 +170,14 @@ cdef class MorrisViscosity(SPHFunctionParticle):
         Constructor.
         """
 
+        if not ( dest.properties.has_key("mu") ):
+            msg = "Dynamic viscosity not defined for %s"%(dest.name)
+            raise RuntimeError(msg)
+
+        if not ( source.properties.has_key("mu") ):
+            msg = "Dynamic viscosity not defined for %s"%(source.name)
+            raise RuntimeError(msg)
+
         self.mu = mu
         self.id = "morrisvisc"
         self.tag = "velocity"
@@ -222,13 +230,13 @@ cdef class MorrisViscosity(SPHFunctionParticle):
         cdef cPoint rab, va, vb, vab
         cdef double dot
 
-        va = cPoint(self.d_u.data[dest_pid], 
-                   self.d_v.data[dest_pid],
-                   self.d_w.data[dest_pid])
+        va = cPoint_new(self.d_u.data[dest_pid], 
+                        self.d_v.data[dest_pid],
+                        self.d_w.data[dest_pid])
         
-        vb = cPoint(self.s_u.data[source_pid],
-                   self.s_v.data[source_pid],
-                   self.s_w.data[source_pid])
+        vb = cPoint_new(self.s_u.data[source_pid],
+                        self.s_v.data[source_pid],
+                        self.s_w.data[source_pid])
         
         vab = cPoint_sub(va,vb)
         

@@ -27,7 +27,7 @@ cdef class SPHPressureGradient(SPHFunctionParticle):
 
     def __init__(self, ParticleArray source, ParticleArray dest,
                  bint setup_arrays=True, double deltap=-1, double n=1,
-                 double epsp=0.01, double epsm=0.2,
+                 double epsp=0.0, double epsm=0.2,
                  **kwargs):
         
         SPHFunctionParticle.__init__(self, source, dest, setup_arrays,
@@ -125,7 +125,7 @@ cdef class SPHPressureGradient(SPHFunctionParticle):
             else:
                 w = kernel.function(self._dst, self._src, h)
 
-                _ra = cPoint(h *self.deltap, 0.0, 0.0)
+                _ra = cPoint(h*self.deltap, 0.0, 0.0)
                 _rb = cPoint(0.0, 0.0, 0.0)
                 wdeltap = kernel.function(_ra, _rb, h)
                 

@@ -89,11 +89,12 @@ Solid = base.ParticleType.Solid
 #h = 0.0156
 h = 0.0390
 #h = 0.01
-dx = dy = h/1.3
+dx = dy = 0.03
+h = 0.92 * numpy.sqrt(2*dx**2)
 ro = 1000.0
-co = 65.0
+co = 44.294468
 gamma = 7.0
-alpha = 0.5
+alpha = 0.3
 eps = 0.5
 
 fluid_collumn_height = 2.0
@@ -242,12 +243,10 @@ s.add_operation(solver.SPHIntegration(
 s.add_operation_step([Fluid])
 s.add_operation_xsph(eps=eps)
 
-dt = 1.25e-4
+dt = 1e-4
 
 s.set_final_time(3.0)
 s.set_time_step(dt)
-
-
 
 app.setup(
     solver=s,
@@ -258,8 +257,8 @@ app.setup(
     )
 
 # this tells the solver to compute the max time step dynamically
-s.time_step_function = solver.ViscousTimeStep(co=co,cfl=0.3,
-                                              particles=s.particles)
+#s.time_step_function = solver.ViscousTimeStep(co=co,cfl=0.3,
+#                                              particles=s.particles)
 
 #s.time_step_function = solver.ViscousAndForceBasedTimeStep(co=co, cfl=0.3,
 #                                                           particles=s.particles)

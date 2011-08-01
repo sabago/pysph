@@ -72,8 +72,8 @@ The type of a particle array plays an important role in setting up a
 simulation involving multiple arrays with different types. Refer to
 :doc:`particle_types` for a detailed description.
 
-Properties that are constant in space and time for all particles of a
-given type are stored in the *constants* attribute.
+**constants**: Properties that are constant in space and time for all
+  particles of a given type are stored in the *constants* attribute.
 
 **is_dirty**: In PySPH, the indexing scheme for the particles may be
   rendered invalid after updating the particle properties. Moreover,
@@ -92,12 +92,100 @@ given type are stored in the *constants* attribute.
   local, else remote). The *num_real_particles* attributes counts the
   number of properties that have the tag value 0. 			
 
---------------
-Data bufers
---------------
+---------------------------
+Data buffers and the carray
+---------------------------
 
-The :class:`carray` object serves as the data buffer for a particle
-property. A single :class:`carray` is created for each property
-requested
+The numpy arrays that are used to create the :class:`ParticleArray`
+object are used to construct a raw data buffer which is accessible
+through Cython at C speed. Internally, each property for the particle
+array is stored as a :class:`carray`. 
+
+.. note::
+
+   This discussion may be omitted by the casual end user. If you are
+   extending PySPH and speed is a concern, read on.
+
+Each :class:`carray` has an associated data type corresponding to the
+particle property. The available types are:
+
+ * IntArray
+ * LongArray
+ * FloatArray
+ * DoubleArray
+
+The type of a :class:`carray` may be determined via it's
+:func:`get_c_type` method.
+
+The :class:`carray` object provides faster access to the data when
+compared with the corresponding numpy arrays, even in Python. Particle
+properties may be accessed using the following methods:
+
+.. function:: get(i)
+   :noindex:
+
+   Get the element at the specified index.
+
+.. function:: set(i, val)
+   :noindex:
+
+   Set the element at the specified index to the given value. The
+   value must be of the same c-type as the array.
+
+^^^^^^^^^^^^^^^^^^^^^^^^^^
+Faster buffer access 
+^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+As mentioned, the data represented by a :class:`carray` may be
+accessed at C speed using Cython. This is done using the *data*
+attribute only accessible through Cython::
+
+	  arr = pa.get_carray(prop)
+	  val =  arr.data[index]
+
+Peep into the functions (:mod:`sph.funcs`) to learn how to use this
+feature.
+
+---------
+Particles
+---------
+
+Since PySPH supports an arbitrary number of :class:`ParticleArray`
+objects, it would be convenient to group them all together into a
+single container. This way, common functions like updating the
+indexing scheme (for particle arrays that are *dirty*) may be called
+consistently on each array. This is accomplished by the object
+:class:`Particles`:
+
+.. class:: Particles(arrays[, locator_type])
+
+   .. attribute:: arrays : A list of ParticleArray objects
+
+You must provide an instance of :class:`Particles` to PySPH to carry
+out a simulation.
+
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+Specifying an indexing scheme
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+Upon creation of a :class:`Particles` instance, we can pass arguments
+to indicate the kind of spatial indexing scheme to use. The default is
+a box sort algorithm (see :doc:`nnps`). Currently, this is the only
+indexing scheme implemented.
+
+See the reference documentation :doc:`../reference/partilces` for a
+further description.
+
+------------
+Summary
+------------
+
+In PySPH, a :class:`ParticleArray` object may be instantiated from
+numpy arrays. We may use an arbitrary collection of these objects with
+the only restriction that their *names* are unique.  The
+:class:`ParticleArray` objects are grouped together to form a
+:class:`Particles` object which is used by PySPH. This container may
+be heterogeneous in that different particle arrays correspond to
+different *types*.
 
 ..  LocalWords:  ParticleArray num deault carray
