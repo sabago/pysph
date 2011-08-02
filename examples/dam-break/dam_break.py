@@ -86,24 +86,22 @@ from pysph.tools import geometry_utils as geom
 Fluid = base.ParticleType.Fluid
 Solid = base.ParticleType.Solid
 
-#h = 0.0156
-h = 0.0390
-#h = 0.01
-dx = dy = 0.03
-h = 0.92 * numpy.sqrt(2*dx**2)
-ro = 1000.0
-co = 44.294468
-gamma = 7.0
-alpha = 0.3
-eps = 0.5
-
 fluid_column_height = 2.0
 fluid_column_width  = 1.0
 container_height = 3.0
 container_width  = 4.0
 
-B = co*co*ro/gamma
+#h = 0.0156
+h = 0.0390
+#h = 0.01
+dx = dy = 0.03
+ro = 1000.0
+co = 10.0 * numpy.sqrt(2*9.81*fluid_column_height)
+gamma = 7.0
+alpha = 0.3
+eps = 0.5
 
+B = co*co*ro/gamma
 
 def get_boundary_particles():
     """ Get the particles corresponding to the dam and fluids """
@@ -171,8 +169,7 @@ def get_particles(**args):
     return [fluid, boundary]
 
 
-#app = solver.Application()
-
+app = solver.Application()
 
 integrator_type = solver.PredictorCorrectorIntegrator
 s = solver.Solver(dim=2, integrator_type=integrator_type)
@@ -257,8 +254,8 @@ app.setup(
     )
 
 # this tells the solver to compute the max time step dynamically
-#s.time_step_function = solver.ViscousTimeStep(co=co,cfl=0.3,
-#                                              particles=s.particles)
+s.time_step_function = solver.ViscousTimeStep(co=co,cfl=0.3,
+                                              particles=s.particles)
 
 #s.time_step_function = solver.ViscousAndForceBasedTimeStep(co=co, cfl=0.3,
 #                                                           particles=s.particles)
@@ -273,4 +270,4 @@ predictor corrector integrator for this example.\n\n
     warnings.warn(msg)
     integrator_type = solver.EulerIntegrator
 
-#app.run()
+app.run()
