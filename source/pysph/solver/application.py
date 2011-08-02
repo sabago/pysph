@@ -128,12 +128,12 @@ class Application(object):
                           dest="final_time",
                           default=None,
                           help="Total time for the simulation.")
-        # --time-step
-        parser.add_option("--time-step", action="store",
+        # --timestep
+        parser.add_option("--timestep", action="store",
                           type="float",
                           dest="time_step",
                           default=None,
-                          help="Time-step to use for the simulation.")
+                          help="Timestep to use for the simulation.")
         # -q/--quiet.
         parser.add_option("-q", "--quiet", action="store_true",
                          dest="quiet", default=False,
@@ -187,12 +187,12 @@ class Application(object):
                           simulation on an appropriate device """)
 
         # --arrays_to_print
-        parser.add_option("--arrays_to_print", action="callback",
-                          callback=list_option_callback,
-                          dest="arrays_to_print",
-                          type="string",
-                          help="""Only print solution properties for this list
-                          of arrays""")
+        # parser.add_option("--arrays_to_print", action="callback",
+        #                   callback=list_option_callback,
+        #                   dest="arrays_to_print",
+        #                   type="string",
+        #                   help="""Only print solution properties for this list
+        #                   of arrays""")
 
         # --parallel-mode
         parser.add_option("--parallel-mode", action="store",
@@ -528,7 +528,7 @@ class Application(object):
         solver.setup(self.particles)
 
         # print options for the solver
-        solver.set_arrays_to_print(options.arrays_to_print)
+        #solver.set_arrays_to_print(options.arrays_to_print)
         
         # add solver interfaces
         self.command_manager = CommandManager(solver, self.comm)

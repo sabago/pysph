@@ -78,8 +78,8 @@ may be heterogeneous in that solid and fluid particles co-exist, each
 having a different set of properties. To satisfy these requirements,
 we represent a homogeneous set of particles in a container,
 **ParticleArray**, which has an associated type (fluid, solid) and
-property arrays. A **ParticleArray**, with named properties (x, y...)
-created from Numpy_ arrays like so .::
+property arrays. A **ParticleArray**, with named properties (x,
+y...)is created from Numpy_ arrays like so .::
 
        	pa = base.get_particle_array(name="test", cl_precision="single",
                                      type=Fluid, x=x ...)
@@ -91,7 +91,7 @@ delete, append and extract a subset of the particles. See
 **ParticleArray**.
 
 Once we have defined the individual particle arrays, we put them into
-a common container, **Partices**, which is then passed around to make
+a common container, **Particles**, which is then passed around to make
 access to the arrays easier.::
 
 	particles = base.Particles(arrays=[pa1,pa2,...], 
@@ -194,7 +194,7 @@ One would run the above script like so::
 But what if we wanted to change the final time or time step for the
 run? If we have a GPU available, we might want to accelerate
 computations by taking advantage of the processing power available to
-us. Moreover, we would like to visualize the results live. This and
+us. Moreover, we would like to visualize the results live. These and
 many more options are configurable from the command line through the
 use of the recommended application (see :doc:`application`) interface.
 
