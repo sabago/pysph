@@ -2,18 +2,33 @@
 Using the PySPH Application interface
 =============================================
 
+While investigating a problem, it is often useful to consider slight
+numerical variations. These may be in the form of a parameter study,
+convergence study as the resolution is increased, a different
+integration scheme or as in the case with SPH, a different kernel
+function.
+
+The :mod:`solver` module (:doc:`design/solver`) is entirely
+configurable in this respect, but must be manually *re-configured* for
+each separate case. This leads to a tedious cycle of editing the code
+to the particular requirements and then re-running the case, which
+leaves the door ajar to possible errors.
+
 PySPH provides a powerful feature called the Application Interface
 which provides full control of the solver parameters via a command
-line interface. Moreover, you can launch the same code on a serial
-machine, a distributed computing environment (MPI) or on a GPU using
-PyOpenCL.
+line interface. This saves time while varying parameters and does away
+with the error prone edit-rerun cycle.
 
-----------------
-Serial runs
-----------------
+Moreover, with the help of the application interface, you can launch
+the same code on a serial machine, a distributed computing environment
+(MPI) or on a GPU using PyOpenCL.
 
-We continue with the :doc:`getting_started` example to demonstrate the
-use of the Application interface.
+-------------------------------
+N-Body problem revisited
+-------------------------------
+
+Consider once again, the N-Body problem as described in the
+:doc:`getting_started` guide.
 
 .. code-block:: python
     :linenos:
@@ -57,71 +72,217 @@ use of the Application interface.
               cl_locator_type=base.OpenCLNeighborLocatorType.AllPairNeighborLocator)
     app.run()
 
+We remark that the code is essentially identical to the one presented
+earlier. We elaborate on the differences. Read the
+:doc:`getting_started` guide for a general description of the code.
 
-In this example we construct an application instance and tell it that
-we want to process any command line arguments as::
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+The *create_particles* function
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+As opposed to the previous example, we require, that the code to
+generate the :class:`Particles` object is put into a function:
+
+.. function:: create_particles(**kwargs) -> list of ParticleArray objects
+
+The function **must** accept arbitrary keyword arguments. This is
+because the application will, at some point call this function for us
+and pass in a big list of keyword arguments, some of which are needed
+for the function (to change the particle resolution etc.). Although not
+shown for the example here, the function should check for the required
+arguments and raise an error if something is awry.
+
+The function returns a list of :class:`ParticleArray` objects which
+will be used in the simulation (see
+:doc:`../design/working_with_particles`)
+
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+Instantiating the  Application
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+To use the application interface, you must instantiate an
+:class:`Application` object::
 
    app = solver.Application()
 
-We then create the solver and setup the operations.  Finally, we setup
-the application by giving it the solver and then provide it a callable
-which will create a list of **ParticleArray** instances that represents
-all the ParticleArrays in our simulation::
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+Setting up the application
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+The :class:`Application` object defines a setup method,
+
+.. method:: setup(solver, create_particles[, locator_type])
+
+which must be called after the operations are added to the
+solver. Notice that our function to generate the particles is passed
+as an argument. The :class:`Application` instance will create the
+particles, passing any additional arguments to this function.
+
+PySPH is ready to solve the problem after a call to this function. The
+:class:`Particles` instance is created and all solver parameters are
+configured.::
 
     app.setup(solver=s, create_particles=get_particles,
               locator_type=base.NeighborLocatorType.NSquareNeighborLocator,
               cl_locator_type=base.OpenCLNeighborLocatorType.AllPairNeighborLocator)
 
+^^^^^^^^^^^^^^^^^^^^^^^
+Running the example
+^^^^^^^^^^^^^^^^^^^^^^^
 
-here *get_particles* is any function that will return a list of
-**ParticleArrays** that will be used in the simulation. This list is
-used to construct the cell indexing scheme used for the simulation and
-we pass in extra arguments to determine how this scheme is to be
-constructed.
+We run the example by calling the :class:`Application` object's
+:func:`run` method::
 
-In the example above, we tell the application that we use an n-square
-algorithm for the neighbors of a particle. The other available
-locators are defined in the nnps module.
+		   app.run()
 
-We then proceed to define the **Solver** and add the Operations like
-before. To run the application, we call it's *run* method like::
+---------------------------
+Command line arguments
+---------------------------
 
-    app.run()
+For any example that uses the application interface, a list of all
+valid command line options can be obtained like so::
 
-The above script can now be invoked from the command line like::
+      $ python example.py -h
+
+As mentioned earlier, the application can be used to tune all
+parameters of the :class:`Solver` object. This includes logging,
+time-step control, integration method, parallel solution method and
+file output. 
+
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+Logging and verbosity
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+These options can be used to control the logging output from PySPH.
+
+.. cmdoption:: -v : Set the logging verbosity level. Valid values : [info, none, warning, critical, error]
+   	       	
+.. cmdoption:: -q : Quiet mode. Do not print any progress information.
+
+.. cmdoption:: -l : Print log messages to stderr.
+
+.. cmdoption:: --logfile : Set the logfile to use.
+
+^^^^^^^^^^^^^^^^^^^^^^^^^
+Time step control
+^^^^^^^^^^^^^^^^^^^^^^^^^
+
+The final time and the time-step for a simulation may be set using the
+following options:
+
+.. cmdoption:: --final-time: Set the final time for the simulation
+
+.. cmdoption:: --timestep : Set the time step for the simulation.
+
+.. note:: 
+   For problems that compute a dynamic time step based, the *timestep* option
+   is redundant.
+
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+Controlling the solution output
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+The output files produced by output have the following components:
+ * filename : The base file name for the problem
+ * pid : The processor id that produced this output.
+ * iteration : The iteration count for the output.
+
+Using this, the output file produced is *filename_pid_iteration.npz*.
+
+It is important to understand the output generated by PySPH. See
+:doc:`design/output` for a complete description. The following options
+can be used to fine tune the output:
+
+.. cmdoption:: -o : Filename to use for the output.
+
+   By default, PySPH will use the file name of the example (without
+   the .py extension) for the name of the output file. 
+
+.. cmdoption:: -d, --detailed-output: Perform detailed output
+
+   All particle properties that begin with an underscore are
+   considered private and ignored for output. Use this option to force
+   PySPH to print these variables as well.
+
+.. cmdoption:: --directory: The output directory for file output. Defaults to filename_output in the working directory.
+
+.. cmdoption:: --output-freq : Iteration count between successive file output.
+
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+Setting the SPH kernel and integration method
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+.. cmdoption:: -k, --kernel-correction : Use kernel correction. Valid values: [0: Bonnet and Lok kernel correction]
+
+.. cmdoption:: --kernel : The SPH kernel function to use. Valid values: [CubicSplineKernel, GaussianKernel, QuinticSplineKernel, HarmonicKernel]
+
+.. cmdoption:: --integration: Integration method to use. Valid values: [EulerIntegrator, RK2Integrator, RK4Integrator, PredictorCorrectorIntegrator]
+
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+Parallel mode and OpenCL
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+PySPH may be run in a distributed computing environment using mpi4py,
+where on each node we can use PyOpenCL to accelerate computations. See
+:doc:`design/parallel` for a complete description of the parallel
+architecture. The following options may be used to choose the
+parallel strategy
+
+.. cmdoption:: --cl : Use PyOpenCL locally for the computations. Will raise an error if PyOpenCL is not available.
+
+.. cmdoption:: --parallel-mode : Set the parallel neighbor distribution strategy. Valid values: [simple, block]
+
+.. cmdoption:: --parallel-output-mode : Set how the output is generated in parallel. Valid values: [collected, distributed]
+
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+Resuming runs
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+PySPH supports a job restart with the following option.
+
+.. cmdoption:: --resume : Resume the run from a specified iteration count. If '?' is passed, a list of valid iteration counts is printed.
+
+---------------------------
+Visualization with Mayavi
+---------------------------
+
+As was mentioned earlier, the use of the application enables us to
+launch the script in our choice of computing environment. The script
+can be invoked from the command line in one of the following ways.
+
+To launch the script on a single machine::
 
     $ python nbody.py [options]
 
-To list the available options, you can run it like so::
+To launch the script using MPI::
 
-   $ python nbody.py -h
+   $ mpirun -n 4 <path_to_python> nbody.py
 
----------------------------
-Parallel runs
----------------------------
 
-The advantage of the above script is that we can run the same code in
-serial or parallel depending on the command used to invoke the script.
+To launch the script using PyOpenCL::
 
-To run an example using `n` jobs with MPI::
-
-   $ mpirun -n <n> python nbody.py
-
-To run the example using OpenCL::
-
-   $ pythonn nbody.py --cl
+   $ python nbody.py --cl
 
 If you have `Mayavi
 <http://code.enthought.com/projects/mayavi>`_
-installed, you can view the results interactively::
+installed, you can view the results interactively whilst the simulation 
+is running::
 
    $ pysph-viewer
 
-.. _image_controller:
+which launches a viewer as shown in the figure.
+
+.. _figure_pysph-viewer:
 .. figure:: images/pysph-viewer.png
     :align: center
     :width: 750
 
-See :doc:`solver_interfaces` for a description of the viewer.
+If you want to view the results of a completed simulation, you can use
+the viewer like so::
 
-.. _N-Body: getting_started
+    $ cd nbody_output
+    $ pysph_viewer *.npz
+
+Now, using the saved result files, you can inspet the results and/or
+create an animation. See :doc:`pysph_viewer` for a complete
+description of the viewer.
