@@ -17,7 +17,7 @@ problem is well known. It consists of a shock wave moving to the
 right, a contact discontinuity moving with the speed of the fluid to
 the right and a rarefaction moving to the left as shown in the figure.
 
-.. _image_controller:
+.. _shock_exact:
 .. figure:: images/shock-exact.png
     :align: center
     :width: 500
@@ -125,7 +125,7 @@ The code to solve this problem is:
 We compare the results obtained using PySPH with those obtained using
 Clawpack_:
 
-.. _image_controller:
+.. _shock-tube-solution:
 .. figure:: images/shock-tube-solution.png
     :align: center
     :width: 500

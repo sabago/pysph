@@ -45,8 +45,8 @@ Numerical Parameters:
 h = 0.05
 dx = dy = h/1.25 = 0.04
 
-Height of Water collumn = 2m
-Length of Water collumn = 1m
+Height of Water column = 2m
+Length of Water column = 1m
 
 Number of fluid particles = 1250
 
@@ -78,8 +78,8 @@ gamma = 7.0
 alpha = 0.5
 eps = 0.5
 
-fluid_collumn_height = 2.0
-fluid_collumn_width  = 1.0
+fluid_column_height = 2.0
+fluid_column_width  = 1.0
 container_height = 3.0
 container_width  = 4.0
 
