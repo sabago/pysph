@@ -1,6 +1,10 @@
 ==============================
-Solving the Dam Break Problem
+Moving on
 ==============================
+
+--------------------------------
+Solving the dam break problem
+--------------------------------
 
 In the :doc:`getting_started` guide, we saw how to setup a simple
 problem (N-Body problem) in PySPH. In :doc:`application`, we solved
@@ -9,9 +13,9 @@ convenient way to visualize results using the Mayavi particle viewer.
 We now proceed to solve the dam break problem using PySPH.
 
 
--------------------------------
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 Problem specification
--------------------------------
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 The initial configuration for the problem is shown in the figure:
 
@@ -27,9 +31,9 @@ it's own weight and the effect of gravity. This and other variants os
 the dam break problem can be found in the *examples/dam-break*
 directory of PySPH.
 
------------
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 Equations
------------
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 The equations to be solved are
 
@@ -53,9 +57,9 @@ The equations to be solved are
 
    \frac{D\vec{x_a}}{Dt} = \vec{v_a}
 
---------------------
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 Boundary Conditions
---------------------
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 The dam break problem involves two *types* of particles. Namely,
 *Fluid* (water column) and *Solid* (tank). The basic boundary
@@ -81,9 +85,9 @@ increased density and consequently increased pressure, the boundary
 particles express a repulsive force on the fluid particles, thereby
 enforcing the no-penetration condition.
 
------------------------
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 PySPH solution
------------------------
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 The code to solve the problem is shown below
 
