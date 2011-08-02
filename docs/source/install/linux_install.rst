@@ -1,12 +1,12 @@
 .. _linux_install:
 
-===========================
+--------------------------
 Linux Installation
-===========================
+--------------------------
 
-++++++++++++++++++++++++++++++++++
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 Supported Platforms
-++++++++++++++++++++++++++++++++++
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 PySPH is tested on the following operating system versions:
 
@@ -14,9 +14,9 @@ PySPH is tested on the following operating system versions:
 +     Fedora (14) 64 bit
 
 
-++++++++++++++++++++++++++++++++++++
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 Dependencies
-++++++++++++++++++++++++++++++++++++
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 The following packages need to be installed on your system. Contact
 your system administrator if you do not have administrative rights.
@@ -31,9 +31,9 @@ For Ubuntu systems, you can install these like so::
 
     sudo apt-get install python-setuptools python-virtualenv mercurial openmpi libopenmpi-dev python-numpy
 
-++++++++++++++++++++++++++++++++++++++++
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 Setting up your environment
-++++++++++++++++++++++++++++++++++++++++
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 We recommend using a virtual environment for your PySPH installation so
 that all PySPH specific dependencies do not interfere with other
@@ -51,9 +51,9 @@ python specific dependencies like so::
        easy_install cython nose sphinx mpi4py mayavi2
 
 
-++++++++++++++++++++++++++++++++++++++++
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 Installing PySPH
-++++++++++++++++++++++++++++++++++++++++
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 Assuming all the previous steps completed without any error, you can
 download PySPH and install it like so::
@@ -70,9 +70,9 @@ download PySPH and install it like so::
    you may need to unload the mpich2 module and load the openmpi
    module.
 
-++++++++++++++++++++++++++++++++++++++++
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 Running the tests
-++++++++++++++++++++++++++++++++++++++++
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 We recommend you test the fitness of your PySPH installation by
 running the test suite::
@@ -81,9 +81,9 @@ running the test suite::
 
 All tests should pass apart from a few which are marked as skipped.
 
-++++++++++++++++++++++++++++++++++++++++
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 Running the examples
-++++++++++++++++++++++++++++++++++++++++
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 You can now run the examples like so::
 
@@ -99,9 +99,9 @@ parallel like so::
 The output for the example will be in the directory
 `stress2d_balls_output` by default.
 
-++++++++++++++++++++++++++++++++++++++++
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 Building the docs
-++++++++++++++++++++++++++++++++++++++++
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 PySPH uses the Sphinx_ documentation system. The docs can be built
 like so::

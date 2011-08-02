@@ -1,5 +1,6 @@
-Getting started
-===============
+=============================
+Starting off
+=============================
 
 PySPH is a framework for Smoothed Particle Hydrodynamics in `Python
 <http://www.python.org>`_. The framework lets you define arbitrary
@@ -68,9 +69,9 @@ This example demonstrates the steps used to solve a problem with PySPH.
     :align: center
     :width: 750
 
------------------------
+^^^^^^^^^^^^^^^^^^^^^^^
 Creating the  Particles
------------------------
+^^^^^^^^^^^^^^^^^^^^^^^
 
 A particle simulation is governed by a number of particles which have
 properties like mass, density etc. associated with them. The system
@@ -103,9 +104,9 @@ fast neighbor queries. For this example, we need an all-pair neighbor
 locator. See :doc:`design/nnps` for a better understanding of how
 neighbors for a particular particle are sought in PySPH.
 
---------------------
+^^^^^^^^^^^^^^^^^^^^^^
 Creating the Solver
---------------------
+^^^^^^^^^^^^^^^^^^^^^^
 
 Now that we have the particles and a means to get neighbors, we
 construct a **Solver** instance, which is used to drive the
@@ -114,9 +115,9 @@ type of integration required. ::
 
 	s = solver.Solver(dim=3, integrator_type=solver.PredictorCorrectorIntegrator)
 
---------------------
+^^^^^^^^^^^^^^^^^^^^^^
 Adding Operations
---------------------
+^^^^^^^^^^^^^^^^^^^^^^
 
 The solver constructed can accomplish nothing as it is unaware of the
 particles. Even if it knew about the particles, it couldn't do
@@ -166,9 +167,9 @@ which does just that.
 See :doc:`design/sph_operations` for the different types of operations
 that can be defined with PySPH.
 
--------
+^^^^^^^^
 Solve
--------
+^^^^^^^^
 
 Now that the operations are defined, we setup the integrator, solver
 constants and run::
@@ -179,9 +180,9 @@ constants and run::
 	
 	s.solve()
 
--------
+^^^^^^^^
 Summary
--------
+^^^^^^^^
 
 In this example, we created a set of particles in PySPH using a
 ParticleArray, constructed a Solver and added Operations to the Solver

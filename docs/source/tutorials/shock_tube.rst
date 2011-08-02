@@ -1,8 +1,8 @@
 .. _shock_tube:
 
-===========================
+---------------------------
 One dimensional shock tube
-===========================
+---------------------------
     
 SPH was developed as a scheme to solve problems in astrophysics and
 one of the first extensions of the scheme was to solve the shock tube
@@ -40,9 +40,9 @@ These are the equation of state, conservation of mass, conservation of
 momentum, conservation of energy and position stepping equations
 respectively.
 
-===================================
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 PySPH solution
-===================================
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
    
 The code to solve this problem is:
 
