@@ -55,8 +55,8 @@ Numerical Parameters:
 dx = dy = 0.012m
 h = 0.0156 => h/dx = 1.3
 
-Height of Water collumn = 2m
-Length of Water collumn = 1m
+Height of Water column = 2m
+Length of Water column = 1m
 
 Number of particles = 27639 + 1669 = 29308
 
@@ -97,8 +97,8 @@ gamma = 7.0
 alpha = 0.3
 eps = 0.5
 
-fluid_collumn_height = 2.0
-fluid_collumn_width  = 1.0
+fluid_column_height = 2.0
+fluid_column_width  = 1.0
 container_height = 3.0
 container_width  = 4.0
 
@@ -137,13 +137,13 @@ def get_boundary_particles():
 def get_fluid_particles():
     
     xf1, yf1 = geom.create_2D_filled_region(x1=dx, y1=dx,
-                                            x2=fluid_collumn_width,
-                                            y2=fluid_collumn_height,
+                                            x2=fluid_column_width,
+                                            y2=fluid_column_height,
                                             dx=dx)
 
     xf2, yf2 = geom.create_2D_filled_region(x1=dx/2, y1=dx/2,
-                                            x2=fluid_collumn_width,
-                                            y2=fluid_collumn_height,
+                                            x2=fluid_column_width,
+                                            y2=fluid_column_height,
                                             dx=dx)
     
 
@@ -171,7 +171,7 @@ def get_particles(**args):
     return [fluid, boundary]
 
 
-app = solver.Application()
+#app = solver.Application()
 
 
 integrator_type = solver.PredictorCorrectorIntegrator
@@ -273,4 +273,4 @@ predictor corrector integrator for this example.\n\n
     warnings.warn(msg)
     integrator_type = solver.EulerIntegrator
 
-app.run()
+#app.run()

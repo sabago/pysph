@@ -55,8 +55,8 @@ Numerical Parameters:
 dx = dy = 0.012m
 h = 0.0156 => h/dx = 1.3
 
-Height of Water collumn = 2m
-Length of Water collumn = 1m
+Height of Water column = 2m
+Length of Water column = 1m
 
 Number of particles = 27639 + 1669 = 29308
 
@@ -96,8 +96,8 @@ gamma = 7.0
 alpha = 0.5
 eps = 0.5
 
-fluid_collumn_height = 2.0
-fluid_collumn_width  = 1.0
+fluid_column_height = 2.0
+fluid_column_width  = 1.0
 container_height = 3.0
 container_width  = 4.0
 
@@ -131,11 +131,11 @@ def get_boundary_particles():
 
 def get_fluid_particles():
     
-    xf1, yf1, zf1 = geom.create_3D_filled_region(dx, dx, dx,fluid_collumn_width, fluid_collumn_height,
-                                                 fluid_collumn_width/2, dx)
+    xf1, yf1, zf1 = geom.create_3D_filled_region(dx, dx, dx,fluid_column_width, fluid_column_height,
+                                                 fluid_column_width/2, dx)
 
-    xf2, yf2, zf2  = geom.create_3D_filled_region(dx/2, dx/2, dx/2, fluid_collumn_width, fluid_collumn_height,
-                                                  fluid_collumn_width/2, dx)
+    xf2, yf2, zf2  = geom.create_3D_filled_region(dx/2, dx/2, dx/2, fluid_column_width, fluid_column_height,
+                                                  fluid_column_width/2, dx)
 
     x = numpy.concatenate((xf1, xf2))
     y = numpy.concatenate((yf1, yf2))

@@ -9,15 +9,29 @@ Welcome to PySPH's documentation!
 =================================
 
 .. toctree::
+   :maxdepth: 3
+
+**********************************
+Installation
+**********************************
+.. toctree::
    :maxdepth: 2
 
    PySPH Installation <install/install>
+
+***********************************
+Getting started
+***********************************
+.. toctree::
+   :maxdepth: 2
+
    getting_started
    application
-   solver_interfaces
+   Solving the dam break problem <dam_break_problem>
 
-Tutorials
-====================================
+************************************
+Tutotials
+************************************
 
 .. toctree::
    :maxdepth: 2

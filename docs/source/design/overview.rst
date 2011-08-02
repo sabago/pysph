@@ -78,3 +78,8 @@ The :mod:`solver` module is used to drive the simulation via the
 `sph-flowchart`_). Other functions like computing the new time step
 and saving output (not shown in the flowchart) are also under the
 ambit of the :mod:`solver` module.
+
+.. toctree::
+   :maxdepth: 2
+
+   solver_interfaces
