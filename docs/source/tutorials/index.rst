@@ -1,12 +1,8 @@
 .. _tutorial_index:
 
-===================
-PySPH Tutorials
-===================
-
-
 .. toctree::
+   :maxdepth: 3
 
-   Shock Tube Problems <shock_tube>
+   Shock tube <shock_tube>
    Dam Break Problems <dam_break>
    Stress Problems <stress>

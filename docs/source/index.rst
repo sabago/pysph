@@ -15,14 +15,6 @@ Installation
 
    PySPH Installation <install/install>
 
-***********************************
-Getting started
-***********************************
-.. toctree::
-   :maxdepth: 3
-
-   intro/index
-
 ************************************
 Tutotials
 ************************************
@@ -31,6 +23,14 @@ Tutotials
    :maxdepth: 3
    
    tutorials/index
+
+***********************************
+Getting started
+***********************************
+.. toctree::
+   :maxdepth: 3
+
+   intro/index
 
 ************************************
 Design
