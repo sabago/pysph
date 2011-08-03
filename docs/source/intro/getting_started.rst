@@ -64,10 +64,13 @@ final time. Let's see how to do this in PySPH!
 
 This example demonstrates the steps used to solve a problem with PySPH.
 
-.. _basic_steps:
+.. _basic-steps:
+
 .. figure:: images/basic-steps.png
     :align: center
     :width: 750
+
+    Basic steps to solve a problem using PySPH
 
 ^^^^^^^^^^^^^^^^^^^^^^^
 Creating the  Particles
