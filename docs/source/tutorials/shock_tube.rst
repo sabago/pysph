@@ -1,34 +1,74 @@
 .. _shock_tube:
 
----------------------------
-One dimensional shock tube
----------------------------
+===============================
+The shock tube problem
+===============================
     
-SPH was developed as a scheme to solve problems in astrophysics and
-one of the first extensions of the scheme was to solve the shock tube
-problem [Monaghan1983]_. 
+The shock tube problem was one of the first extensions of SPH outside
+the field of astrophysics, for which it was developed
+[Monaghan1983]_. The equations solved are the inviscid Navier Stokes
+equations or the Euler equations. The shock tube problem is the
+starting point for schemes that attempt to resolve discontinuities
+like shocks and entropy waves.
 
-The problem consists of a quiescent mass of fluid initially separated
-by a diaphragm. The fluid state on the left is hotter ad denser than
-that on the right. At the start of the simulation, the diaphragm is
-punctured. The fluid is assumed to be inviscid and is governed by the
-Euler equations of gas dynamics. The exact solution to the shock tube
-problem is well known. It consists of a shock wave moving to the
-right, a contact discontinuity moving with the speed of the fluid to
-the right and a rarefaction moving to the left as shown in the figure.
+.. _euler-equations:
+
+----------------------------------
+Problem definition
+----------------------------------
+
+The shock tube problem consists of a tube of fluid that is initially
+at rest. A central diaphragm in the tube separates two states of the
+fluid. The fluid to the left has a higher pressure and energy as
+compared with the fluid on the right. We study the evolution of the
+fluid as the diaphragm is ruptured instantaneously.
+
+The exact solution to this problem is known.. It consists of a shock
+wave moving to the right, a contact discontinuity moving with the
+speed of the fluid to the right and a rarefaction moving to the left
+as shown in the figure.
 
 .. _shock_exact:
 .. figure:: images/shock-exact.png
     :align: center
-    :width: 500
+    :width: 350
 
-The conservation equations to be solved, written in SPH form are:
+
+The continuous form of the Euler equations are:
+
+the continuity equation:
+
+.. math::
+
+    \frac{D\rho}{Dt} = -\rho\nabla \, \cdot \vec{v},
+
+the momentum equation:
+
+.. math::
+   \frac{D\vec{v}}{Dt} = -\frac{1}{\rho}\nabla(P),
+
+the thermal energy equation:
+
+.. math::
+   \frac{De}{Dt} = -\left( \frac{P}{\rho} \right)\,\nabla\,\cdot \vec{v},
+
+and the ideal gas equation of state:
+
+.. math::
+
+   p = (\gamma -1)\rho e   
+
+----------------------------------------
+SPH Equations
+----------------------------------------
+
+The SPH discretization for the Euler equations (:ref:`euler-equations`) are:
 
 .. math::
 
    p = \rho(\gamma - 1)e
 
-   m_a = \sum_{b=1}^{N} m_b\,W_{ab}
+   \rho_a = \sum_{b=1}^{N} m_b\,W_{ab}
 
    \frac{Du_a}{Dt} = -\sum_{b=1}^{N}m_b\left( \frac{P_a}{\rho_a^2} + \frac{P_b}{\rho_b^2} + \Pi_{ab} \right )\,\nabla_a\,W_{ab}
 
@@ -36,100 +76,69 @@ The conservation equations to be solved, written in SPH form are:
 
    \frac{D{x_a}}{Dt} = u_a
 
-These are the equation of state, conservation of mass, conservation of
-momentum, conservation of energy and position stepping equations
-respectively.
+To handle shocks that may develop in the solution, an artificial
+viscosity term, :math:`\Pi_{ab}` is added to the momentum and thermal
+energy equation [Monaghan1992]_
 
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-PySPH solution
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-   
-The code to solve this problem is:
+---------------------------------
+Boundary conditions
+---------------------------------
 
-..  sourcecode:: python
-	:linenos:
+The dam break problem is simulated without any boundary
+conditions. Typically, the domain of interest is chosen large enough
+so that the errors from the boundary do not propagate into the region
+of interest.
 
-	import pysph.base.api as base
-	import pysph.solver.api as solver
-	import pysph.sph.api as sph
+----------------------------------
+Running the example 
+----------------------------------
 
-	Fluid = base.Fluid
+The example code for this problem is located in the
+:file:`examples/shock-tube` directory and can be run like so::
 
-	Locator = base.NeighborLocatorType
+	$ cd examples/shock-tube
+	$ python shock_tube.py
 
-	nl = 320
-	nr = 80
+This will create a solution directory :file:`shock_tube_output` and by
+default, dump output files every twenty iterations. Each output file
+name is of the form :file:`shock_tube_0_count.npz` where, *count* is
+the iteration count for that particular file.
 
-	app = solver.Application()
+--------------------------------------
+Results
+--------------------------------------
 
-	s = solver.Solver(dim=1, integrator_type=solver.RK2Integrator)
+Results for the shock tube problem are usually depicted as a plot of a
+primitive variable (:math:`u, \,\, \rho, \,\, p`) versus
+distance. 
 
-	s.add_operation(solver.SPHOperation(
+Recall that the output files were put in a directory
+:file:`shock_tube_output`. Move to that directory and launch the
+Python interpreter::
 
-		sph.IdealGasEos.withargs(),
-		on_types=[Fluid],
-		updates=["p", "cs"],
-		id="eos"
+    $ cd shock_tube_output
+    $ ipython -pylab
 
-		)
+Execute the following in the interpreter:
 
-	s.add_operation(solver.SPHOperation(
+.. sourcecode:: python
 
-		sph.SPHRho.withargs(),
-		on_types=[Fluid],
-		updates=["rho"],
-		id="summation_density"
+   import pysph.solver.api as solver
 
-		)
+   data = solver.load("shock_tube_0_500.npz")
+   array = data["arrays"]["fluid"]
+   solver_data = data["solver_data"]
+   plot(array.p, array.x)
+   xlim(-.4,.4)
 
-	s.add_opeation(solver.SPHIntegration(
-   
-		sph.MomentumEquation.withargs(alpha=1.0, beta=1.0),
-		on_types=[Fluid], from_types=[Fluid],
-		updates=["u"],
-		id="momentum_equation"
+   dt = solver-data["dt"]
+   title(r"Pressure at $t = %f$"%(dt))
 
-		)
+to produce the :ref:`shock-tube-sample-plot`
 
-	s.add_opeation(solver.SPHIntegration(
-
-		sph.EnergyEquation.withargs(alpha=1.0, beta=1.0),
-		on_types=[Fluid], from_types=[Fluid],
-		updates=["e"],
-		id="momentum_equation"
-
-		)
-
-	s.add_opeation(solver.SPHIntegration(
-
-		sph.PositionStepping.withargs(),
-		on_types=[Fluid],
-		updates=["x"],
-		id="momentum_equation"
-
-		)
-
-	app.setup(solver=s,
-	     variable_h=False,
-	     create_particles=solver.shock_tube_solver.standard_shock_tube_data,
-	     name='fluid', type=0,
-	     locator_type=Locator.SPHNeighborLocator,
-	     nl=nl, nr=nr)
-
-
-	s.set_final_time(0.15)
-	s.set_time_step(3e-4)
-
-	app.run()
-
-We compare the results obtained using PySPH with those obtained using
-Clawpack_:
-
-.. _shock-tube-solution:
-.. figure:: images/shock-tube-solution.png
+.. _shock-tube-sample-plot:
+.. figure:: images/shock-tube-pressure-plot.png
     :align: center
     :width: 500
 
-.. [Monaghan1983] Shock Simulation by the Particle Method SPH. J.J. Monaghan, Journal of Computational Physics, Vol 52, pp (374-389)
-
-.. _Clawpack: http://www.clawpack.org
+    Example plot
