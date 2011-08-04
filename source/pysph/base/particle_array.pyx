@@ -650,7 +650,8 @@ cdef class ParticleArray:
         return ret
 
     def get(self, *args, only_real_particles=True):
-        """ Return the numpy array/constant for the  property names in *args
+        """ Return the numpy array/constant for the  property names in
+        the arguments.
         
         **Parameters**
 
