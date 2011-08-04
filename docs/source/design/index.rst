@@ -1,5 +1,9 @@
 .. _design_index:
 
+=====================
+Design of PySPH
+=====================
+
 .. toctree::
    :maxdepth: 2
 

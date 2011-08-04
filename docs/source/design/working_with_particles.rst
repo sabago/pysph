@@ -27,7 +27,7 @@ Creating particle arrays
 -------------------------
 
 From the user's perspective, a :class:`ParticleArray` may be created like so:
- ..  sourcecode:: python
+..  sourcecode:: python
 
 	 import numpy
 

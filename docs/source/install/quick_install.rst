@@ -13,8 +13,8 @@ if you need detailed instructions.
 Getting the code
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-The code for PySPH is publicly available here_ and the repository may
- be checked out like so::
+The code for PySPH is publicly available here_ and the repository may be
+checked out like so::
 
 	hg pull https://pysph.googlecode.com/hg pysph
 
