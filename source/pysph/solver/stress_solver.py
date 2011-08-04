@@ -186,8 +186,6 @@ class StressSolver(Solver):
         co = options.get("co")
         ro = options.get("ro")
 
-
-
         # Add the operations
 
         # Equation of state
