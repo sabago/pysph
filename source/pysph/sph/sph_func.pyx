@@ -69,7 +69,7 @@ class Function(object):
         self.kwargs = kwargs
     
     def get_func_class(self):
-        """ get the class for which func will be created """
+        """ Get the class for which func will be created """
         return self.sph_func
     
     def get_func(self, source, dest):
@@ -91,14 +91,15 @@ cdef class SPHFunction:
     
     This class contains names, and arrays of common properties that will be
     needed for an operation. The data within
-    these arrays, can be used as *array.data[pid]*, where pid in the particle
-    index, "data" is the actual c-pointer to the data.
+    these arrays, can be used as ``array.data[pid]``, where ``pid`` in the particle
+    index, ``data`` is the actual c-pointer to the data.
 
-    All arrays are prefixed with a "s_". Destination arrays prefixed by "d_"
-    are an alias for the same array prefixed with "s_". For example the mass
-    property of the source will be in the s_m array which is same as d_m.
-    This is not true for subclasses of :class:`SPHFunctionParticle` which
-    can have different source and destination pairs
+    All arrays are prefixed with a ``s_``. Destination arrays prefixed
+    by ``d_`` are an alias for the same array prefixed with ``s_``. For
+    example the mass property of the source will be in the ``s_m`` array
+    which is same as ``d_m``.  This is not true for subclasses of
+    :class:`SPHFunctionParticle` which can have different source and
+    destination pairs
 
     """
     def __init__(self, ParticleArray source, ParticleArray dest=None,
@@ -174,6 +175,7 @@ cdef class SPHFunction:
     
     @classmethod
     def get_func_class(cls):
+        """ Get the class for which func will be created """
         return cls
     
     cpdef setup_arrays(self):
@@ -352,8 +354,9 @@ cdef class SPHFunction:
 
         The read requirements specify which particle properties will
         be required by this function. Properties read from the source
-        particle array are appended to the list `src_reads` and those
-        from the destination particle array are appended to `dst_reads`
+        particle array are appended to the list ``src_reads`` and those
+        from the destination particle array are appended to
+        ``dst_reads``
 
         These read requirements are used to construct the OpenCL
         kernel arguments at program creation time.
@@ -374,14 +377,15 @@ cdef class SPHFunctionParticle(SPHFunction):
     properties are stored in this class for fast access to property values both
     at the source and destination.
     
-    This class contains names, and arrays of common properties that will be
-    needed for any particle-particle interaction computation. The data within
-    these arrays, can be used as *array.data[pid]*, where pid in the particle
-    index, "data" is the actual c-pointer to the data.
+    This class contains names, and arrays of common properties that will
+    be needed for any particle-particle interaction computation. The
+    data within these arrays, can be used as ``array.data[pid]``, where
+    ``pid`` in the particle index, ``data`` is the actual c-pointer to
+    the data.
 
-    All source arrays are prefixed with a "s_". All destination arrays are
-    prefixed by a "d_". For example the mass property of the source will be in
-    the s_m array.
+    All source arrays are prefixed with a ``s_``. All destination arrays
+    are prefixed by a ``d_``. For example the mass property of the
+    source will be in the ``s_m`` array.
 
     """
     def __init__(self, ParticleArray source, ParticleArray dest,
