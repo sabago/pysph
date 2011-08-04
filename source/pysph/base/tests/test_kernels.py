@@ -5,7 +5,6 @@
 #Copyright (c) 2010, Prabhu Ramachandran
 
 import unittest, numpy
-import scipy.integrate as integrate
 
 #Local imports
 from pysph.base import kernels
