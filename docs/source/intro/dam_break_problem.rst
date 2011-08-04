@@ -37,7 +37,7 @@ Equations
 
 The equations to be solved are
 
- .. math::
+.. math::
    :label: eos 
 
    p_a = B\left( \left(\frac{\rho_a}{\rho_0}\right)^{\gamma} - 1 \right )
@@ -91,7 +91,7 @@ PySPH solution
 
 The code to solve the problem is shown below
 
-..  sourcecode:: python
+.. sourcecode:: python
     :linenos:
 
     import numpy
@@ -120,74 +120,68 @@ The code to solve the problem is shown below
 
     B = co*co*ro/gamma
 
-
     def get_boundary_particles():
-    	""" Get the particles corresponding to the dam and fluids """
-    
-	xb1, yb1 = geom.create_2D_tank(x1=0, y1=0,
-    	                               x2=container_width, y2=container_height,
+        """ Get the particles corresponding to the dam and fluids """
+
+        xb1, yb1 = geom.create_2D_tank(x1=0, y1=0,
+                                           x2=container_width, y2=container_height,
+                                           dx=dx)
+        xb2, yb2 = geom.create_2D_tank(x1=-dx/2, y1=-dx/2,
+                                       x2=container_width, y2=container_height,
                                        dx=dx)
-	xb2, yb2 = geom.create_2D_tank(x1=-dx/2, y1=-dx/2,
-                                   x2=container_width, y2=container_height,
-                                   dx=dx)
 
-	xb = numpy.concatenate((xb1, xb2))
-	yb = numpy.concatenate((yb1, yb2))
+        xb = numpy.concatenate((xb1, xb2))
+        yb = numpy.concatenate((yb1, yb2))
 
-	hb = numpy.ones_like(xb)*h
-	mb = numpy.ones_like(xb)*dx*dy*ro*0.5
-	rhob = numpy.ones_like(xb) * ro
+        hb = numpy.ones_like(xb)*h
+        mb = numpy.ones_like(xb)*dx*dy*ro*0.5
+        rhob = numpy.ones_like(xb) * ro
 
-	cb = numpy.ones_like(xb)*co
+        cb = numpy.ones_like(xb)*co
 
-	boundary = base.get_particle_array(cl_precision="single",
-        	                           name="boundary", type=Solid, 
-                 			   x=xb, y=yb, h=hb, rho=rhob, cs=cb,
-					   m=mb)
+        boundary = base.get_particle_array(cl_precision="single",
+                                           name="boundary", type=Solid, 
+                                   x=xb, y=yb, h=hb, rho=rhob, cs=cb,
+                           m=mb)
 
-	print 'Number of Boundary particles: ', len(xb)
+        print 'Number of Boundary particles: ', len(xb)
 
-	return boundary
+        return boundary
 
     def get_fluid_particles():
-    
-	xf1, yf1 = geom.create_2D_filled_region(x1=dx, y1=dx,
-	     	   				x2=fluid_column_width,
-						y2=fluid_column_height,
-						dx=dx)
+        xf1, yf1 = geom.create_2D_filled_region(x1=dx, y1=dx,
+                                x2=fluid_column_width,
+                            y2=fluid_column_height,
+                            dx=dx)
 
-	xf2, yf2 = geom.create_2D_filled_region(x1=dx/2, y1=dx/2,
-	     	   				x2=fluid_column_width,
-						y2=fluid_column_height,
-						dx=dx)
-    
+        xf2, yf2 = geom.create_2D_filled_region(x1=dx/2, y1=dx/2,
+                                x2=fluid_column_width,
+                            y2=fluid_column_height,
+                            dx=dx)
 
-	x = numpy.concatenate((xf1, xf2))
-	y = numpy.concatenate((yf1, yf2))
+        x = numpy.concatenate((xf1, xf2))
+        y = numpy.concatenate((yf1, yf2))
 
-	print 'Number of fluid particles: ', len(x)
+        print 'Number of fluid particles: ', len(x)
 
-	hf = numpy.ones_like(x) * h
-	mf = numpy.ones_like(x) * dx * dy * ro * 0.5
-	rhof = numpy.ones_like(x) * ro
-	csf = numpy.ones_like(x) * co
-    
-	fluid = base.get_particle_array(cl_precision="single",
-					name="fluid", type=Fluid,
-					x=x, y=y, h=hf, m=mf, rho=rhof,
-					cs=csf)
+        hf = numpy.ones_like(x) * h
+        mf = numpy.ones_like(x) * dx * dy * ro * 0.5
+        rhof = numpy.ones_like(x) * ro
+        csf = numpy.ones_like(x) * co
 
-	return fluid
+        fluid = base.get_particle_array(cl_precision="single",
+                        name="fluid", type=Fluid,
+                        x=x, y=y, h=hf, m=mf, rho=rhof,
+                        cs=csf)
+        return fluid
 
     def get_particles(**args):
-    	fluid = get_fluid_particles()
-	boundary = get_boundary_particles()
+        fluid = get_fluid_particles()
+        boundary = get_boundary_particles()
+        return [fluid, boundary]
 
-	return [fluid, boundary]
-	    
     # create the application
     app = solver.Application()
-
 
     integrator_type = solver.PredictorCorrectorIntegrator
     s = solver.Solver(dim=2, integrator_type=integrator_type)
@@ -202,9 +196,9 @@ The code to solve the problem is shown below
     s.add_operation(solver.SPHOperation(
         
 	    sph.TaitEquation.withargs(hks=False, co=co, ro=ro),
-	    			      on_types=[Fluid, Solid], 
-				      updates=['p', 'cs'],
-				      id='eos'),
+	    			    on_types=[Fluid, Solid], 
+				        updates=['p', 'cs'],
+				        id='eos'),
                 
 				)
 

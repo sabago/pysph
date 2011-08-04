@@ -1,5 +1,6 @@
 .. _design_overview:
 
+=====================
 An Overview of PySPH
 =====================
 
@@ -9,7 +10,7 @@ distribution.
 
 Consider a typical SPH simulation described by the discrete equations:
 
- .. math::
+.. math::
 
    p_a = B\left( \left(\frac{\rho_a}{\rho_0}\right)^{\gamma} - 1 \right )
  

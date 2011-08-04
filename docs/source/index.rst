@@ -16,7 +16,7 @@ Installation
    PySPH Installation <install/install>
 
 ************************************
-Tutotials
+Tutorials
 ************************************
 
 .. toctree::
