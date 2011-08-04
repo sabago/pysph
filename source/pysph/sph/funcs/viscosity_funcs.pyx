@@ -230,6 +230,8 @@ cdef class MorrisViscosity(SPHFunctionParticle):
         cdef cPoint rab, va, vb, vab
         cdef double dot
 
+        cdef double rab2, dt_fac
+
         va = cPoint_new(self.d_u.data[dest_pid], 
                         self.d_v.data[dest_pid],
                         self.d_w.data[dest_pid])
@@ -250,6 +252,11 @@ cdef class MorrisViscosity(SPHFunctionParticle):
         
         rab = cPoint_sub(self._dst,self._src)
 
+        rab2 = cPoint_norm(rab)
+        dt_fac = fabs( hab * cPoint_dot(vab, rab)/ (rab2) )
+        self.d_dt_fac.data[dest_pid] = max( self.d_dt_fac.data[dest_pid],
+                                            dt_fac )
+
         if self.hks:
             grada = kernel.gradient(self._dst, self._src, ha)
             gradb = kernel.gradient(self._dst, self._src, hb)
@@ -257,10 +264,6 @@ cdef class MorrisViscosity(SPHFunctionParticle):
             grad.x = (grada.x + gradb.x) * 0.5
             grad.y = (grada.y + gradb.y) * 0.5
             grad.z = (grada.z + gradb.z) * 0.5
-
-            # grad.set((grada.x + gradb.x)*0.5,
-            #          (grada.y + gradb.y)*0.5,
-            #          (grada.z + gradb.z)*0.5)
 
         else:            
             grad = kernel.gradient(self._dst, self._src, hab)
