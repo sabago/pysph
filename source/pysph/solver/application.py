@@ -166,6 +166,12 @@ class Application(object):
                           ''.join(['%d - %-51s'%(d,s) for d,s in
                                      enumerate(kernels.kernel_names)]))
 
+        # --hks
+        parser.add_option("--hks", action="store_true",
+                          dest="hks", default=False,
+                          help="""Perform the Hrenquist and Katz kernel
+                          normalization for variable smothing lengths.""")
+
         # -k/--kernel-correction
         parser.add_option("-k", "--kernel-correction", action="store",
                           dest="kernel_correction", type="int",
@@ -185,14 +191,6 @@ class Application(object):
         parser.add_option("--cl", action="store_true", dest="with_cl",
                           default=False, help=""" Use OpenCL to run the
                           simulation on an appropriate device """)
-
-        # --arrays_to_print
-        # parser.add_option("--arrays_to_print", action="callback",
-        #                   callback=list_option_callback,
-        #                   dest="arrays_to_print",
-        #                   type="string",
-        #                   help="""Only print solution properties for this list
-        #                   of arrays""")
 
         # --parallel-mode
         parser.add_option("--parallel-mode", action="store",
