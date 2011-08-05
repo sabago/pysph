@@ -340,6 +340,7 @@ class MayaviViewer(HasTraits):
         
         self.current_time = t = controller.get_t()
         self.time_step = controller.get_dt()
+        self.iteration = controller.get_count()
 
         for idx, name in enumerate(self.pa_names):
             pa = controller.get_named_particle_array(name)
