@@ -12,9 +12,9 @@ cdef inline double max(double a, double b):
 from pysph.base.point cimport cPoint_sub, cPoint_new, cPoint, cPoint_dot, \
         cPoint_norm
 ################################################################################
-# `MonaghanArtificialVsicosity` class.
+# `MonaghanArtificialViscosity` class.
 ################################################################################
-cdef class MonaghanArtificialVsicosity(SPHFunctionParticle):
+cdef class MonaghanArtificialViscosity(SPHFunctionParticle):
     """
         INSERTFORMULA
 
@@ -155,7 +155,7 @@ cdef class MonaghanArtificialVsicosity(SPHFunctionParticle):
         nr[2] += tmp*grad.z
 
 ################################################################################
-# `SPHViscosityMomentum` class.
+# `MorrisViscosity` class.
 ################################################################################
 cdef class MorrisViscosity(SPHFunctionParticle):
     """

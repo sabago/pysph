@@ -25,7 +25,7 @@ from funcs.energy_funcs import EnergyEquation, EnergyEquationAVisc,\
      EnergyEquationNoVisc, ArtificialHeat
 
 #Import viscosity functions
-from funcs.viscosity_funcs import MonaghanArtificialVsicosity, MorrisViscosity
+from funcs.viscosity_funcs import MonaghanArtificialViscosity, MorrisViscosity
 
 #Import pressure functions
 from funcs.pressure_funcs import SPHPressureGradient, MomentumEquation

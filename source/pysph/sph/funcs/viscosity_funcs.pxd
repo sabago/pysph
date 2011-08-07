@@ -12,8 +12,8 @@ from pysph.base.particle_array cimport ParticleArray
 from pysph.base.kernels cimport KernelBase
 from pysph.base.carray cimport DoubleArray
 
-cdef class MonaghanArtificialVsicosity(SPHFunctionParticle):
-    """ MonaghanArtificialVsicosity """
+cdef class MonaghanArtificialViscosity(SPHFunctionParticle):
+    """ MonaghanArtificialViscosity """
     
     cdef public double gamma
     cdef public double alpha
