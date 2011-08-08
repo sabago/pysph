@@ -177,3 +177,55 @@ cdef class IsothermalEquation(SPHFunction):
         
         cdef double rhoa = self.d_rho.data[dest_pid]
         result[0] = self.co*self.co * (rhoa - self.ro)
+
+cdef class MieGruneisenEquation(SPHFunction):
+
+    def __init__(self, ParticleArray source, ParticleArray dest, 
+                 double gamma, double ro, double co, double S,
+                 bint setup_arrays=True, **kwargs):
+
+        SPHFunction.__init__(self, source, dest, setup_arrays,
+                             **kwargs)
+
+        self.gamma = gamma
+        self.co = co
+        self.ro = ro
+        self.S = S
+
+        self.ao = ao = ro * co * co
+        self.bo = ao * ( 1 + 2.0*(S - 1.0) )
+        self.co = ao * ( 2*(S - 1.0) + 3*(S - 1.0)*(S - 1.0) )
+
+        self.id = 'mie'
+        self.tag = "state"
+
+        self.cl_kernel_src_file = "eos_funcs.clt"
+        self.cl_kernel_function_name = "MieGruneisenEquation"
+
+    def set_src_dst_reads(self):
+        self.src_reads = []
+        self.dst_reads = []
+
+        self.dst_reads.extend( ['rho'] )
+
+    def _set_extra_cl_args(self):
+        pass
+
+    def set_src_dst_reads(self):
+        pass
+
+    cdef void eval_single(self, size_t dest_pid, KernelBase kernel,
+                          double* result):
+        
+        cdef double rhoa = self.d_rho.data[dest_pid]
+        cdef double ea = self.d_e.data[dest_pid]
+
+        cdef double gamma = self.gamma
+        cdef double ratio = rhoa/self.ro - 1.0
+        cdef double ratio2 = ratio*ratio
+
+        cdef double PH = self.ao * ratio
+        if ratio > 0:
+            PH = PH + ratio2 * (self.bo + self.co*ratio)
+
+        result[0] = (1.0 - 0.5*self.gamma*ratio)*PH + rhoa*ea*self.gamma

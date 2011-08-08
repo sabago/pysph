@@ -24,6 +24,7 @@ cdef extern from "math.h":
     double sin(double)
     double pow(double,double)
     double atan2(double, double)
+    double sqrt(double, double)
 
 cdef void symm_to_points(double * mat[3][3], long idx, cPoint& d, cPoint& s):
     ''' convert arrays of matrix elements for index idx into d,s components '''
@@ -474,7 +475,8 @@ cdef class MonaghanArtificialStress(SPHFunction):
 
         for prop in stress_props:
             if not prop in dest_props:
-                msg = "Adding property %s to array `%s`"%(prop, dest.name)
+                msg = "%s adding property %s to array `%s`"%(self.id,
+                                                             prop, dest.name)
                 print msg
                 dest.add_property( dict(name=prop) )
 
@@ -485,7 +487,8 @@ cdef class MonaghanArtificialStress(SPHFunction):
 
         for prop in art_stress:
             if not prop in dest_props:
-                msg = "Adding property %s to array `%s`"%(prop, dest.name)
+                msg = "%s adding property %s to array `%s`"%(self.id,
+                                                             prop, dest.name)
                 print msg
                 dest.add_property( dict(name=prop) )
 
@@ -1430,7 +1433,7 @@ cdef class MomentumEquationWithStress2D(SPHFunctionParticle):
 
         self.n = n
 
-        self.id = 'momentumequation_withstress'
+        self.id = 'momentumequationwithstress2d'
         self.tag = "velocity"
 
         # check that the deviatoric stress components are defined. If
@@ -1658,3 +1661,334 @@ cdef class MomentumEquationWithStress2D(SPHFunctionParticle):
         nr[0] += ax
         nr[1] += ay
 
+#############################################################################
+# `EnergyEquationWithStress2D` class
+#############################################################################
+cdef class EnergyEquationWithStress2D(SPHFunctionParticle):
+    r""" Evaluate the energy equation.
+
+    :math:`$
+    \frac{D\vec{v_a}^i}{Dt} = \sum_b
+    m_b\left(\frac{\sigma_a^{ij}}{\rho_a^2} +
+    \frac{\sigma_b^{ij}}{\rho_b^2} \right)\nabla_a\,W_{ab}$`
+
+    Artificial stress to remove the tension instability is added to
+    the momentum equation as described in `SPH elastic dynamics` by
+    J.P. Gray and J.J. Moaghan and R.P. Swift, Computer Methods in
+    Applied Mechanical Engineering. vol 190 (2001) pp 6641 - 6662
+
+    """
+
+    def __init__(self, ParticleArray source, ParticleArray dest, 
+                 bint setup_arrays=True,
+                 deltap=None,
+                 double n=1,
+                 **kwargs):
+        """ Constructor.
+
+        Parameters:
+        -----------
+        
+        source, dest : ParticleArray
+
+        deltap : double
+            The reference initial particle spacing used to compute the
+            artificial stress term: W(q)/W(deltap)
+
+        n : double
+            The sensitivity parameter for the artificial stress term.
+
+        epsp, epsm : double
+            Factors to govern the magnitude of artificial stress when the
+            stress is positive (p) and negative (m)
+
+        fac : double
+            Factor to stabilize the computation of theta
+
+        """
+
+        self.with_correction = False
+
+        if deltap is not None:
+            self.deltap = deltap
+            if deltap < 0:
+                raise RuntimeError("deltap cannot be negative!")
+            
+            self.with_correction = True
+
+        self.n = n
+
+        self.id = 'energyequationwithstress2d'
+        self.tag = "velocity"
+
+        # check that the deviatoric stress components are defined. If
+        # not, add them.
+        stress_props = ["S_00", "S_01",
+                                 "S_11"]
+
+        dest_props = dest.properties.keys()
+        for prop in stress_props:
+            if not prop in dest_props:
+                dest.add_property( dict(name=prop) )
+
+        src_props = source.properties.keys()
+        for prop in stress_props:
+            if not prop in src_props:
+                source.add_property( dict(name=prop) )
+
+        # Ensure that the artificial stress properties are defined
+        artificial_stress = ["R_00", "R_01",
+                                     "R_11"]
+        for prop in artificial_stress:
+            if not prop in dest_props:
+                msg = "Property %s not present in array %s"%(prop,
+                                                             dest.name)
+                raise RuntimeError(msg)
+            if not prop in src_props:
+                msg = "Property %s not present in array %s"%(prop,
+                                                             source.name)
+                raise RuntimeError(msg)
+        
+        SPHFunctionParticle.__init__(self, source, dest, setup_arrays,
+                                     **kwargs)
+    def set_src_dst_reads(self):
+        pass
+
+    cpdef setup_arrays(self):
+        SPHFunctionParticle.setup_arrays(self)
+        
+        # setup the deviatoric stress components (symmetric so 01 = 10)
+        self.d_S_00 = self.dest.get_carray("S_00")
+        self.d_S_01 = self.dest.get_carray("S_01")
+        self.d_S_10 = self.dest.get_carray("S_01")
+        self.d_S_11 = self.dest.get_carray("S_11")
+
+        self.s_S_00 = self.source.get_carray("S_00")
+        self.s_S_01 = self.source.get_carray("S_01")
+        self.s_S_10 = self.source.get_carray("S_01")
+        self.s_S_11 = self.source.get_carray("S_11")
+
+        # setup the artificial stress components ( symmetric so 01 = 10 )
+        self.d_R_00 = self.dest.get_carray("R_00")
+        self.d_R_01 = self.dest.get_carray("R_01")
+        self.d_R_10 = self.dest.get_carray("R_01")
+        self.d_R_11 = self.dest.get_carray("R_11")
+
+        self.s_R_00 = self.source.get_carray("R_00")
+        self.s_R_01 = self.source.get_carray("R_01")
+        self.s_R_10 = self.source.get_carray("R_01")
+        self.s_R_11 = self.source.get_carray("R_11")
+
+    cdef void eval_nbr(self, size_t source_pid, size_t dest_pid,
+                       KernelBase kernel, double *nr):        
+
+        cdef double mb = self.s_m.data[source_pid]
+        
+        cdef double ha = self.d_h.data[dest_pid]
+        cdef double hb = self.s_h.data[source_pid]
+        cdef double hab = 0.5 * (ha + hb)
+
+        cdef double pa = self.d_p.data[dest_pid]
+        cdef double pb = self.s_p.data[source_pid]
+
+        cdef double rhoa = self.d_rho.data[dest_pid]
+        cdef double rhob = self.s_rho.data[source_pid]
+
+        cdef double rhoa2 = 1.0/(rhoa*rhoa)
+        cdef double rhob2 = 1.0/(rhob*rhob)
+
+        self._src.x = self.s_x.data[source_pid]
+        self._src.y = self.s_y.data[source_pid]
+        self._src.z = self.s_z.data[source_pid]
+
+        self._dst.x = self.d_x.data[dest_pid]
+        self._dst.y = self.d_y.data[dest_pid]
+        self._dst.z = self.d_z.data[dest_pid]
+
+        cdef double s_00a = -self.d_S_00.data[dest_pid]
+        cdef double s_01a = -self.d_S_01.data[dest_pid]
+        cdef double s_10a = -self.d_S_10.data[dest_pid]
+        cdef double s_11a = -self.d_S_11.data[dest_pid]
+
+        cdef double s_00b = -self.s_S_00.data[source_pid]
+        cdef double s_01b = -self.s_S_01.data[source_pid]
+        cdef double s_10b = -self.s_S_10.data[source_pid]
+        cdef double s_11b = -self.s_S_11.data[source_pid]
+
+        cdef cPoint grad, grada, gradb
+        cdef cPoint vab
+        cdef double a_e
+
+        cdef double w, wdeltap, fab
+        cdef cPoint _ra, _rb
+
+        # relative velocity vector
+        vab.x = self.d_u.data[dest_pid]-self.s_u.data[source_pid]
+        vab.y = self.d_v.data[dest_pid]-self.s_v.data[source_pid]
+        vab.z = self.d_w.data[dest_pid]-self.s_w.data[source_pid]
+
+        # corrections in the original frame
+        cdef double R_00a, R_01a, R_11a
+        cdef double R_00b, R_01b, R_11b
+
+        # artificial stress terms to be added to the accelerations
+        cdef double artificial_stress_00 = 0.0
+        cdef double artificial_stress_01 = 0.0
+        cdef double artificial_stress_11 = 0.0
+        
+        # Add the pressure to the deviatoric stresses
+        s_00a = s_00a + pa
+        s_00b = s_00b + pb
+
+        s_11a = s_11a + pa
+        s_11b = s_11b + pb
+
+        if self.with_correction:
+
+            R_00a = self.d_R_00.data[dest_pid]
+            R_01a = self.d_R_01.data[dest_pid]
+            R_10a = self.d_R_10.data[dest_pid]
+            R_11a = self.d_R_11.data[dest_pid]
+
+            R_00b = self.s_R_00.data[source_pid]
+            R_01b = self.s_R_01.data[source_pid]
+            R_10b = self.s_R_10.data[source_pid]
+            R_11b = self.s_R_11.data[source_pid]
+
+            # compute the correction term W(q)/W(deltap)
+            _ra = cPoint_new(self.deltap, 0.0, 0.0)
+            _rb = cPoint_new(0.0, 0.0, 0.0)
+            
+            wdeltap = kernel.function(_ra, _rb, hab)
+            w = kernel.function(self._dst, self._src, hab)
+
+            fab = w/wdeltap
+            fab = pow(fab, self.n)
+
+            artificial_stress_00 = fab * (R_00a + R_00b)
+            artificial_stress_01 = fab * (R_01a + R_01b)
+            artificial_stress_11 = fab * (R_11a + R_11b)
+
+        if self.hks:
+            grada = kernel.gradient(self._dst, self._src, ha)
+            gradb = kernel.gradient(self._dst, self._src, hb)
+
+            grad.x = (grada.x + gradb.x) * 0.5
+            grad.y = (grada.y + gradb.y) * 0.5
+            grad.z = (grada.z + gradb.z) * 0.5
+        else:
+            grad = kernel.gradient( self._dst, self._src, hab )
+
+        # compute the accelerations
+        a_e = 0.5*mb*( vab.x*(s_00a*rhoa2 + s_00b*rhob2) * grad.x + \
+                       vab.x*(s_01a*rhoa2 + s_01b*rhob2) * grad.y + \
+                       vab.y*(s_01a*rhoa2 + s_01b*rhob2) * grad.x + \
+                       vab.y*(s_11a*rhoa2 + s_11b*rhob2) * grad.y )
+        
+        # add the artificial stress terms (default: 0)
+        a_e = a_e + 0.5*mb*( vab.x*artificial_stress_00*grad.x +
+                             vab.x*artificial_stress_01*grad.y + \
+                             vab.y*artificial_stress_01*grad.x + \
+                             vab.y*artificial_stress_11*grad.y )
+
+        nr[0] += a_e
+
+#############################################################################
+# `VonMisesPlasticity2D` class
+#############################################################################
+cdef class VonMisesPlasticity2D(SPHFunction):
+    r""" Evaluate the energy equation.
+
+    :math:`$
+    \frac{D\vec{v_a}^i}{Dt} = \sum_b
+    m_b\left(\frac{\sigma_a^{ij}}{\rho_a^2} +
+    \frac{\sigma_b^{ij}}{\rho_b^2} \right)\nabla_a\,W_{ab}$`
+
+    Artificial stress to remove the tension instability is added to
+    the momentum equation as described in `SPH elastic dynamics` by
+    J.P. Gray and J.J. Moaghan and R.P. Swift, Computer Methods in
+    Applied Mechanical Engineering. vol 190 (2001) pp 6641 - 6662
+
+    """
+
+    def __init__(self, ParticleArray source, ParticleArray dest, 
+                 double flow_stress,
+                 bint setup_arrays=True,
+                 **kwargs):
+        """ Constructor.
+
+        Parameters:
+        -----------
+        
+        source, dest : ParticleArray
+
+        deltap : double
+            The reference initial particle spacing used to compute the
+            artificial stress term: W(q)/W(deltap)
+
+        n : double
+            The sensitivity parameter for the artificial stress term.
+
+        epsp, epsm : double
+            Factors to govern the magnitude of artificial stress when the
+            stress is positive (p) and negative (m)
+
+        fac : double
+            Factor to stabilize the computation of theta
+
+        """
+
+        self.flow_stress = flow_stress
+        self.fac = sqrt(flow_stress/3.0)
+
+        self.id = 'vonmisesplasticity2d'
+        self.tag = "velocity"
+
+        # check that the deviatoric stress components are defined. If
+        # not, add them.
+        stress_props = ["S_00", "S_01",
+                                 "S_11"]
+
+        dest_props = dest.properties.keys()
+        for prop in stress_props:
+            if not prop in dest_props:
+                msg = "%s adding property %s to array `%s`"%(self.id,
+                                                             prop,
+                                                             dest.name)
+                print msg
+                dest.add_property( dict(name=prop) )
+
+        SPHFunction.__init__(self, source, dest, setup_arrays,
+                             **kwargs)
+        
+    def set_src_dst_reads(self):
+        pass
+
+    cpdef setup_arrays(self):
+        SPHFunctionParticle.setup_arrays(self)
+        
+        # setup the deviatoric stress components (symmetric so 01 = 10)
+        self.d_S_00 = self.dest.get_carray("S_00")
+        self.d_S_01 = self.dest.get_carray("S_01")
+        self.d_S_10 = self.dest.get_carray("S_01")
+        self.d_S_11 = self.dest.get_carray("S_11")
+
+    cdef void eval_single(self, size_t dest_pid,
+                          KernelBase kernel, double *result):
+        """ Perform the gravity force computation """
+
+        cdef double s_00 = self.d_S_00.data[dest_pid]
+        cdef double s_01 = self.d_S_01.data[dest_pid]
+        cdef double s_10 = self.d_S_10.data[dest_pid]
+        cdef double s_11 = self.d_S_11.data[dest_pid]
+
+        # calculate the stress invariant
+        cdef double J2 = s_00*s_00 + 2*s_01*s_10 + s_11*s_11
+        cdef double scale = 1.0
+        
+        if J2 > self.flow_stress:
+            scale = self.fac/sqrt(J2)
+
+        self.d_S_00.data[dest_pid] = s_00 * scale
+        self.d_S_01.data[dest_pid] = s_01 * scale
+        self.d_S_11.data[dest_pid] = s_11 * scale
