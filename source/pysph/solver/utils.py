@@ -317,18 +317,13 @@ def load(fname):
 
     if version == 1:
 
-        if platform.system() == "Windows":
-            arrays = data["arrays"]
-            arrays.shape = (1,)
-            arrays = arrays[0]
+        arrays = data["arrays"]
+        arrays.shape = (1,)
+        arrays = arrays[0]
 
-            solver_data = data["solver_data"]
-            solver_data.shape = (1,)
-            solver_data = solver_data[0]
-
-        else:
-            arrays = data["arrays"].astype(object)
-            solver_data = data["solver_data"].astype(object)
+        solver_data = data["solver_data"]
+        solver_data.shape = (1,)
+        solver_data = solver_data[0]
 
         for array_name in arrays:
             array = get_particle_array(name=array_name,
