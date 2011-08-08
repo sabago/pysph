@@ -106,7 +106,7 @@ cdef class CellManager:
     cpdef int update(self) except -1
 
     # update the dirty bit for the CellManager
-    cpdef int update_status(self) except -1
+    cpdef int update_status(self, bint variable_h) except -1
 
     # add an array to be binned
     cpdef add_array_to_bin(self, ParticleArray parr)
