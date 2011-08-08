@@ -1,0 +1,7 @@
+include MANIFEST.in Makefile *.py *.txt pip_requirements.txt
+recursive-include examples *.py shock-tube/clawpack-solution.npz
+recursive-include docs *.* *
+include source/pysph/base/*.src
+recursive-include source *.pxd *.clt *.h *.cpp
+recursive-include bench *.pyx *.py cPoint.cpp cPoint.h  
+
