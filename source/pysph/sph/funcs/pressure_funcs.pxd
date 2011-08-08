@@ -22,8 +22,7 @@ cdef class SPHPressureGradient(SPHFunctionParticle):
     # Monaghan ( SPH Without Tension Instability )
     cdef public double deltap
     cdef public double n
-    cdef public double epsp
-    cdef public double epsm
+    cdef public double eps
 
     cdef public bint with_correction
 
@@ -39,8 +38,7 @@ cdef class MomentumEquation(SPHFunctionParticle):
     # Monaghan ( SPH Without Tension Instability )
     cdef public double deltap
     cdef public double n
-    cdef public double epsp
-    cdef public double epsm
+    cdef public double eps
 
     cdef public bint with_correction
 
