@@ -115,7 +115,7 @@ class ExampleTestCase(unittest.TestCase):
 
             args = ['--output=%s'%prefix,
                     '--directory=%s'%dir1,
-                    '--time-step=%g'%timestep,
+                    '--timestep=%g'%timestep,
                     '--final-time=%g'%(timestep*(iters+1)),
                     '--freq=%d'%iters,
                     '--parallel-mode=%s'%parallel_mode]
