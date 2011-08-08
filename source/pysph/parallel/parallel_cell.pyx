@@ -750,7 +750,7 @@ cdef class ParallelCellManager(CellManager):
         self.cells_dict.clear()
         self.cells_dict[id] = cell
 
-    cpdef int update_status(self) except -1:
+    cpdef int update_status(self, bint variable_h) except -1:
         """
         Sets the is_dirty to to true, We cannot decide the dirtyness of this
         cell manager based on just the particle arrays here, as cell managers on

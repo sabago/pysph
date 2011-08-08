@@ -936,17 +936,17 @@ cdef class CellManager:
         sizes manually.
 
         """
-        if min_size <= 0:
-            min_h, max_h = self._compute_minmax_h()
+        
+        min_h, max_h = self._compute_minmax_h()
+        
+        self.min_h = min_h
+        self.max_h = max_h
 
-            self.min_h = min_h
-            self.max_h = max_h
-            
-            self.cell_size = self.max_radius_scale * max_h
-        else:
+        self.cell_size = self.max_radius_scale * max_h
+        if self.cell_size < min_size:
             self.cell_size = min_size
 
-        if self.cell_size > max_size > 0:
+        elif self.cell_size > max_size > 0:
             self.cell_size = max_size
 
         # hack to let us initialize particles with h == 0
@@ -969,6 +969,9 @@ cdef class CellManager:
 
             # delete ghost cells and particles from a previous step
             self.remove_ghost_particles()
+
+            # recompute the cell size
+            self.compute_cell_size(self.min_cell_size, self.max_cell_size)
 
             # rebin the particles
             self.rebin_particles()
@@ -1006,7 +1009,7 @@ cdef class CellManager:
             cell = cells_list[i]
             cell.jump_tolerance = jump_tolerance    
        
-    cpdef int update_status(self):
+    cpdef int update_status(self, bint variable_h):
         """Updates the is_dirty flag to indicate that an update is required.
 
         The CellManager's dirty bit is set to True if any of the
@@ -1026,6 +1029,12 @@ cdef class CellManager:
             if parray.is_dirty:
                 self.is_dirty = True
                 break
+
+        # in variable h calculations, set all arrays to dirty
+        if variable_h and self.is_dirty:
+            for i in range(num_arrays):
+                parray = self.arrays_to_bin[i]
+                parray.set_dirty(True)
 
         return 0
 
@@ -1429,7 +1438,7 @@ cdef class CellManager:
         for parr in self.arrays_to_bin:
             if parr is None or parr.get_number_of_particles() == 0:
                 continue
-            h = parr.h
+            h = parr.get("h", only_real_particles=False)
             if h is None:
                 continue
             min_h = min(numpy.min(h), min_h)
@@ -1614,8 +1623,8 @@ cdef class CellManager:
     def py_update(self):
         return self.update()
 
-    def py_update_status(self):
-        return self.update_status()
+    def py_update_status(self, variable_h):
+        return self.update_status(variable_h)
 
     def py_initialize(self):
         self.initialize()

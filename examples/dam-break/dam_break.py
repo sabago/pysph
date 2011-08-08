@@ -177,7 +177,7 @@ s = solver.Solver(dim=2, integrator_type=integrator_type)
 kernel = base.CubicSplineKernel(dim=2)
 
 # define the artificial pressure term for the momentum equation
-deltap = -1/1.3
+deltap = dx
 n = 4
 
 #Equation of state
@@ -203,7 +203,7 @@ s.add_operation(solver.SPHIntegration(
 s.add_operation(solver.SPHIntegration(
         
     sph.MomentumEquation.withargs(alpha=alpha, beta=0.0, hks=False,
-                                  deltap=deltap, n=n),
+                                  deltap=None, n=n),
     on_types=[Fluid], from_types=[Fluid, Solid],  
     updates=['u','v'], id='mom')
                     

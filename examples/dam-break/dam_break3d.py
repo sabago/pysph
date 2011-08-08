@@ -211,7 +211,7 @@ s.add_operation(solver.SPHIntegration(
 
 s.add_operation(solver.SPHIntegration(
 
-   sph.MonaghanArtificialVsicosity.withargs(alpha=alpha, beta=0.0),
+   sph.MonaghanArtificialViscosity.withargs(alpha=alpha, beta=0.0),
    on_types=[Fluid], from_types=[Fluid,Solid],
    updates=['u','v','z'], id='avisc')
 

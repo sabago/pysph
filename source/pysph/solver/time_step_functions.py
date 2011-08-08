@@ -55,3 +55,17 @@ class ViscousAndForceBasedTimeStep(ViscousTimeStep):
                 dt = min( dt, _dt )
 
         return dt
+
+class VelocityBasedTimeStep(object):
+    def __init__(self, particles, cfl=0.3,):
+        self.cfl = cfl
+        self.particles = particles
+
+    def compute_time_step(self, solver):
+        v = float('inf')
+        for pa in solver.particles.arrays:
+            val = min(pa.h/(pa.cs+(pa.u**2+pa.v**2+pa.w**2)**0.5))
+            if val < v:
+                v = val
+
+        return self.cfl*v
