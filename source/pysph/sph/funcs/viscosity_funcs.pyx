@@ -188,6 +188,8 @@ cdef class MorrisViscosity(SPHFunctionParticle):
         self.cl_kernel_src_file = "viscosity_funcs.cl"
         self.cl_kernel_function_name = "MorrisViscosity"
 
+        self.to_reset = ['dt_fac']
+
     def set_src_dst_reads(self):
         self.src_reads = ['x','y','z','h','m','rho','u','v','w',self.mu]
         self.dst_reads = ['x','y','z','h','rho','u','v','w','tag',self.mu]
