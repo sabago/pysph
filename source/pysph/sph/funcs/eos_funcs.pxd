@@ -28,4 +28,10 @@ cdef class IsothermalEquation(SPHFunction):
     cdef public double co
     cdef public double ro
 
+cdef class MieGruneisenEquation(SPHFunction):
+    cdef public double co
+    cdef public double ro
+    cdef public double gamma
+    cdef public double S
+
 

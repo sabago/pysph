@@ -165,3 +165,33 @@ cdef class MomentumEquationWithStress2D(SPHFunctionParticle):
 
     cdef DoubleArray s_R_00, s_R_01
     cdef DoubleArray s_R_10, s_R_11
+    
+cdef class EnergyEquationWithStress2D(SPHFunctionParticle):
+    cdef public double deltap
+    cdef public double n
+
+    cdef public bint with_correction
+
+    # deviatoric stress components
+    cdef DoubleArray d_S_00, d_S_01
+    cdef DoubleArray d_S_10, d_S_11
+
+    cdef DoubleArray s_S_00, s_S_01
+    cdef DoubleArray s_S_10, s_S_11
+
+    # artificial stress components
+    cdef DoubleArray d_R_00, d_R_01
+    cdef DoubleArray d_R_10, d_R_11
+
+    cdef DoubleArray s_R_00, s_R_01
+    cdef DoubleArray s_R_10, s_R_11
+
+
+cdef class VonMisesPlasticity2D(SPHFunction):
+    cdef public double flow_stress
+    cdef public double fac
+
+    # deviatoric stress components
+    cdef DoubleArray d_S_00, d_S_01
+    cdef DoubleArray d_S_10, d_S_11
+
