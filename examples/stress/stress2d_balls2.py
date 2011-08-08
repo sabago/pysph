@@ -119,7 +119,7 @@ s.add_operation(solver.SPHIntegration(
 # momentum equation artificial viscosity
 s.add_operation(solver.SPHIntegration(
 
-    sph.MonaghanArtificialVsicosity.withargs(alpha=1.0, beta=1.0),
+    sph.MonaghanArtificialViscosity.withargs(alpha=1.0, beta=1.0),
     on_types=[Solid,], from_types=[Solid,],
     id="avisc", updates=['u','v'])
 
