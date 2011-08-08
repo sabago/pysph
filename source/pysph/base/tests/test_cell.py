@@ -559,7 +559,7 @@ class TestCellManager(unittest.TestCase):
         """Test initialize with data from generate_sample_dataset_2"""
         p_arrs = generate_sample_dataset_2()
         cm = CellManager(arrays_to_bin=p_arrs, min_cell_size=1.,
-                         max_cell_size=2.)
+                         max_cell_size=1.)
 
         self.assertEqual(len(cm.cells_dict), 7)
         
@@ -598,7 +598,7 @@ class TestCellManager(unittest.TestCase):
         self.assertEqual(cm.cells_dict[IntPoint()].py_get_number_of_particles(), 3)
         
         # because we changed the data, ask cm to update_status
-        cm.py_update_status()
+        cm.py_update_status(False)
         cm.py_update()
 
         # no change should occur, as we have NOT set the dirty bit of the
@@ -625,7 +625,7 @@ class TestCellManager(unittest.TestCase):
         # now set it to dirty and check.
         p_arrs[0].set_dirty(True)
 
-        cm.py_update_status()
+        cm.py_update_status(False)
         cm.py_update()
 
         self.assertEqual(len(cm.cells_dict), 6)
@@ -691,7 +691,7 @@ class TestCellManager(unittest.TestCase):
         """
         p_arrs = generate_sample_dataset_2()
         cm = CellManager(arrays_to_bin=p_arrs, min_cell_size=1.,
-                         max_cell_size=2.)
+                         max_cell_size=1.)
         
         # the hierarchy would have been setup, we start issuing queries.
         cell_list = []
@@ -720,7 +720,7 @@ class TestCellManager(unittest.TestCase):
         """
         p_arrs = generate_sample_dataset_2()
         cm = CellManager(arrays_to_bin=p_arrs, min_cell_size=1.,
-                         max_cell_size=2.)
+                         max_cell_size=1.)
         
         # the cells would have been setup, we start issuing queries.
         cell_list = []

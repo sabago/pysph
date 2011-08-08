@@ -25,7 +25,7 @@ from funcs.energy_funcs import EnergyEquation, EnergyEquationAVisc,\
      EnergyEquationNoVisc, ArtificialHeat
 
 #Import viscosity functions
-from funcs.viscosity_funcs import MonaghanArtificialVsicosity, MorrisViscosity
+from funcs.viscosity_funcs import MonaghanArtificialViscosity, MorrisViscosity
 
 #Import pressure functions
 from funcs.pressure_funcs import SPHPressureGradient, MomentumEquation
@@ -38,7 +38,7 @@ from funcs.xsph_funcs import XSPHDensityRate, XSPHCorrection
 
 #Import Equation of state functions
 from funcs.eos_funcs import IdealGasEquation, TaitEquation, \
-     IsothermalEquation
+     IsothermalEquation, MieGruneisenEquation
 
 #Import external force functions
 from funcs.external_force import GravityForce, VectorForce, MoveCircleX,\
@@ -51,7 +51,8 @@ from funcs.adke_funcs import ADKEPilotRho, ADKESmoothingUpdate,\
 # Import stress functions
 from funcs.stress_funcs import HookesDeviatoricStressRate2D, \
      HookesDeviatoricStressRate3D, MomentumEquationWithStress2D,\
-     MonaghanArtificialStress, MonaghanArtStressAcc
+     MonaghanArtificialStress, MonaghanArtStressAcc, \
+     EnergyEquationWithStress2D, VonMisesPlasticity2D
 
 from funcs.stress_funcs import get_K, get_nu, get_G
 

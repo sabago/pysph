@@ -877,7 +877,7 @@ cdef class NNPSManager:
 
         # update the cell manager
         
-        self.cell_manager.update_status()
+        self.cell_manager.update_status(self.variable_h)
 
     cpdef add_interaction(self, ParticleArray source, ParticleArray dest,
                           double radius_scale):

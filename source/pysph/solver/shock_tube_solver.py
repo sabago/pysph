@@ -116,7 +116,7 @@ class ShockTubeSolver(Solver):
 class ADKEShockTubeSolver(Solver):
 
     def __init__(self, dim, integrator_type, h0, eps, k, g1, g2, alpha, beta,
-                 kernel = base.CubicSplineKernel, hks=False):
+                 gamma=1.4, kernel=base.CubicSplineKernel, hks=False):
 
         # solver parameters
         self.h0 = h0
@@ -126,6 +126,9 @@ class ADKEShockTubeSolver(Solver):
         self.g2 = g2
         self.alpha = alpha
         self.beta = beta
+        self.gamma = gamma
+
+        self.dim = dim
 
         # Hernquist and Katz normalization
         self.hks = hks
@@ -135,6 +138,7 @@ class ADKEShockTubeSolver(Solver):
 
         self.defaults = dict(alpha=alpha,
                              beta=beta,
+                             gamma=gamma,
                              adke_eps=eps,
                              adke_k=k,
                              adke_h0=h0,
@@ -155,6 +159,10 @@ class ADKEShockTubeSolver(Solver):
         opt.add_option("--beta", action="store", type="float",
                        dest="beta", default=self.defaults["alpha"],
                        help="Set the artificial viscosity parameter beta")
+
+        opt.add_option("--gamma", action="store", type="float",
+                       dest="gamma", default=self.defaults["gamma"],
+                       help="Set the ratio of specific heats gamma")
 
         opt.add_option("--adke-eps", action="store", type="float",
                        dest="adke_eps", default=self.defaults.get("adke_eps"),
@@ -198,6 +206,11 @@ class ADKEShockTubeSolver(Solver):
         alpha = options.get("alpha")
         beta = options.get("beta")
 
+        gamma = options.get("gamma")
+
+        vel_updates=["u","v","w"][:self.dim]
+        pos_updates=["x","y","z"][:self.dim]
+
         self.add_operation(SPHOperation(
 
             sph.ADKEPilotRho.withargs(h0=h0),
@@ -226,7 +239,7 @@ class ADKEShockTubeSolver(Solver):
         # ideal gas equation
         self.add_operation(SPHOperation(
             
-            sph.IdealGasEquation.withargs(),
+            sph.IdealGasEquation.withargs(gamma=gamma),
             on_types = [Fluids], updates=['p', 'cs'], id='eos')
                         
                         )
@@ -254,7 +267,7 @@ class ADKEShockTubeSolver(Solver):
     
             sph.MomentumEquation.withargs(alpha=alpha, beta=beta, hks=hks),
             from_types=[Fluids, Boundary], on_types=[Fluids], 
-            updates=['u'], id='mom')
+            updates=vel_updates, id='mom')
                         
                         )
 
@@ -277,7 +290,14 @@ class ADKEShockTubeSolver(Solver):
                         )
         
         # position step
-        self.add_operation_step([Fluids])
+        self.add_operation(SPHIntegration(
+
+            sph.PositionStepping.withargs(),
+            on_types=[Fluids,],
+            updates=pos_updates,
+            id="step")
+
+                           )
         
         
         

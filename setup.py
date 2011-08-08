@@ -114,6 +114,7 @@ def gen_extensions(ext):
         for filename in files:
             base = os.path.splitext(filename)[0]
             module = 'pysph.%s.%s'%(subpkg, base)
+            module = module.replace("/", ".")
             ext = 'pyx'
             if not HAS_CYTHON:
                 ext = C_EXTN
