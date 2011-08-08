@@ -98,7 +98,7 @@ class SolverTestCase(unittest.TestCase):
 
         s.add_operation(solver.SPHIntegration(
 
-                sph.MonaghanArtificialVsicosity, on_types=[Fluids],
+                sph.MonaghanArtificialViscosity, on_types=[Fluids],
                 from_types=[Fluids, Solids], updates=['u','v'], id='avisc')
 
                              )
