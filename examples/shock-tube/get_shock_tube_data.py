@@ -70,7 +70,8 @@ def get_shock_tube_data(nl, nr, xl, xr,
     q = h * cs * g1
 
     left = base.get_particle_array(name="left", x=x, m=m, h=h, u=u,
-                              rho=rho, p=p, e=e, cs=cs, q=q)
+                                   type=base.Boundary,
+                                   rho=rho, p=p, e=e, cs=cs, q=q)
     
     # right boundary
     x = numpy.ones(nbp)
@@ -94,6 +95,7 @@ def get_shock_tube_data(nl, nr, xl, xr,
     q = h * cs * g1
 
     right = base.get_particle_array(name="right", x=x, m=m, h=h, u=u,
-                               rho=rho, p=p, e=e, cs=cs, q=q)
+                                    type=base.Boundary,
+                                    rho=rho, p=p, e=e, cs=cs, q=q)
 
     return adke, left, right

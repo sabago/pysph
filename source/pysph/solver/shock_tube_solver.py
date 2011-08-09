@@ -211,10 +211,11 @@ class ADKEShockTubeSolver(Solver):
         vel_updates=["u","v","w"][:self.dim]
         pos_updates=["x","y","z"][:self.dim]
 
+        # pilot rho estimate
         self.add_operation(SPHOperation(
 
             sph.ADKEPilotRho.withargs(h0=h0),
-            on_types=[Fluids], from_types=[Fluids,Boundary],
+            on_types=[Fluids,], from_types=[Fluids,Boundary],
             updates=['rhop'], id='adke_rho'),
 
                         )
@@ -223,7 +224,8 @@ class ADKEShockTubeSolver(Solver):
         self.add_operation(SPHOperation(
             
             sph.ADKESmoothingUpdate.withargs(h0=h0, k=k, eps=eps, hks=hks),
-            on_types=[Fluids], updates=['h'], id='adke'),
+            on_types=[Fluids,],
+            updates=['h'], id='adke'),
                         
                         )
 
@@ -231,7 +233,7 @@ class ADKEShockTubeSolver(Solver):
         self.add_operation(SPHOperation(
             
             sph.SPHRho.withargs(hks=hks),
-            from_types=[Fluids, Boundary], on_types=[Fluids], 
+            from_types=[Fluids,Boundary], on_types=[Fluids, Boundary], 
             updates=['rho'], id = 'density')
                         
                         )
@@ -240,7 +242,7 @@ class ADKEShockTubeSolver(Solver):
         self.add_operation(SPHOperation(
             
             sph.IdealGasEquation.withargs(gamma=gamma),
-            on_types = [Fluids], updates=['p', 'cs'], id='eos')
+            on_types = [Fluids,Boundary], updates=['p', 'cs'], id='eos')
                         
                         )
 
