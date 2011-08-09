@@ -30,3 +30,9 @@ cdef class MorrisViscosity(SPHFunctionParticle):
     cdef DoubleArray d_mu, s_mu
 
     cdef DoubleArray d_dt_fac
+
+cdef class MomentumEquationSignalBasedViscosity(SPHFunctionParticle):
+
+    cdef public double K, beta
+    cdef DoubleArray d_dt_fac
+    

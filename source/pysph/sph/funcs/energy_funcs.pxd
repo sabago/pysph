@@ -38,8 +38,12 @@ cdef class EnergyEquation(SPHFunctionParticle):
 
 cdef class ArtificialHeat(SPHFunctionParticle):
     """ Energy equation for the euler equations """
-
+    
     cdef double eta
 
     # the array for conduction coefficients
     cdef DoubleArray s_q, d_q
+
+cdef class EnergyEquationWithSignalBasedViscosity(SPHFunctionParticle):
+    """ """
+    cdef public double K, beta, f

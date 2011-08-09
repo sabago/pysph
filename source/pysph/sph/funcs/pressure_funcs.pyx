@@ -288,7 +288,8 @@ cdef class MomentumEquation(SPHFunctionParticle):
 
         # compute the factor used to determine the viscous time step limit
         rab2 = cPoint_norm(rab)
-        dt_fac = fabs( hab * dot / (rab2) )
+        eta = self.eta
+        dt_fac = fabs( hab * dot / (rab2+eta*eta*hab*hab) )
         self.d_dt_fac.data[dest_pid] = max( self.d_dt_fac.data[dest_pid],
                                             dt_fac )
     
@@ -308,7 +309,6 @@ cdef class MomentumEquation(SPHFunctionParticle):
         if dot < 0:
             alpha = self.alpha
             beta = self.beta
-            eta = self.eta
             gamma = self.gamma
 
             cab = 0.5 * (ca + cb)

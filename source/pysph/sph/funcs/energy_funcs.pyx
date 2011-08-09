@@ -1,12 +1,10 @@
 #cython: cdivision=True
 from pysph.base.point cimport cPoint, cPoint_dot, cPoint_new, cPoint_sub,\
-     cPoint_norm
+     cPoint_norm, normalized
 
 from pysph.solver.cl_utils import get_real
 
-cdef extern from "math.h":
-    double sqrt(double)
-    double fabs(double)
+from common cimport compute_signal_velocity, sqrt, fabs
 
 ##############################################################################
 cdef class EnergyEquationNoVisc(SPHFunctionParticle):
@@ -81,10 +79,6 @@ cdef class EnergyEquationNoVisc(SPHFunctionParticle):
             grad.x = (grada.x + gradb.x) * 0.5
             grad.y = (grada.y + gradb.y) * 0.5
             grad.z = (grada.z + gradb.z) * 0.5
-            
-            # grad.set((grada.x + gradb.x)*0.5,
-            #          (grada.y + gradb.y)*0.5,
-            #          (grada.z + gradb.z)*0.5)
             
         else:            
             grad = kernel.gradient(self._dst, self._src, hab)
@@ -212,10 +206,6 @@ cdef class EnergyEquationAVisc(SPHFunctionParticle):
                 grad.y = (grada.y + gradb.y) * 0.5
                 grad.z = (grada.z + gradb.z) * 0.5
 
-                # grad.set((grada.x + gradb.x)*0.5,
-                #          (grada.y + gradb.y)*0.5,
-                #          (grada.z + gradb.z)*0.5)
-            
             else:            
                 grad = kernel.gradient(self._dst, self._src, hab) 
 
@@ -309,12 +299,10 @@ cdef class EnergyEquation(SPHFunctionParticle):
         self._dst.y = self.d_y.data[dest_pid]
         self._dst.z = self.d_z.data[dest_pid]
         
-        #rab = Point_sub(self._dst, self._src)
         rab.x = self._dst.x-self._src.x
         rab.y = self._dst.y-self._src.y
         rab.z = self._dst.z-self._src.z
         
-        #vab = Point_sub(self.tmpva, self.tmpvb)
         vab.x = self.d_u.data[dest_pid]-self.s_u.data[source_pid]
         vab.y = self.d_v.data[dest_pid]-self.s_v.data[source_pid]
         vab.z = self.d_w.data[dest_pid]-self.s_w.data[source_pid]
@@ -354,10 +342,6 @@ cdef class EnergyEquation(SPHFunctionParticle):
             grad.x = (grada.x + gradb.x) * 0.5
             grad.y = (grada.y + gradb.y) * 0.5
             grad.z = (grada.z + gradb.z) * 0.5
-
-            # grad.set((grada.x + gradb.x)*0.5,
-            #          (grada.y + gradb.y)*0.5,
-            #          (grada.z + gradb.z)*0.5)
             
         else:            
             grad = kernel.gradient(self._dst, self._src, hab)
@@ -480,9 +464,6 @@ cdef class ArtificialHeat(SPHFunctionParticle):
 
             eab = self.d_e.data[dest_pid] - self.s_e.data[source_pid]
            
-            #qa = ha * (g1 * ca + g2 * ha * (fabs(diva) - diva))
-            #qb = hb * (g1 * cb + g2 * hb * (fabs(divb) - divb))
-
             qa = self.d_q.data[dest_pid]
             qb = self.s_q.data[source_pid]
 
@@ -512,3 +493,111 @@ cdef class ArtificialHeat(SPHFunctionParticle):
         nr[0] += tmp * cPoint_dot(grad, xab)
 
 ###############################################################################
+
+cdef class EnergyEquationWithSignalBasedViscosity(SPHFunctionParticle):
+
+    def __init__(self, ParticleArray source, ParticleArray dest,
+                 double K=1.0, double beta=1.0, double f=1.0, **kwargs):
+
+        self.K = K
+        self.beta = beta
+        self.f = f
+        
+        self.id = "energyequationwithsignalbasedviscosity"
+        self.tag = "energy"
+
+        SPHFunctionParticle.__init__(self, source, dest, setup_arrays=True,
+                                     **kwargs)
+
+        self.cl_kernel_src_file = "energy_funcs.cl"
+
+    def set_src_dst_reads(self):
+        pass
+
+    cdef void eval_nbr(self, size_t source_pid, size_t dest_pid, 
+                       KernelBase kernel, double *nr):
+        
+        cdef double ha = self.d_h.data[dest_pid]
+        cdef double hb = self.s_h.data[source_pid]
+        
+        cdef double hab = 0.5*(ha + hb)
+
+        cdef double mb = self.s_m.data[source_pid]
+        cdef double rhoa = self.d_rho.data[dest_pid]
+        cdef double rhob = self.s_rho.data[source_pid]
+
+        cdef double rhoab = 0.5*(rhoa + rhob)
+
+        cdef double ca = self.d_cs.data[dest_pid]
+        cdef double cb = self.s_cs.data[source_pid]        
+
+        cdef double ea = self.d_e.data[dest_pid]
+        cdef double eb = self.s_e.data[source_pid]
+
+        cdef double pa = self.d_p.data[dest_pid]
+
+        cdef double dot
+        cdef double K, beta, vsig, piab, omegaab, vabdotj, vadotj, vbdotj, jdotgrad
+
+        cdef cPoint rab, j, va, vb, vab
+        cdef cPoint grad, grada, gradb
+
+        va = cPoint_new(self.d_u.data[dest_pid], 
+                        self.d_v.data[dest_pid],
+                        self.d_w.data[dest_pid])
+        
+        vb = cPoint_new(self.s_u.data[source_pid],
+                        self.s_v.data[source_pid],
+                        self.s_w.data[source_pid])
+        
+        self._src.x = self.s_x.data[source_pid]
+        self._src.y = self.s_y.data[source_pid]
+        self._src.z = self.s_z.data[source_pid]
+
+        self._dst.x = self.d_x.data[dest_pid]
+        self._dst.y = self.d_y.data[dest_pid]
+        self._dst.z = self.d_z.data[dest_pid]
+
+        if self.hks:
+            grada = kernel.gradient(self._dst, self._src, ha)
+            gradb = kernel.gradient(self._dst, self._src, hb)
+            
+            grad.x = (grada.x + gradb.x) * 0.5
+            grad.y = (grada.y + gradb.y) * 0.5
+            grad.z = (grada.z + gradb.z) * 0.5
+
+        else:            
+            grad = kernel.gradient(self._dst, self._src, hab)
+
+        if self.bonnet_and_lok_correction:
+            self.bonnet_and_lok_gradient_correction(dest_pid, &grad)
+
+        vab = cPoint_sub(va,vb)
+        rab = cPoint_sub(self._dst,self._src)
+        dot = cPoint_dot(vab, rab)
+
+        tmp = mb*pa/(rhoa*rhoa)*cPoint_dot(vab, grad)
+
+        piab = 0.0
+        omegaab = 0.0
+        if dot < 0:
+            K = self.K
+            j = normalized(rab)
+
+            vadotj = cPoint_dot(va, j)
+            vbdotj = cPoint_dot(vb, j)
+            vabdotj = cPoint_dot(vab, j)
+            jdotgrad = cPoint_dot(j, grad)
+
+            vsig = compute_signal_velocity(self.beta, vabdotj, ca, cb)
+            
+            tmp = mb*K*vsig/rhoab
+
+            piab = tmp*self.f*(ea-eb)*jdotgrad
+            
+            omegaab = tmp*( 0.5*(vadotj*vadotj -vbdotj*vbdotj)*jdotgrad - \
+                            vabdotj*cPoint_dot(va, grad) )
+
+        tmp = tmp + piab + omegaab
+
+        nr[0] += tmp
