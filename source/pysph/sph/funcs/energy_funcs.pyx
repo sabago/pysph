@@ -202,7 +202,7 @@ cdef class EnergyEquationAVisc(SPHFunctionParticle):
 
             rhoab = 0.5 * (rhoa + rhob)
 
-            mu = (h * test) / (cPoint_norm(rab) + eta*eta*h*h)
+            mu = (hab * test) / (cPoint_norm(rab) + eta*eta*hab*hab)
 
             if self.hks:
                 grada = kernel.gradient(self._dst, self._src, ha)

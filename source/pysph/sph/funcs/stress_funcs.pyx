@@ -18,13 +18,6 @@ from pysph.base.particle_array cimport LocalReal
 # d = M[0,0], M[1,1], M[2,2]
 # s = M[1,2], M[0,2], M[0,1]
 
-cdef extern from "math.h":
-    double fabs(double)
-    double cos(double)
-    double sin(double)
-    double pow(double,double)
-    double atan2(double, double)
-    double sqrt(double, double)
 
 cdef void symm_to_points(double * mat[3][3], long idx, cPoint& d, cPoint& s):
     ''' convert arrays of matrix elements for index idx into d,s components '''

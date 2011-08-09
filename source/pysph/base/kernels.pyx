@@ -630,7 +630,6 @@ cdef class WendlandQuinticSplineKernel(KernelBase):
             raise NotImplementedError
         else:
             return (21.0/16.0*PI*h*h)
-            raise ValueError
 
     cpdef double radius(self):
         return 2
