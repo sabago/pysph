@@ -22,10 +22,12 @@ from funcs.density_funcs import SPHRho, SPHDensityRate
 
 #Import Energy functions
 from funcs.energy_funcs import EnergyEquation, EnergyEquationAVisc,\
-     EnergyEquationNoVisc, ArtificialHeat
+     EnergyEquationNoVisc, ArtificialHeat, \
+     EnergyEquationWithSignalBasedViscosity
 
 #Import viscosity functions
-from funcs.viscosity_funcs import MonaghanArtificialViscosity, MorrisViscosity
+from funcs.viscosity_funcs import MonaghanArtificialViscosity, \
+     MorrisViscosity, MomentumEquationSignalBasedViscosity
 
 #Import pressure functions
 from funcs.pressure_funcs import SPHPressureGradient, MomentumEquation

@@ -1,5 +1,9 @@
 """API module to simplify import of common names from pysph.base package"""
 
+# fast utils
+from fast_utils import arange_long
+
+# carray
 from carray import LongArray, DoubleArray, IntArray, FloatArray
 
 from cell import Cell, CellManager, PeriodicDomain
