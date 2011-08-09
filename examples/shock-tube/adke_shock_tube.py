@@ -136,7 +136,7 @@ s.add_operation(solver.SPHOperation(
 s.add_operation(solver.SPHOperation(
 
     sph.SPHRho.withargs(hks=hks),
-    from_types=[Fluid, Boundary], on_types=[Fluid], 
+    from_types=[Fluid, Boundary], on_types=[Fluid],
     updates=['rho'], id = 'density')
                 
                 )
@@ -179,7 +179,7 @@ s.add_operation(solver.SPHIntegration(
 # energy equation
 s.add_operation(solver.SPHIntegration(
     
-    sph.EnergyEquation.withargs(hks=True,),
+    sph.EnergyEquation.withargs(),
     from_types=[Fluid, Boundary],
     on_types=[Fluid], updates=['e'], id='enr')
 
@@ -188,7 +188,7 @@ s.add_operation(solver.SPHIntegration(
 # artificial heat 
 s.add_operation(solver.SPHIntegration(
 
-   sph.ArtificialHeat.withargs(eta=0.1, hks=True),
+   sph.ArtificialHeat.withargs(eta=0.1),
    on_types=[Fluid], from_types=[Fluid,Boundary],
    updates=['e'], id='aheat'),
 
