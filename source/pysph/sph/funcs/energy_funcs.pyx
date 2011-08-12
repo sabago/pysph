@@ -515,41 +515,21 @@ cdef class EnergyEquationWithSignalBasedViscosity(SPHFunctionParticle):
         pass
 
     cdef void eval_nbr(self, size_t source_pid, size_t dest_pid, 
-                       KernelBase kernel, double *nr):
-        
-        cdef double ha = self.d_h.data[dest_pid]
-        cdef double hb = self.s_h.data[source_pid]
-        
-        cdef double hab = 0.5*(ha + hb)
+                       KernelBase kernel, double *nr):    
+    
+        cdef cPoint vab, rab, va, vb
+        cdef double Pa, Pb, rhoa, rhob, rhoab, mb
+        cdef double dot, tmp
+        cdef double ca, cb, mu, piab, alpha, beta, eta
+        cdef double ea, eb, eab
 
-        cdef double mb = self.s_m.data[source_pid]
-        cdef double rhoa = self.d_rho.data[dest_pid]
-        cdef double rhob = self.s_rho.data[source_pid]
-
-        cdef double rhoab = 0.5*(rhoa + rhob)
-
-        cdef double ca = self.d_cs.data[dest_pid]
-        cdef double cb = self.s_cs.data[source_pid]        
-
-        cdef double ea = self.d_e.data[dest_pid]
-        cdef double eb = self.s_e.data[source_pid]
-
-        cdef double pa = self.d_p.data[dest_pid]
-
-        cdef double dot
-        cdef double K, beta, vsig, piab, omegaab, vabdotj, vadotj, vbdotj, jdotgrad
-
-        cdef cPoint rab, j, va, vb, vab
         cdef cPoint grad, grada, gradb
 
-        va = cPoint_new(self.d_u.data[dest_pid], 
-                        self.d_v.data[dest_pid],
-                        self.d_w.data[dest_pid])
-        
-        vb = cPoint_new(self.s_u.data[source_pid],
-                        self.s_v.data[source_pid],
-                        self.s_w.data[source_pid])
-        
+        cdef double ha = self.d_h.data[dest_pid]
+        cdef double hb = self.s_h.data[source_pid]
+
+        cdef double hab = 0.5 * (ha + hb)
+
         self._src.x = self.s_x.data[source_pid]
         self._src.y = self.s_y.data[source_pid]
         self._src.z = self.s_z.data[source_pid]
@@ -557,47 +537,80 @@ cdef class EnergyEquationWithSignalBasedViscosity(SPHFunctionParticle):
         self._dst.x = self.d_x.data[dest_pid]
         self._dst.y = self.d_y.data[dest_pid]
         self._dst.z = self.d_z.data[dest_pid]
+        
+        rab.x = self._dst.x-self._src.x
+        rab.y = self._dst.y-self._src.y
+        rab.z = self._dst.z-self._src.z
+
+        va.x = self.d_u.data[dest_pid]
+        va.y = self.d_u.data[dest_pid]
+        va.z = self.d_w.data[dest_pid]
+
+        vb.x = self.s_u.data[source_pid]
+        vb.y = self.s_v.data[source_pid]
+        vb.z = self.s_w.data[source_pid]
+        
+        vab.x = self.d_u.data[dest_pid]-self.s_u.data[source_pid]
+        vab.y = self.d_v.data[dest_pid]-self.s_v.data[source_pid]
+        vab.z = self.d_w.data[dest_pid]-self.s_w.data[source_pid]
+        
+        dot = cPoint_dot(vab, rab)
+    
+        Pa = self.d_p.data[dest_pid]
+        rhoa = self.d_rho.data[dest_pid]
+        ea = self.d_e.data[dest_pid]
+                               
+        Pb = self.s_p.data[source_pid]
+        rhob = self.s_rho.data[source_pid]
+        mb = self.s_m.data[source_pid]
+        eb = self.s_e.data[source_pid]
+
+        rhoab = 0.5 * (rhoa + rhob)
 
         if self.hks:
             grada = kernel.gradient(self._dst, self._src, ha)
             gradb = kernel.gradient(self._dst, self._src, hb)
-            
+
             grad.x = (grada.x + gradb.x) * 0.5
             grad.y = (grada.y + gradb.y) * 0.5
             grad.z = (grada.z + gradb.z) * 0.5
-
+            
         else:            
             grad = kernel.gradient(self._dst, self._src, hab)
 
+        if self.rkpm_first_order_correction:
+            pass
+
         if self.bonnet_and_lok_correction:
-            self.bonnet_and_lok_gradient_correction(dest_pid, &grad)
+            self.bonnet_and_lok_gradient_correction(dest_pid, &grad)        
 
-        vab = cPoint_sub(va,vb)
-        rab = cPoint_sub(self._dst,self._src)
-        dot = cPoint_dot(vab, rab)
-
-        tmp = mb*pa/(rhoa*rhoa)*cPoint_dot(vab, grad)
-
-        piab = 0.0
-        omegaab = 0.0
+        temp = Pa/(rhoa*rhoa)
+        
+        piab = 0
+        omegaab = 0
         if dot < 0:
+            beta = self.beta
             K = self.K
+            f = self.f
+
             j = normalized(rab)
 
+            vabdotj = cPoint_dot(vab, j)
             vadotj = cPoint_dot(va, j)
             vbdotj = cPoint_dot(vb, j)
-            vabdotj = cPoint_dot(vab, j)
-            jdotgrad = cPoint_dot(j, grad)
 
             vsig = compute_signal_velocity(self.beta, vabdotj, ca, cb)
-            
-            tmp = mb*K*vsig/rhoab
+            tmp = -K * vsig/rhoab
 
-            piab = tmp*self.f*(ea-eb)*jdotgrad
-            
-            omegaab = tmp*( 0.5*(vadotj*vadotj -vbdotj*vbdotj)*jdotgrad - \
-                            vabdotj*cPoint_dot(va, grad) )
+            piab = tmp * vabdotj
 
-        tmp = tmp + piab + omegaab
+            eab = f*(ea - eb)
+            omegaab = tmp * ( 0.5*(vadotj**2 - vbdotj**2) + eab )
 
-        nr[0] += tmp
+        temp = temp * cPoint_dot(grad, vab)
+        piab = piab * cPoint_dot(grad, va)
+        omegaab = omegaab * cPoint_dot(grad, j)
+
+        nr[0] += mb*temp
+        nr[0] += mb*piab
+        nr[0] -= mb*omegaab
