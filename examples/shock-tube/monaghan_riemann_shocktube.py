@@ -19,7 +19,7 @@ dxl = 0.6/nl
 dxr = 4*dxl
 
 h0 = 2*dxr
-eps = 0.4
+eps = 0.8
 k = 0.7
 
 g1 = 0.2
@@ -67,7 +67,6 @@ def get_boundary_particles(**kwargs):
     e = numpy.ones_like(x) * 2.5
 
     p = (0.4) * rho * e
-    #cs = numpy.sqrt(0.4 * e)
     cs = numpy.sqrt( 1.4*p/rho )
     q = g1 * h * cs
 
@@ -115,22 +114,22 @@ s = solver.Solver(dim=1, integrator_type=solver.RK2Integrator)
 #                     ADD OPERATIONS
 #############################################################
 
-# # pilot rho
-# s.add_operation(solver.SPHOperation(
+# pilot rho
+s.add_operation(solver.SPHOperation(
 
-#     sph.ADKEPilotRho.withargs(h0=h0),
-#     on_types=[Fluid], from_types=[Fluid,Boundary],
-#     updates=['rhop'], id='adke_rho'),
+    sph.ADKEPilotRho.withargs(h0=h0),
+    on_types=[Fluid], from_types=[Fluid,Boundary],
+    updates=['rhop'], id='adke_rho'),
 
-#                 )
+                )
 
-# # smoothing length update
-# s.add_operation(solver.SPHOperation(
+# smoothing length update
+s.add_operation(solver.SPHOperation(
 
-#     sph.ADKESmoothingUpdate.withargs(h0=h0, k=k, eps=eps, hks=hks),
-#     on_types=[Fluid], updates=['h'], id='adke'),
+    sph.ADKESmoothingUpdate.withargs(h0=h0, k=k, eps=eps, hks=hks),
+    on_types=[Fluid], updates=['h'], id='adke'),
                 
-#                 )
+                )
 
 # summation density
 s.add_operation(solver.SPHOperation(
@@ -158,7 +157,7 @@ s.add_operation(solver.SPHIntegration(
                 
                 )
 
-# momentum equation visc
+#momentum equation visc
 s.add_operation(solver.SPHIntegration(
 
     sph.MomentumEquationSignalBasedViscosity.withargs(beta=1.0, K=1.0),

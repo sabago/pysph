@@ -226,8 +226,6 @@ cdef class MomentumEquationSignalBasedViscosity(SPHFunctionParticle):
                         self.s_v.data[source_pid],
                         self.s_w.data[source_pid])
         
-        vab = cPoint_sub(va,vb)
-        
         self._src.x = self.s_x.data[source_pid]
         self._src.y = self.s_y.data[source_pid]
         self._src.z = self.s_z.data[source_pid]
@@ -235,7 +233,8 @@ cdef class MomentumEquationSignalBasedViscosity(SPHFunctionParticle):
         self._dst.x = self.d_x.data[dest_pid]
         self._dst.y = self.d_y.data[dest_pid]
         self._dst.z = self.d_z.data[dest_pid]
-        
+
+        vab = cPoint_sub(va,vb)
         rab = cPoint_sub(self._dst,self._src)
         dot = cPoint_dot(vab, rab)
 
