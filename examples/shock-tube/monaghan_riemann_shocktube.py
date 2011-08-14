@@ -22,11 +22,9 @@ h0 = 2*dxr
 eps = 0.8
 k = 0.7
 
-g1 = 0.2
-g2 = 0.5
-
-alpha = 1.0
 beta = 1.0
+K = 1.0
+f = 0.5
 
 hks = False
 
@@ -68,11 +66,10 @@ def get_boundary_particles(**kwargs):
 
     p = (0.4) * rho * e
     cs = numpy.sqrt( 1.4*p/rho )
-    q = g1 * h * cs
 
     left = base.get_particle_array(name="left", type=Boundary,
                                    x=x, m=m, h=h, rho=rho, u=u,
-                                   e=e, cs=cs, p=p, q=q)
+                                   e=e, cs=cs, p=p)
 
     # right boundary
     for i in range(50):
@@ -87,11 +84,10 @@ def get_boundary_particles(**kwargs):
     p = (0.4) * rho * e
     #cs = numpy.sqrt(0.4*e)
     cs = numpy.sqrt( 1.4*p/rho )
-    q = g1 * h * cs
 
     right = base.get_particle_array(name="right", type=Boundary,
                                     x=x, m=m, h=h, rho=rho, u=u,
-                                    e=e, cs=cs,p=p, q=q)
+                                    e=e, cs=cs,p=p)
 
     return [left, right]
 
@@ -108,84 +104,87 @@ app = solver.Application()
 
 
 # define the solver and kernel
-s = solver.Solver(dim=1, integrator_type=solver.RK2Integrator)
+#s = solver.Solver(dim=1, integrator_type=solver.RK2Integrator)
+s = solver.MonaghanShockTubeSolver(dim=1, integrator_type=solver.RK2Integrator,
+                                   h0=h0, eps=eps, k=k,
+                                   beta=beta, K=K, f=f)
 
 #############################################################
 #                     ADD OPERATIONS
 #############################################################
 
-# pilot rho
-s.add_operation(solver.SPHOperation(
+# # pilot rho
+# s.add_operation(solver.SPHOperation(
 
-    sph.ADKEPilotRho.withargs(h0=h0),
-    on_types=[Fluid], from_types=[Fluid,Boundary],
-    updates=['rhop'], id='adke_rho'),
+#     sph.ADKEPilotRho.withargs(h0=h0),
+#     on_types=[Fluid], from_types=[Fluid,Boundary],
+#     updates=['rhop'], id='adke_rho'),
 
-                )
+#                 )
 
-# smoothing length update
-s.add_operation(solver.SPHOperation(
+# # smoothing length update
+# s.add_operation(solver.SPHOperation(
 
-    sph.ADKESmoothingUpdate.withargs(h0=h0, k=k, eps=eps, hks=hks),
-    on_types=[Fluid], updates=['h'], id='adke'),
+#     sph.ADKESmoothingUpdate.withargs(h0=h0, k=k, eps=eps, hks=hks),
+#     on_types=[Fluid], updates=['h'], id='adke'),
                 
-                )
+#                 )
 
-# summation density
-s.add_operation(solver.SPHOperation(
+# # summation density
+# s.add_operation(solver.SPHOperation(
 
-    sph.SPHRho.withargs(hks=hks),
-    from_types=[Fluid, Boundary], on_types=[Fluid],
-    updates=['rho'], id = 'density')
+#     sph.SPHRho.withargs(hks=hks),
+#     from_types=[Fluid, Boundary], on_types=[Fluid],
+#     updates=['rho'], id = 'density')
                 
-                )
+#                 )
 
-# ideal gas equation
-s.add_operation(solver.SPHOperation(
+# # ideal gas equation
+# s.add_operation(solver.SPHOperation(
     
-    sph.IdealGasEquation.withargs(),
-    on_types = [Fluid], updates=['p', 'cs'], id='eos')
+#     sph.IdealGasEquation.withargs(),
+#     on_types = [Fluid], updates=['p', 'cs'], id='eos')
                 
-                )
+#                 )
 
-# momentum equation pressure equation
-s.add_operation(solver.SPHIntegration(
+# # momentum equation pressure equation
+# s.add_operation(solver.SPHIntegration(
     
-    sph.SPHPressureGradient.withargs(),
-    from_types=[Fluid, Boundary], on_types=[Fluid], 
-    updates=['u'], id='mom')
+#     sph.SPHPressureGradient.withargs(),
+#     from_types=[Fluid, Boundary], on_types=[Fluid], 
+#     updates=['u'], id='mom')
                 
-                )
+#                 )
 
-#momentum equation visc
-s.add_operation(solver.SPHIntegration(
+# #momentum equation visc
+# s.add_operation(solver.SPHIntegration(
 
-    sph.MomentumEquationSignalBasedViscosity.withargs(beta=1.0, K=1.0),
-    on_types=[base.Fluid,], from_types=[base.Fluid, base.Boundary],
-    updates=['u'],
-    id="momvisc")
+#     sph.MomentumEquationSignalBasedViscosity.withargs(beta=1.0, K=1.0),
+#     on_types=[base.Fluid,], from_types=[base.Fluid, base.Boundary],
+#     updates=['u'],
+#     id="momvisc")
 
-                )
+#                 )
 
-# energy equation
-s.add_operation(solver.SPHIntegration(
+# # energy equation
+# s.add_operation(solver.SPHIntegration(
     
-    sph.EnergyEquationWithSignalBasedViscosity.withargs(beta=1.0, K=1.0, f=0.5),
-    on_types=[Fluid], from_types=[Fluid, Boundary],
-    updates=['e'],
-    id='enr')
+#     sph.EnergyEquationWithSignalBasedViscosity.withargs(beta=1.0, K=1.0, f=0.5),
+#     on_types=[Fluid], from_types=[Fluid, Boundary],
+#     updates=['e'],
+#     id='enr')
 
-                )
+#                 )
 
-# position stepping
-s.add_operation(solver.SPHIntegration(
+# # position stepping
+# s.add_operation(solver.SPHIntegration(
 
-    sph.PositionStepping.withargs(),
-    on_types=[base.Fluid],
-    updates=['x'],
-    id="step")
+#     sph.PositionStepping.withargs(),
+#     on_types=[base.Fluid],
+#     updates=['x'],
+#     id="step")
 
-                )
+#                 )
 
 s.set_final_time(0.15)
 s.set_time_step(3e-4)
@@ -202,6 +201,6 @@ s.particles.add_misc_function( UpdateBoundaryParticles(s.particles) )
 
 output_dir = app.options.output_dir
 numpy.savez(output_dir + "/parameters.npz", eps=eps, k=k, h0=h0,
-            g1=g1, g2=g2, alpha=alpha, beta=beta, hks=hks)
+            beta=beta, K=K, f=f, hks=hks)
 
 app.run()

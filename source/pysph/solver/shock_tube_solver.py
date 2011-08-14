@@ -302,8 +302,169 @@ class ADKEShockTubeSolver(Solver):
                            )
         
         
-        
-        
+class MonaghanShockTubeSolver(Solver):
+
+    def __init__(self, dim, integrator_type, h0, eps, k,
+                 beta=1.0, K=1.0, f=0.5, gamma=1.4,
+                 kernel=base.CubicSplineKernel, hks=False):
+
+        # solver parameters
+        self.h0 = h0
+        self.adke_eps = eps
+        self.k = k
+
+        # signal viscosity parameters
+        self.beta = beta
+        self.K = K
+        self.f = f
+
+        self.gamma = gamma
+
+        self.dim = dim
+
+        # Hernquist and Katz normalization
+        self.hks = hks
+
+        # the SPH kernel to use
+        self.kernel = kernel(dim)
+
+        self.defaults = dict(adke_eps=eps, adke_k=k, adke_h0=h0,
+                             beta=beta, K=K, f=f, gamma=gamma)
+
+        # base class constructor
+        Solver.__init__(self, dim, integrator_type)
+
+    def get_options(self, opt_parser):
+
+        opt = OptionGroup(opt_parser, "MonaghanShockTubeSolver options")
+
+        opt.add_option("--gamma", action="store", type="float",
+                       dest="gamma", default=self.defaults["gamma"],
+                       help="Set the ratio of specific heats gamma")
+
+        opt.add_option("--adke-eps", action="store", type="float",
+                       dest="adke_eps", default=self.defaults.get("adke_eps"),
+                       help="Sensitivity parameter eps for the ADKE pocedure")
+
+        opt.add_option("--adke-k", action="store", type="float",
+                       dest="adke_k", default=self.defaults.get("adke_k"),
+                       help="Scaling parameter k for the ADKE pocedure")
+
+        opt.add_option("--adke-h0", action="store", type="float",
+                       dest="adke_h0", default=self.defaults.get("adke_h0"),
+                       help="Initial smoothing length h0 for the ADKE pocedure")
+
+        opt.add_option("--beta", action="store", type="float",
+                       dest="beta", default=self.defaults["beta"],
+                       help="Constant 'beta' for the signal viscosity")
+
+        opt.add_option("--f", action="store", type="float",
+                       dest="f", default=self.defaults.get("beta"),
+                       help="Constant 'f' for the signal viscosity")
+
+        opt.add_option("--K", action="store", type="float",
+                       dest="K", default=self.defaults.get("K"),
+                       help="Constant 'K' for the signal viscosity")
+
+
+        return opt 
+
+    def setup_solver(self, options=None):
+
+        options = options or self.defaults
+
+        hks = options.get("hks")
+
+        # ADKE parameters
+        h0 = options.get("adke_h0")
+        eps = options.get("adke_eps")
+        k = options.get("adke_k")
+
+        # Artificial viscosity parameters
+        beta = options.get("beta")
+        K = options.get("K")
+        f = options.get("f")
+
+        gamma = options.get("gamma")
+
+        vel_updates=["u","v","w"][:self.dim]
+        pos_updates=["x","y","z"][:self.dim]
+
+        # pilot rho estimate
+        self.add_operation(SPHOperation(
+
+            sph.ADKEPilotRho.withargs(h0=h0),
+            on_types=[Fluids,], from_types=[Fluids,Boundary],
+            updates=['rhop'], id='adke_rho'),
+
+                        )
+
+        # smoothing length update
+        self.add_operation(SPHOperation(
+            
+            sph.ADKESmoothingUpdate.withargs(h0=h0, k=k, eps=eps, hks=hks),
+            on_types=[Fluids,],
+            updates=['h'], id='adke'),
+                        
+                        )
+
+        # summation density
+        self.add_operation(SPHOperation(
+
+            sph.SPHRho.withargs(),
+            on_types=[base.Fluid,], from_types=[base.Fluid, base.Boundary],
+            updates=["rho"],
+            id="summation_density")
+
+                           )
+
+        # ideal gas eos
+        self.add_operation(SPHOperation(
     
-        
+            sph.IdealGasEquation.withargs(gamma=gamma),
+            on_types = [base.Fluid],
+            updates=['p', 'cs'],
+            id='eos')
+                        
+                        )
+
+        # momentum equation pressure gradient
+        self.add_operation(SPHIntegration(
+
+            sph.SPHPressureGradient.withargs(),
+            on_types=[base.Fluid,], from_types=[base.Boundary, base.Fluid],
+            updates=vel_updates,
+            id="pgrad")
+
+                           )
+
+        # momentum equation artificial viscosity
+        self.add_operation(SPHIntegration(
+
+            sph.MomentumEquationSignalBasedViscosity.withargs(beta=beta, K=K),
+            on_types=[base.Fluid,], from_types=[base.Boundary, base.Fluid],
+            updates=vel_updates,
+            id="visc")
+
+                           )
+
+        # energy equation
+        self.add_operation(SPHIntegration(
+
+            sph.EnergyEquationWithSignalBasedViscosity.withargs(beta=beta,K=K,f=f),
+            on_types=[base.Fluid,], from_types=[base.Boundary, base.Fluid],
+            updates=["e"],
+            id="energy")
+
+                           )
+
+        # position step
+        self.add_operation(SPHIntegration(
+
+            sph.PositionStepping.withargs(),
+            on_types=[Fluids,],
+            updates=pos_updates,
+            id="step")
+
+                           )
         
