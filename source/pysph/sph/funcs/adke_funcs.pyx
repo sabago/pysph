@@ -9,6 +9,42 @@ from pysph.base.particle_array cimport LocalReal
 cdef extern from "math.h":
     double fabs (double)
 
+cdef class SetSmoothingLength(SPHFunction):
+
+    def __init__(self, ParticleArray source, ParticleArray dest,
+                 double h0, bint setup_arrays=True):
+
+        SPHFunction.__init__(self, source, dest, setup_arrays)
+        
+        self.id = 'setsmoothing'
+        self.tag = "h"
+
+        self.cl_kernel_src_file = "adke_funcs.cl"
+        self.cl_kernel_function_name = "SetSmoothing"
+        self.num_outputs = 1
+
+        self.h0 = h0
+
+    def set_src_dst_reads(self):
+        pass
+
+    cpdef eval(self, KernelBase kernel, DoubleArray output1,
+               DoubleArray output2, DoubleArray output3):
+        
+        cdef LongArray tag_arr = self.dest.get_carray('tag')
+
+        self.setup_iter_data()
+        cdef size_t np = self.dest.get_number_of_particles()
+        
+        for i in range(np):
+            if tag_arr.data[i] == LocalReal:
+                output1[i] = self.h0
+            else:
+                output1[i] = 0    
+
+        # set the destination's dirty bit since new neighbors are needed
+        self.dest.set_dirty(True)
+        
 ###############################################################################
 # `PilotRho` class.
 ###############################################################################
@@ -136,8 +172,7 @@ cdef class ADKESmoothingUpdate(SPHFunction):
                 output1.data[i] = self.h0 * self.k * (g/rhop.data[i])**self.eps
 
         # set the destination's dirty bit since new neighbors are needed
-        
-        self.dest.set_dirty(True)    
+        self.dest.set_dirty(True)
 
 ###############################################################################
 # `SPHDivergence` class.
