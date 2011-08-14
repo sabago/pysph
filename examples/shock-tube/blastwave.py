@@ -51,7 +51,7 @@ def get_particles(with_boundary=False, **kwargs):
                                                  rhol=rhol, rhor=rhor,
                                                  ul=ul, ur=ur,
                                                  g1=g1, g2=g2, h0=h0,
-                                                 gamma=1.4)
+                                                 gamma=gamma)
 
     if with_boundary:
         return [adke, left, right]

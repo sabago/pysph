@@ -1,4 +1,4 @@
-""" Standard shock tube problem by Monaghan """
+""" Strong blaswave problem proposed by Sigalotti. Mach number = 771 """
 
 import numpy
 
@@ -7,42 +7,42 @@ import pysph.solver.api as solver
 
 import get_shock_tube_data as data
 
-CLDomain = base.DomainManagerType
-CLLocator = base.OpenCLNeighborLocatorType
 Locator = base.NeighborLocatorType
 
 kernel = base.CubicSplineKernel
 hks=False
 
 # shock tube parameters
-xl = -0.1; xr = 0.1
-pl = 4e-7; pr = 4e-7
-ul = 1.0; ur = -1.0
+xl = -1.5; xr = 1.5
+pl = 10000; pr = 0.01
+ul = 0.0; ur = 0.0
 rhol = 1.0; rhor = 1.0
-gamma = 1.4
 
 # Number of particles
-nl = 400
-nr = 400
+nl = 1500
+nr = 1500
 np = nl + nr
 
 # Time step constants
-dt = 5e-7
-tf = 0.1
+dt = 5e-6
+tf = 4e-3
+t = 0.0
 
 # Artificial Viscosity constants
 alpha = 1.0
 beta = 1.0
-gamma = 1.4
+gamma = 5.0/3.0
 eta = 0.1
 
 # ADKE Constants
-eps = 0.4
-k=0.7
-h0 = 1.0*xr/nr
+eps = 0.8
+k=1.0
+dx = xr/nr
+D = 1.5
+h0 = D*dx
 
 # Artificial Heat constants
-g1 = 0.5
+g1 = 0.2
 g2 = 1.0
 
 def get_particles(with_boundary=False, **kwargs):
@@ -63,8 +63,8 @@ app = solver.Application()
 s = solver.ADKEShockTubeSolver(dim=1,
                                integrator_type=solver.RK2Integrator,
                                h0=h0, eps=eps, k=k, g1=g1, g2=g2,
-                               alpha=alpha, beta=beta, gamma=gamma,
-                               kernel=kernel, hks=hks)
+                               alpha=alpha, beta=beta,gamma=gamma,
+                               kernel=kernel, hks=hks,)
 
 s.set_final_time(tf)
 s.set_time_step(dt)
@@ -74,10 +74,7 @@ app.setup(
     min_cell_size=4*h0,
     variable_h=True,
     create_particles=get_particles,
-    locator_type=Locator.SPHNeighborLocator,
-    cl_locator_type=CLLocator.AllPairNeighborLocator,
-    domain_manager_type=CLDomain.DomainManager,
-    nl=nl, nr=nr)
+    locator_type=Locator.SPHNeighborLocator)
 
 output_dir = app.options.output_dir
 numpy.savez(output_dir + "/parameters.npz", eps=eps, k=k, h0=h0,

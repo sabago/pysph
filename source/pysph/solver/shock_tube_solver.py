@@ -8,9 +8,9 @@ import pysph.sph.api as sph
 from solver import Solver
 from sph_equation import SPHOperation, SPHIntegration
 
-Fluids = base.ParticleType.Fluid
-Solids = base.ParticleType.Solid
-Boundary = base.ParticleType.Boundary
+Fluids = base.Fluid
+Solids = base.Solid
+Boundary = base.Boundary
 
 def standard_shock_tube_data(name="", type=0, cl_precision="double",
                              nl=320, nr=80, smoothing_length=None, **kwargs):
@@ -280,7 +280,7 @@ class ADKEShockTubeSolver(Solver):
         self.add_operation(SPHOperation(
 
             sph.ADKEPilotRho.withargs(h0=h0),
-            on_types=[Fluids,], from_types=[Fluids,Boundary],
+            on_types=[base.Fluid,], from_types=[base.Fluid, base.Boundary],
             updates=['rhop'], id='adke_rho'),
 
                         )
@@ -289,7 +289,7 @@ class ADKEShockTubeSolver(Solver):
         self.add_operation(SPHOperation(
             
             sph.ADKESmoothingUpdate.withargs(h0=h0, k=k, eps=eps, hks=hks),
-            on_types=[Fluids,],
+            on_types=[base.Fluid,],
             updates=['h'], id='adke'),
                         
                         )
@@ -298,7 +298,7 @@ class ADKEShockTubeSolver(Solver):
         self.add_operation(SPHOperation(
             
             sph.SPHRho.withargs(hks=hks),
-            from_types=[Fluids,Boundary], on_types=[Fluids, Boundary], 
+            on_types=[base.Fluid,], from_types=[base.Fluid,base.Boundary], 
             updates=['rho'], id = 'density')
                         
                         )
@@ -307,7 +307,7 @@ class ADKEShockTubeSolver(Solver):
         self.add_operation(SPHOperation(
             
             sph.IdealGasEquation.withargs(gamma=gamma),
-            on_types = [Fluids,Boundary], updates=['p', 'cs'], id='eos')
+            on_types = [base.Fluid,], updates=['p', 'cs'], id='eos')
                         
                         )
 
@@ -315,16 +315,16 @@ class ADKEShockTubeSolver(Solver):
         self.add_operation(SPHOperation(
             
             sph.VelocityDivergence.withargs(hks=hks),
-            on_types=[Fluids], from_types=[Fluids, Boundary],
+            on_types=[base.Fluid], from_types=[base.Fluid, base.Boundary],
             updates=['div'], id='vdivergence'),
                         
                     )
 
-        #conduction coefficient update
+        # conduction coefficient update
         self.add_operation(SPHOperation(
             
             sph.ADKEConductionCoeffUpdate.withargs(g1=g1, g2=g2),
-            on_types=[Fluids],
+            on_types=[base.Fluid],
             updates=['q'], id='qcoeff'),
                         
                         )
@@ -333,7 +333,7 @@ class ADKEShockTubeSolver(Solver):
         self.add_operation(SPHIntegration(
     
             sph.MomentumEquation.withargs(alpha=alpha, beta=beta, hks=hks),
-            from_types=[Fluids, Boundary], on_types=[Fluids], 
+            from_types=[base.Fluid, base.Boundary], on_types=[base.Fluid], 
             updates=vel_updates, id='mom')
                         
                         )
@@ -352,8 +352,9 @@ class ADKEShockTubeSolver(Solver):
         self.add_operation(SPHIntegration(
             
             sph.EnergyEquation.withargs(hks=hks,),
-            from_types=[Fluids, Boundary],
-            on_types=[Fluids], updates=['e'], id='enr')
+            on_types=[base.Fluid], from_types=[base.Fluid, base.Boundary],
+            updates=['e'],
+            id='enr')
                         
                         )
 
@@ -361,8 +362,9 @@ class ADKEShockTubeSolver(Solver):
         self.add_operation(SPHIntegration(
             
             sph.ArtificialHeat.withargs(eta=0.1, hks=hks),
-            on_types=[Fluids], from_types=[Fluids,Boundary],
-            updates=['e'], id='aheat'),
+            on_types=[base.Fluid], from_types=[base.Fluid,base.Boundary],
+            updates=['e'],
+            id='aheat'),
                         
                         )
         
