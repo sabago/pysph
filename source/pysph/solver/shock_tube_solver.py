@@ -50,12 +50,21 @@ def standard_shock_tube_data(name="", type=0, cl_precision="double",
 
 class ShockTubeSolver(Solver):
 
+    def __init__(self, dim, integrator_type, alpha=1.0, beta=1.0,
+                 gamma=1.4, xsph_eps=0):
+
+        self.dim = dim
+        self.defaults = dict(alpha=1.0,
+                             beta=1.0,
+                             gamma=gamma,
+                             xsph_eps=xsph_eps)
+
+        # base class constructor
+        Solver.__init__(self, dim, integrator_type)
+
     def get_options(self, opt_parser):
 
-        self.defaults = dict(alpha=1.0,
-                             beta=1.0)
-
-        opt = OptionGroup(opt_parser, "Shock tube problem options")
+        opt = OptionGroup(opt_parser, "ShockTubeSolver options")
 
         opt.add_option("--alpha", action="store", type="float",
                        dest="alpha", default=self.defaults["alpha"],
@@ -64,6 +73,14 @@ class ShockTubeSolver(Solver):
         opt.add_option("--beta", action="store", type="float",
                        dest="beta", default=self.defaults["alpha"],
                        help="Set the artificial viscosity parameter beta")
+
+        opt.add_option("--gamma", action="store", type="float",
+                       dest="gamma", default=self.defaults["gamma"],
+                       help="Set the ratio of specific heats gamma")        
+
+        opt.add_option("--xsph-eps", action="store", type="float",
+                       dest="xsph_eps", default=self.defaults.get("xsph_eps"),
+                       help="Constant for XSPH")
 
         return opt
     
@@ -74,8 +91,12 @@ class ShockTubeSolver(Solver):
         beta = options.get("beta")
         hks = options.get("hks")
 
-        #create the sph operation objects
+        xsph_eps = options.get("xsph_eps")
 
+        vel_updates=["u","v","w"][:self.dim]
+        pos_updates=["x","y","z"][:self.dim]
+        
+        # Summation density
         self.add_operation(SPHOperation(
 
             sph.SPHRho.withargs(hks=hks),
@@ -84,50 +105,64 @@ class ShockTubeSolver(Solver):
 
                            )
 
+        # Equation of state
         self.add_operation(SPHOperation(
 
             sph.IdealGasEquation.withargs(),
             on_types = [Fluids],
-            updates=['p', 'cs'], id='eos')
+            updates=['p', 'cs'],
+            id='eos')
 
                            )
 
+        # Momentum equation
         self.add_operation(SPHIntegration(
 
             sph.MomentumEquation.withargs(alpha=alpha, beta=beta, hks=hks),
             from_types=[Fluids], on_types=[Fluids], 
-            updates=['u'], id='mom')
+            updates=vel_updates,
+            id='mom')
 
                            )
-        
+
+        # XSPH correction : defaults to eps = 0
+        self.add_operation(SPHIntegration(
+
+            sph.XSPHCorrection.withargs(eps=xsph_eps),
+            on_types=[base.Fluid,], from_types=[base.Boundary, base.Fluid],
+            updates=vel_updates,
+            id="xsph")
+
+                           )
+
+        # Energy Equation
         self.add_operation(SPHIntegration(
 
             sph.EnergyEquation.withargs(hks=hks),
             from_types=[Fluids],
-            on_types=[Fluids], updates=['e'], id='enr')
+            on_types=[Fluids], updates=['e'],
+            id='enr')
 
                            )
 
-        # Indicate that stepping is only needed for Fluids
+        # Position Step
+        self.add_operation(SPHIntegration(
 
-        self.add_operation_step([Fluids])
+            sph.PositionStepping.withargs(),
+            on_types=[Fluids,],
+            updates=pos_updates,
+            id="step")
+
+                           )
 
 #############################################################################
 class ADKEShockTubeSolver(Solver):
 
     def __init__(self, dim, integrator_type, h0, eps, k, g1, g2, alpha, beta,
-                 gamma=1.4, kernel=base.CubicSplineKernel, hks=False):
+                 gamma=1.4, xsph_eps=0,
+                 kernel=base.CubicSplineKernel, hks=False):
 
-        # solver parameters
-        self.h0 = h0
-        self.adke_eps = eps
-        self.k = k
-        self.g1 = g1
-        self.g2 = g2
-        self.alpha = alpha
-        self.beta = beta
-        self.gamma = gamma
-
+        # solver dimension
         self.dim = dim
 
         # Hernquist and Katz normalization
@@ -143,7 +178,8 @@ class ADKEShockTubeSolver(Solver):
                              adke_k=k,
                              adke_h0=h0,
                              g1=g1,
-                             g2=g2)                             
+                             g2=g2,
+                             xsph_eps=xsph_eps)
 
         # base class constructor
         Solver.__init__(self, dim, integrator_type)
@@ -184,6 +220,10 @@ class ADKEShockTubeSolver(Solver):
                        dest="g2", default=self.defaults.get("g2"),
                        help="Artificial heating term coefficient g2")
 
+        opt.add_option("--xsph-eps", action="store", type="float",
+                       dest="xsph_eps", default=self.defaults.get("xsph_eps"),
+                       help="Constant for XSPH")
+
         return opt        
     
     def setup_solver(self, options=None):
@@ -207,6 +247,8 @@ class ADKEShockTubeSolver(Solver):
         beta = options.get("beta")
 
         gamma = options.get("gamma")
+
+        xsph_eps = options.get("xsph_eps")
 
         vel_updates=["u","v","w"][:self.dim]
         pos_updates=["x","y","z"][:self.dim]
@@ -273,6 +315,16 @@ class ADKEShockTubeSolver(Solver):
                         
                         )
 
+        # XSPH correction : defaults to eps = 0
+        self.add_operation(SPHIntegration(
+
+            sph.XSPHCorrection.withargs(eps=xsph_eps),
+            on_types=[base.Fluid,], from_types=[base.Boundary, base.Fluid],
+            updates=vel_updates,
+            id="xsph")
+
+                           )
+
         # energy equation
         self.add_operation(SPHIntegration(
             
@@ -299,27 +351,16 @@ class ADKEShockTubeSolver(Solver):
             updates=pos_updates,
             id="step")
 
-                           )
-        
+                           )        
         
 class MonaghanShockTubeSolver(Solver):
 
     def __init__(self, dim, integrator_type, h0, eps, k,
                  beta=1.0, K=1.0, f=0.5, gamma=1.4,
+                 xsph_eps=0.0, summation_density=True,
                  kernel=base.CubicSplineKernel, hks=False):
 
-        # solver parameters
-        self.h0 = h0
-        self.adke_eps = eps
-        self.k = k
-
-        # signal viscosity parameters
-        self.beta = beta
-        self.K = K
-        self.f = f
-
-        self.gamma = gamma
-
+        # set the solver dimension
         self.dim = dim
 
         # Hernquist and Katz normalization
@@ -328,8 +369,12 @@ class MonaghanShockTubeSolver(Solver):
         # the SPH kernel to use
         self.kernel = kernel(dim)
 
-        self.defaults = dict(adke_eps=eps, adke_k=k, adke_h0=h0,
-                             beta=beta, K=K, f=f, gamma=gamma)
+        # set the defaults
+        self.defaults = dict(gamma=gamma,
+                             adke_eps=eps, adke_k=k, adke_h0=h0,
+                             beta=beta, K=K, f=f,
+                             xsph_eps=xsph_eps,
+                             summation_density=summation_density)
 
         # base class constructor
         Solver.__init__(self, dim, integrator_type)
@@ -337,6 +382,11 @@ class MonaghanShockTubeSolver(Solver):
     def get_options(self, opt_parser):
 
         opt = OptionGroup(opt_parser, "MonaghanShockTubeSolver options")
+
+        opt.add_option("--sd", action="store_true",
+                       dest="summation_density",
+                       default=self.defaults["summation_density"],
+                       help="Use summation density for the density equation")
 
         opt.add_option("--gamma", action="store", type="float",
                        dest="gamma", default=self.defaults["gamma"],
@@ -366,6 +416,10 @@ class MonaghanShockTubeSolver(Solver):
                        dest="K", default=self.defaults.get("K"),
                        help="Constant 'K' for the signal viscosity")
 
+        opt.add_option("--xsph-eps", action="store", type="float",
+                       dest="xsph_eps", default=self.defaults.get("xsph_eps"),
+                       help="Constant for XSPH")
+
 
         return opt 
 
@@ -387,6 +441,12 @@ class MonaghanShockTubeSolver(Solver):
 
         gamma = options.get("gamma")
 
+        # XSPH eps
+        xsph_eps = options.get("xsph_eps")
+
+        # summation density
+        sd = options.get("summation_density")
+
         vel_updates=["u","v","w"][:self.dim]
         pos_updates=["x","y","z"][:self.dim]
 
@@ -407,16 +467,16 @@ class MonaghanShockTubeSolver(Solver):
             updates=['h'], id='adke'),
                         
                         )
+        # summation density if requested
+        if sd:
+            self.add_operation(SPHOperation(
 
-        # summation density
-        self.add_operation(SPHOperation(
+                sph.SPHRho.withargs(),
+                on_types=[base.Fluid,], from_types=[base.Fluid, base.Boundary],
+                updates=["rho"],
+                id="summation_density")
 
-            sph.SPHRho.withargs(),
-            on_types=[base.Fluid,], from_types=[base.Fluid, base.Boundary],
-            updates=["rho"],
-            id="summation_density")
-
-                           )
+                               )
 
         # ideal gas eos
         self.add_operation(SPHOperation(
@@ -427,6 +487,16 @@ class MonaghanShockTubeSolver(Solver):
             id='eos')
                         
                         )
+        # density rate if not summation density
+        if not sd:
+            self.add_operation(SPHIntegration(
+
+                sph.SPHDensityRate.withargs(),
+                on_types=[base.Fluid,], from_types=[base.Boundary, base.Fluid],
+                updates=["rho"],
+                id="densityrate")
+
+                           )
 
         # momentum equation pressure gradient
         self.add_operation(SPHIntegration(
@@ -445,6 +515,16 @@ class MonaghanShockTubeSolver(Solver):
             on_types=[base.Fluid,], from_types=[base.Boundary, base.Fluid],
             updates=vel_updates,
             id="visc")
+
+                           )
+
+        # XSPH correction : defaults to eps = 0
+        self.add_operation(SPHIntegration(
+
+            sph.XSPHCorrection.withargs(eps=xsph_eps),
+            on_types=[base.Fluid,], from_types=[base.Boundary, base.Fluid],
+            updates=vel_updates,
+            id="xsph")
 
                            )
 
@@ -467,4 +547,3 @@ class MonaghanShockTubeSolver(Solver):
             id="step")
 
                            )
-        
