@@ -48,6 +48,9 @@ def standard_shock_tube_data(name="", type=0, cl_precision="double",
                                    cs=cs,type=type, idx=idx,
                                    cl_precision=cl_precision)
 
+############################################################################
+# `ShockTubeSolver` class
+############################################################################
 class ShockTubeSolver(Solver):
 
     def __init__(self, dim, integrator_type, alpha=1.0, beta=1.0,
@@ -95,6 +98,10 @@ class ShockTubeSolver(Solver):
 
         vel_updates=["u","v","w"][:self.dim]
         pos_updates=["x","y","z"][:self.dim]
+
+        ###################################################################
+        # Add the operations
+        ###################################################################        
         
         # Summation density
         self.add_operation(SPHOperation(
@@ -155,7 +162,9 @@ class ShockTubeSolver(Solver):
 
                            )
 
-#############################################################################
+############################################################################
+# `ADKEShockTubeSolver` class
+############################################################################
 class ADKEShockTubeSolver(Solver):
 
     def __init__(self, dim, integrator_type, h0, eps, k, g1, g2, alpha, beta,
@@ -252,6 +261,20 @@ class ADKEShockTubeSolver(Solver):
 
         vel_updates=["u","v","w"][:self.dim]
         pos_updates=["x","y","z"][:self.dim]
+
+        ###################################################################
+        # Add the operations
+        ###################################################################
+
+        # reset the smoothing length to h0
+        self.add_operation(SPHOperation(
+
+            sph.SetSmoothingLength.withargs(h0=h0),
+            on_types=[base.Fluid,],
+            updates=["h"],
+            id="setsmoothing")
+
+                           )
 
         # pilot rho estimate
         self.add_operation(SPHOperation(
@@ -351,8 +374,11 @@ class ADKEShockTubeSolver(Solver):
             updates=pos_updates,
             id="step")
 
-                           )        
-        
+                           )
+
+############################################################################
+# `MonaghanShockTubeSolver` class
+############################################################################
 class MonaghanShockTubeSolver(Solver):
 
     def __init__(self, dim, integrator_type, h0, eps, k,
@@ -449,6 +475,20 @@ class MonaghanShockTubeSolver(Solver):
 
         vel_updates=["u","v","w"][:self.dim]
         pos_updates=["x","y","z"][:self.dim]
+
+        ###################################################################
+        # Add the operations
+        ###################################################################
+
+        # reset the smoothing length to h0
+        self.add_operation(SPHOperation(
+
+            sph.SetSmoothingLength.withargs(h0=h0),
+            on_types=[base.Fluid,],
+            updates=["h"],
+            id="setsmoothing")
+
+                           )        
 
         # pilot rho estimate
         self.add_operation(SPHOperation(

@@ -11,6 +11,9 @@ from pysph.base.kernels cimport KernelBase
 from pysph.base.carray cimport DoubleArray, LongArray
 
 
+cdef class SetSmoothingLength(SPHFunction):
+    cdef double h0
+
 ###############################################################################
 # `PilotRho` class.
 ###############################################################################

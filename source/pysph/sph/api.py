@@ -48,7 +48,8 @@ from funcs.external_force import GravityForce, VectorForce, MoveCircleX,\
 
 #Import ADKE functions
 from funcs.adke_funcs import ADKEPilotRho, ADKESmoothingUpdate,\
-    SPHVelocityDivergence as VelocityDivergence, ADKEConductionCoeffUpdate
+    SPHVelocityDivergence as VelocityDivergence, ADKEConductionCoeffUpdate,\
+    SetSmoothingLength
 
 # Import stress functions
 from funcs.stress_funcs import HookesDeviatoricStressRate2D, \
