@@ -86,7 +86,6 @@ def get_boundary_particles(**kwargs):
     e = numpy.ones_like(x) * 1.795
 
     p = (0.4) * rho * e
-    #cs = numpy.sqrt(0.4*e)
     cs = numpy.sqrt( 1.4*p/rho )
     q = g1 * h * cs
 
