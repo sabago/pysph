@@ -1,4 +1,3 @@
-#cython: cdivision=True
 from pysph.base.point cimport cPoint_new, cPoint_sub, cPoint_add
 
 from pysph.solver.cl_utils import get_real

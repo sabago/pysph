@@ -1,4 +1,3 @@
-#cython: cdivision=True
 import numpy
 
 from pysph.solver.cl_utils import HAS_CL, get_scalar_buffer, get_real

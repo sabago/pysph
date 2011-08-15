@@ -1,4 +1,3 @@
-#cython: cdivision=True
 from pysph.base.point cimport cPoint_sub, cPoint, cPoint_dot
 from pysph.base.carray cimport DoubleArray
 

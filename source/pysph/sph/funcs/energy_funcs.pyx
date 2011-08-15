@@ -1,4 +1,3 @@
-#cython: cdivision=True
 from pysph.base.point cimport cPoint, cPoint_dot, cPoint_new, cPoint_sub,\
      cPoint_norm, normalized
 

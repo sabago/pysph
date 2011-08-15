@@ -1,4 +1,3 @@
-#cython: cdivision=True
 cdef extern from "math.h":
     double sqrt(double)
     double fabs(double)
