@@ -62,7 +62,7 @@ app = solver.Application()
 
 s = solver.ADKEShockTubeSolver(dim=1, integrator_type=solver.RK2Integrator,
                                h0=h0, eps=eps, k=k, g1=g1, g2=g2,
-                               alpha=alpha, beta=beta,gamma,
+                               alpha=alpha, beta=beta,gamma=gamma,
                                kernel=kernel, hks=hks)
 
 s.set_final_time(tf)

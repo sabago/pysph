@@ -90,6 +90,8 @@ class ShockTubeSolver(Solver):
     def setup_solver(self, options=None):
 
         options = options or self.defaults
+
+        gamma = options.get("gamma")
         alpha = options.get("alpha")
         beta = options.get("beta")
         hks = options.get("hks")
@@ -115,7 +117,7 @@ class ShockTubeSolver(Solver):
         # Equation of state
         self.add_operation(SPHOperation(
 
-            sph.IdealGasEquation.withargs(),
+            sph.IdealGasEquation.withargs(gamma=gamma),
             on_types = [Fluids],
             updates=['p', 'cs'],
             id='eos')
@@ -169,7 +171,7 @@ class ADKEShockTubeSolver(Solver):
 
     def __init__(self, dim, integrator_type, h0, eps, k, g1, g2, alpha, beta,
                  gamma=1.4, xsph_eps=0,
-                 kernel=base.CubicSplineKernel, hks=False):
+                 kernel=base.CubicSplineKernel, hks=True):
 
         # solver dimension
         self.dim = dim
@@ -341,7 +343,7 @@ class ADKEShockTubeSolver(Solver):
         # XSPH correction : defaults to eps = 0
         self.add_operation(SPHIntegration(
 
-            sph.XSPHCorrection.withargs(eps=xsph_eps),
+            sph.XSPHCorrection.withargs(eps=xsph_eps, hks=hks),
             on_types=[base.Fluid,], from_types=[base.Boundary, base.Fluid],
             updates=vel_updates,
             id="xsph")
@@ -351,7 +353,8 @@ class ADKEShockTubeSolver(Solver):
         # energy equation
         self.add_operation(SPHIntegration(
             
-            sph.EnergyEquation.withargs(hks=hks,),
+            sph.EnergyEquation.withargs(hks=hks,alpha=alpha, beta=beta,
+                                        gamma=gamma),
             on_types=[base.Fluid], from_types=[base.Fluid, base.Boundary],
             updates=['e'],
             id='enr')
@@ -386,7 +389,7 @@ class MonaghanShockTubeSolver(Solver):
     def __init__(self, dim, integrator_type, h0, eps, k,
                  beta=1.0, K=1.0, f=0.5, gamma=1.4,
                  xsph_eps=0.0, summation_density=True,
-                 kernel=base.CubicSplineKernel, hks=False):
+                 kernel=base.CubicSplineKernel, hks=True):
 
         # set the solver dimension
         self.dim = dim
@@ -447,7 +450,6 @@ class MonaghanShockTubeSolver(Solver):
         opt.add_option("--xsph-eps", action="store", type="float",
                        dest="xsph_eps", default=self.defaults.get("xsph_eps"),
                        help="Constant for XSPH")
-
 
         return opt 
 
@@ -513,7 +515,7 @@ class MonaghanShockTubeSolver(Solver):
         if sd:
             self.add_operation(SPHOperation(
 
-                sph.SPHRho.withargs(),
+                sph.SPHRho.withargs(hks=hks),
                 on_types=[base.Fluid,], from_types=[base.Fluid, base.Boundary],
                 updates=["rho"],
                 id="summation_density")
@@ -533,7 +535,7 @@ class MonaghanShockTubeSolver(Solver):
         if not sd:
             self.add_operation(SPHIntegration(
 
-                sph.SPHDensityRate.withargs(),
+                sph.SPHDensityRate.withargs(hks=hks),
                 on_types=[base.Fluid,], from_types=[base.Boundary, base.Fluid],
                 updates=["rho"],
                 id="densityrate")
@@ -543,7 +545,7 @@ class MonaghanShockTubeSolver(Solver):
         # momentum equation pressure gradient
         self.add_operation(SPHIntegration(
 
-            sph.SPHPressureGradient.withargs(),
+            sph.SPHPressureGradient.withargs(hks=hks),
             on_types=[base.Fluid,], from_types=[base.Boundary, base.Fluid],
             updates=vel_updates,
             id="pgrad")
@@ -553,7 +555,9 @@ class MonaghanShockTubeSolver(Solver):
         # momentum equation artificial viscosity
         self.add_operation(SPHIntegration(
 
-            sph.MomentumEquationSignalBasedViscosity.withargs(beta=beta, K=K),
+            sph.MomentumEquationSignalBasedViscosity.withargs(beta=beta,
+                                                              K=K,
+                                                              hks=hks),
             on_types=[base.Fluid,], from_types=[base.Boundary, base.Fluid],
             updates=vel_updates,
             id="visc")
@@ -563,7 +567,7 @@ class MonaghanShockTubeSolver(Solver):
         # XSPH correction : defaults to eps = 0
         self.add_operation(SPHIntegration(
 
-            sph.XSPHCorrection.withargs(eps=xsph_eps),
+            sph.XSPHCorrection.withargs(eps=xsph_eps, hks=hks),
             on_types=[base.Fluid,], from_types=[base.Boundary, base.Fluid],
             updates=vel_updates,
             id="xsph")
@@ -573,7 +577,9 @@ class MonaghanShockTubeSolver(Solver):
         # energy equation
         self.add_operation(SPHIntegration(
 
-            sph.EnergyEquationWithSignalBasedViscosity.withargs(beta=beta,K=K,f=f),
+            sph.EnergyEquationWithSignalBasedViscosity.withargs(beta=beta,
+                                                                K=K,f=f,
+                                                                hks=hks),
             on_types=[base.Fluid,], from_types=[base.Boundary, base.Fluid],
             updates=["e"],
             id="energy")
