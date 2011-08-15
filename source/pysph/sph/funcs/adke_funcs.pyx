@@ -1,4 +1,3 @@
-#cython: cdivision=True
 """ File to hold the functions required for the ADKE procedure of Sigalotti """
 
 from libc.math cimport log, exp
