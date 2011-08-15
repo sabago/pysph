@@ -168,7 +168,7 @@ class Application(object):
 
         # --hks
         parser.add_option("--hks", action="store_true",
-                          dest="hks", default=False,
+                          dest="hks", default=True,
                           help="""Perform the Hrenquist and Katz kernel
                           normalization for variable smothing lengths.""")
 

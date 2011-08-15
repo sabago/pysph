@@ -114,6 +114,16 @@ s = solver.Solver(dim=1, integrator_type=solver.RK2Integrator)
 #                     ADD OPERATIONS
 #############################################################
 
+# set the smoothing length
+s.add_operation(solver.SPHOperation(
+
+    sph.SetSmoothingLength.withargs(h0=h0),
+    on_types=[base.Fluid,],
+    updates=["h"],
+    id="setsmoothing")
+                   
+                   )
+
 # pilot rho
 s.add_operation(solver.SPHOperation(
 
