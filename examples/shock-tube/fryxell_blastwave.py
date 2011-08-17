@@ -14,7 +14,7 @@ hks=False
 
 # shock tube parameters
 xl = -1.5; xr = 1.5
-pl = 10000; pr = 0.01
+pl = 1e4; pr = 0.01
 ul = 0.0; ur = 0.0
 rhol = 1.0; rhor = 1.0
 
