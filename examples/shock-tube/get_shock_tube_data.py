@@ -66,7 +66,7 @@ def get_shock_tube_data(nl, nr, xl, xr,
     p = numpy.ones_like(x) * pl
 
     e = p/( (gamma-1) * rho )
-    cs = numpy.sqrt( 1.4 * p/rho )
+    cs = numpy.sqrt( gamma * p/rho )
     q = h * cs * g1
 
     left = base.get_particle_array(name="left", x=x, m=m, h=h, u=u,
@@ -91,7 +91,7 @@ def get_shock_tube_data(nl, nr, xl, xr,
 
     e = p/( (gamma-1)*rho )
 
-    cs = numpy.sqrt( 1.4 * p/rho )
+    cs = numpy.sqrt( gamma * p/rho )
     q = h * cs * g1
 
     right = base.get_particle_array(name="right", x=x, m=m, h=h, u=u,
