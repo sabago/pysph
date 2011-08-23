@@ -57,8 +57,8 @@ class ShockTubeSolver(Solver):
                  gamma=1.4, xsph_eps=0):
 
         self.dim = dim
-        self.defaults = dict(alpha=1.0,
-                             beta=1.0,
+        self.defaults = dict(alpha=alpha,
+                             beta=beta,
                              gamma=gamma,
                              xsph_eps=xsph_eps)
 
@@ -109,7 +109,7 @@ class ShockTubeSolver(Solver):
         self.add_operation(SPHOperation(
 
             sph.SPHRho.withargs(hks=hks),
-            from_types=[Fluids], on_types=[Fluids, base.Boundary], 
+            on_types=[Fluids], from_types=[Fluids, base.Boundary], 
             updates=['rho'], id = 'density')
 
                            )
@@ -128,7 +128,7 @@ class ShockTubeSolver(Solver):
         self.add_operation(SPHIntegration(
 
             sph.MomentumEquation.withargs(alpha=alpha, beta=beta, hks=hks),
-            from_types=[Fluids], on_types=[Fluids, base.Boundary], 
+            on_types=[Fluids], from_types=[Fluids, base.Boundary], 
             updates=vel_updates,
             id='mom')
 

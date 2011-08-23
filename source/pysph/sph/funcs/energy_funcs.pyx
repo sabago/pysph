@@ -542,7 +542,7 @@ cdef class EnergyEquationWithSignalBasedViscosity(SPHFunctionParticle):
         rab.z = self._dst.z-self._src.z
 
         va.x = self.d_u.data[dest_pid]
-        va.y = self.d_u.data[dest_pid]
+        va.y = self.d_v.data[dest_pid]
         va.z = self.d_w.data[dest_pid]
 
         vb.x = self.s_u.data[source_pid]

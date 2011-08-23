@@ -95,7 +95,7 @@ extensions = {'base': ['carray.pyx',
                             'stress_funcs.pyx',
                             'linalg.pyx',
                             'test_funcs.pyx',
-                            'common.pyx'
+                            'common.pyx',
                             ],
               'solver': ['particle_generator.pyx',
                          ],
