@@ -796,10 +796,52 @@ class LeapFrogIntegrator(Integrator):
             self.final_step(calc, dt)
 
         self.cstep = 1
-        
-############################################################################## 
 
 
+##############################################################################
+#`GSPHIntegrator` class 
+##############################################################################
+class GSPHIntegrator(EulerIntegrator):
+    """ Euler integration of the system X' = F(X) with the formula:
+    
+    X(t + h) = X + h*F(X)
+    
+    """    
+
+    def step(self, dt):
+        """ Step the particle properties. """
+        # get the current stage of the integration
+        k_num = self.cstep
+
+        for array in self.arrays:
+
+            # get the mapping for this array and this stage
+            to_step = self.step_props[ array.name ][k_num]
+
+            for prop in to_step:
+
+                initial_prop = to_step[ prop ][0]
+                step_prop = to_step[ prop ][1]
+
+                initial_arr = array.get( initial_prop )
+                step_arr = array.get( step_prop )
+                updated_array = initial_arr + step_arr * dt
+
+                array.set( **{prop:updated_array} )
+
+                # store the acceleration arrays
+                if prop in ['u','v','w']:
+                    self.velocity_accelerations[array.name][k_num][step_prop] = step_arr
+                    vstar = prop + "star"
+                    star = array.get(vstar)
+                    star = initial_arr + 0.5 * step_arr*dt
+                    array.set( **{vstar:star})
+
+        # Increment the step by 1
+        self.cstep += 1
+
+###########################################################################        
+    
 integration_methods = [('Euler', EulerIntegrator),
                        ('LeapFrog', LeapFrogIntegrator),
                        ('RK2', RK2Integrator),

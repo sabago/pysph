@@ -817,7 +817,7 @@ cdef class CellManager:
 
     def __init__(self, list arrays_to_bin=[], double min_cell_size=-1.0,
                  double max_cell_size=0, PeriodicDomain periodic_domain=None,
-                 bint initialize=True, double max_radius_scale=2.0):
+                 bint initialize=True, double max_radius_scale=4.0):
         """ Constructor for the CellManager.
 
         Paramters:
