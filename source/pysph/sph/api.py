@@ -62,4 +62,8 @@ from funcs.stress_funcs import get_K, get_nu, get_G
 # Import test funcs
 from funcs.test_funcs import ArtificialPotentialForce
 
+# Import GSPH funcs
+from funcs.gsph_funcs import GSPHMomentumEquation, GSPHEnergyEquation,\
+     GSPHPositionStepping
+
 ############################################################################

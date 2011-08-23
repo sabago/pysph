@@ -8,6 +8,8 @@ import pysph.sph.api as sph
 from solver import Solver
 from sph_equation import SPHOperation, SPHIntegration
 
+from integrator import GSPHIntegrator
+
 Fluids = base.Fluid
 Solids = base.Solid
 Boundary = base.Boundary
@@ -595,3 +597,82 @@ class MonaghanShockTubeSolver(Solver):
             id="step")
 
                            )
+
+############################################################################
+# `ShockTubeSolver` class
+############################################################################
+class GSPHShockTubeSolver(Solver):
+
+    def __init__(self, dim, integrator_type=None):
+
+        self.dim = dim
+
+        integrator_type = GSPHIntegrator
+
+        # base class constructor
+        Solver.__init__(self, dim, integrator_type)
+
+        self.default_kernel = base.GaussianKernel(dim)
+
+    def get_options(self, opt_parser):
+        pass
+    
+    def setup_solver(self, options=None):
+
+        ###################################################################
+        # Add the operations
+        ###################################################################
+
+        hks=False
+
+        vel_updates=["u","v","w"][:self.dim]
+        pos_updates=["x","y","z"][:self.dim]
+        
+        # Summation density
+        self.add_operation(SPHOperation(
+
+            sph.SPHRho.withargs(hks=hks),
+            on_types=[Fluids], from_types=[Fluids, base.Boundary], 
+            updates=['rho'], id = 'density')
+
+                           )
+
+        # Equation of state
+        self.add_operation(SPHOperation(
+
+            sph.IdealGasEquation.withargs(gamma=1.4),
+            on_types = [Fluids],
+            updates=['p', 'cs'],
+            id='eos')
+
+                           )
+
+        # Momentum equation
+        self.add_operation(SPHIntegration(
+
+            sph.GSPHMomentumEquation.withargs(gamma=1.4),
+            on_types=[Fluids], from_types=[Fluids, base.Boundary], 
+            updates=vel_updates,
+            id='mom')
+
+                           )
+
+        # Energy Equation
+        self.add_operation(SPHIntegration(
+
+            sph.GSPHEnergyEquation.withargs(hks=hks),
+            from_types=[Fluids, base.Boundary],
+            on_types=[Fluids], updates=['e'],
+            id='enr')
+
+                           )
+
+        # Position Step
+        self.add_operation(SPHIntegration(
+
+            sph.PositionStepping.withargs(),
+            on_types=[Fluids,],
+            updates=pos_updates,
+            id="step")
+
+                           )        
