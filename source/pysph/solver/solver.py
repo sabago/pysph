@@ -532,7 +532,6 @@ class Solver(object):
         the stepping within the integrator.
 
         """
-
         dt = self.dt
 
         bt = (self.tf - self.t)/1000.0
@@ -652,8 +651,8 @@ class Solver(object):
         if not self.with_cl:
             cell_size = self.particles.cell_manager.cell_size
 
-            _fname = os.path.join(self.output_directory,
-                                  fname  + str(self.count) +'.npz')
+        _fname = os.path.join(self.output_directory,
+                              fname  + str(self.count) +'.npz')
 
         if self.detailed_output:
             for array in self.particles.arrays:
