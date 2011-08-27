@@ -189,7 +189,7 @@ Execute the following in the interpreter:
    plot(array.p, array.x)
    xlim(-.4,.4)
 
-   dt = solver-data["dt"]
+   dt = solver_data["dt"]
    title(r"Pressure at $t = %f$"%(dt))
 
 to produce the pressure plot as shown below: 

@@ -142,7 +142,7 @@ like so::
 
 .. _Sphinx: http://sphinx.pocoo.org/
 
-.. _Mayavi: http://code.enthought.com/
+.. _Mayavi: http://code.enthought.com/projects/mayavi
 
 .. _Cython: http://cython.org
 
