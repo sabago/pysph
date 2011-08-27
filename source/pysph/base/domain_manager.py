@@ -60,25 +60,8 @@ class DomainManager:
             pa = self.arrays[i]
             pa.setup_cl(context, queue)
 
-    def update_status(self):
-        """Updates the is_dirty flag to indicate that an update is required.
-
-        Notes:
-        ------
-
-        Any module that may modify the particle data, should call this
-        update_status function.
-
-        """
-        for i in range(self.narrays):
-            parray = self.arrays[i]
-            if parray.is_dirty:
-                self.is_dirty = True
-                break            
-
     def update(self):
-        for pa in self.arrays:
-            pa.set_dirty(False)
+        pass
 
 class LinkedListManager(DomainManager):
     """ Domain manager using bins as the indexing scheme and a linked
@@ -91,14 +74,14 @@ class LinkedListManager(DomainManager):
          The particle arrays handled by the manager
 
     head : dict
-           Head arrays for each ParticleArray maintained.
-           The dictionary is keyed on name of the ParticleArray,
-           with the head array as value.
+        Head arrays for each ParticleArray maintained.
+        The dictionary is keyed on name of the ParticleArray,
+        with the head array as value.
 
     next : dict
-           Next array for each ParticleArray maintained.
-           The dictionary is keyed on name of the ParticleArray,
-           with the next array as value.
+        Next array for each ParticleArray maintained.
+        The dictionary is keyed on name of the ParticleArray,
+        with the next array as value.
 
     const_cell_size : REAL
         Optional constant cell size used for binning.
@@ -117,9 +100,6 @@ class LinkedListManager(DomainManager):
 
     ncells -- uint
            Total number of cells : (ncx * ncy * ncz)
-
-    is_dirty -- bool
-           Flag to indicate an update us required.
 
     with_cl -- bool
            Flag to use OpenCL for the neighbor list generation.
@@ -193,7 +173,7 @@ class LinkedListManager(DomainManager):
             self.const_cell_size = get_real(const_cell_size, self.cl_precision)
 
         # find global bounds (simulation box and ncells)
-        self.find_bounds()
+        self._find_bounds()
 
         # The linked list structures for the arrays.
         self.next = {}
@@ -204,9 +184,6 @@ class LinkedListManager(DomainManager):
         self.ix = {}
         self.iy = {}
         self.iz = {}
-
-        # initialize the dirty bit to true
-        self.is_dirty = True
 
         # device linked list structures
         self.dnext = {}
@@ -221,7 +198,7 @@ class LinkedListManager(DomainManager):
         if with_cl:
             if HAS_CL:
                 self.with_cl = True
-                self.setup_cl(context)
+                self._setup_cl(context)
         else:
             self.with_cl = False
 
@@ -230,9 +207,60 @@ class LinkedListManager(DomainManager):
         self.local_sizes = {}
 
         # initialize the linked list
-        self.init_linked_list()
+        self._init_linked_list()
 
-    def find_bounds(self):
+    #######################################################################
+    # public interface
+    #######################################################################
+    def update(self):
+        """ Update the linked list """
+
+        # find the bounds for the manager
+        self._find_bounds()
+
+        # reset the data structures
+        self._init_linked_list()
+
+        # update the data structures
+        if self.with_cl:
+            self._cl_update()
+        else:
+            self._cy_update()
+
+    def enqueue_copy(self):
+        """ Copy the Buffer contents to the host
+
+        The buffers copied are
+
+        cellids, head, next, dix, diy, diz
+
+        """
+
+        if self.with_cl:
+        
+            for pa in self.arrays:
+                enqueue_copy(self.queue, dst=self.cellids[pa.name],
+                             src=self.dcellids[pa.name])
+
+                enqueue_copy(self.queue, dst=self.head[pa.name],
+                             src=self.dhead[pa.name])
+        
+                enqueue_copy(self.queue, dst=self.next[pa.name],
+                             src=self.dnext[pa.name])
+        
+                enqueue_copy(self.queue, dst=self.ix[pa.name],
+                             src=self.dix[pa.name])
+        
+                enqueue_copy(self.queue, dst=self.iy[pa.name],
+                             src=self.diy[pa.name])
+        
+                enqueue_copy(self.queue, dst=self.iz[pa.name],
+                             src=self.diz[pa.name])
+
+    ###########################################################################
+    # non-public interface
+    ###########################################################################
+    def _find_bounds(self):
         """ Find the bounds for the particle arrays.
 
         The bounds calculated are the simulation cube, defined by the
@@ -278,10 +306,10 @@ class LinkedListManager(DomainManager):
         self.Mx, self.My, self.Mz = Mx, My, Mz
         self.Mh = Mh
 
-        self.set_cell_size()
-        self.find_num_cells()
+        self._set_cell_size()
+        self._find_num_cells()
 
-    def set_cell_size(self):
+    def _set_cell_size(self):
         """ Set the cell size for binning
 
         Parameters:
@@ -292,16 +320,22 @@ class LinkedListManager(DomainManager):
         Notes:
         ------
 
-        If no bin sie is provided, the default value 2*max(h) is used
+        If the cell size is being chosen based on the particle
+        smoothing lengths, we choose a cell size slightly larger than
+        $k\timesh$, where $k$ is the maximum scale factor for the SPH
+        kernel. Currently we use the size k + 1
+
+        If no bin sie is provided, the default
+        value 2*max(h) is used
 
         """
         if not self.const_cell_size:
-            self.cell_size = get_real(self.kernel_scale_factor*self.Mh,
+            self.cell_size = get_real((self.kernel_scale_factor+1)*self.Mh,
                                       self.cl_precision)
         else:
             self.cell_size = self.const_cell_size
 
-    def find_num_cells(self):
+    def _find_num_cells(self):
         """ Find the number of Cells in each coordinate direction
 
         The number of cells is found from the simulation bounds and
@@ -325,7 +359,7 @@ class LinkedListManager(DomainManager):
 
         self.ncells = numpy.int32(self.ncx * self.ncy * self.ncz)
 
-    def init_linked_list(self):
+    def _init_linked_list(self):
         """ Initialize the linked list dictionaries to store the
         particle neighbor information.
 
@@ -358,9 +392,9 @@ class LinkedListManager(DomainManager):
             self.iz[pa.name] = iz
 
         if self.with_cl:
-            self.init_device_buffers()
+            self._init_device_buffers()
 
-    def init_device_buffers(self):
+    def _init_device_buffers(self):
         """ Initialize the device buffers """
 
         for i in range(self.narrays):
@@ -415,48 +449,7 @@ class LinkedListManager(DomainManager):
             self.diy[pa.name] = diy
             self.diz[pa.name] = diz
 
-    def reset_data(self):
-        """ Initialize the data structures.
-
-        Head is initialized to -1
-        Next is initialized to -1
-        locks is initialized to 0
-
-        """
-
-        if self.with_cl:
-            self.reset_cl_data()
-        else:
-            self.reset_cy_data()
-
-    def reset_cy_data(self):
-        for pa in self.arrays:
-            head = self.head[pa.name]
-            next = self.next[pa.name]
-
-            head[:] = -1
-            next[:] = -1
-
-    def reset_cl_data(self):
-        for pa in self.arrays:
-
-            dhead = self.dhead[pa.name]
-            dnext = self.dnext[pa.name]
-            dlocks = self.dlocks[pa.name]
-
-            global_sizes = (int(self.ncells),)
-            val = numpy.int32(-1)
-
-            self.prog.reset(self.queue, global_sizes, None, dhead, val).wait()
-
-            val = numpy.int32(0)
-            self.prog.reset(self.queue, global_sizes, None, dlocks, val).wait()
-
-            global_sizes = self.global_sizes[pa.name]
-            val = numpy.int32(-1)
-            self.prog.reset(self.queue, global_sizes, None, dnext, val).wait()
-
-    def cy_update(self):
+    def _cy_update(self):
         """ Construct the linked lists for the particle arrays using Cython"""
 
         ncx, ncy, ncz = self.ncx, self.ncy, self.ncz
@@ -490,7 +483,7 @@ class LinkedListManager(DomainManager):
                   )
 
 
-    def cl_update(self):
+    def _cl_update(self):
         """ Construct the linked lists for the particle arrays using OpenCL"""
 
         for i in range(self.narrays):
@@ -528,37 +521,12 @@ class LinkedListManager(DomainManager):
                                               self.dhead[pa.name],
                                               self.dnext[pa.name],
                                               self.dlocks[pa.name]
-                                              ).wait()
-    def update(self):
-        """ Update the linked list """
+                                              ).wait()        
 
-        if self.is_dirty:
-
-            # find the bounds for the manager
-            self.find_bounds()
-
-            # reset the data structures
-            #self.reset_data()
-            self.init_linked_list()
-
-            # update the data structures
-            if self.with_cl:
-                self.cl_update()
-
-            else:
-                self.cy_update()
-
-            # reset the disty bit of all particle arrays
-            for i in range(self.narrays):
-                pa = self.arrays[i]
-                pa.set_dirty(False)
-
-            self.is_dirty = False
-
-    def setup_cl(self, context=None):
+    def _setup_cl(self, context=None):
         """ OpenCL setup for the LinkedListManager  """
 
-        if not context:
+        if context is None:
             self.context = context = create_some_context()
             self.queue = queue = cl.CommandQueue(context)            
         else:
@@ -572,41 +540,54 @@ class LinkedListManager(DomainManager):
             pa.setup_cl(context, queue)
 
         # create the program
-        self.setup_program()
+        self._setup_program()
 
-    def setup_program(self):
+    def _setup_program(self):
         """ Read the OpenCL kernel source file and build the program """
         src_file = get_pysph_root() + '/base/linked_list.cl'
         src = cl_read(src_file, precision=self.cl_precision)
-        self.prog = cl.Program(self.context, src).build()
+        self.prog = cl.Program(self.context, src).build()        
 
-    def enqueue_copy(self):
-        """ Copy the Buffer contents to the host
+    ##########################################################################
+    # DEPRECATED
+    ##########################################################################
+    def reset_cy_data(self):
+        for pa in self.arrays:
+            head = self.head[pa.name]
+            next = self.next[pa.name]
 
-        The buffers copied are
+            head[:] = -1
+            next[:] = -1
 
-        cellids, head, next, dix, diy, diz
+    def reset_cl_data(self):
+        for pa in self.arrays:
+
+            dhead = self.dhead[pa.name]
+            dnext = self.dnext[pa.name]
+            dlocks = self.dlocks[pa.name]
+
+            global_sizes = (int(self.ncells),)
+            val = numpy.int32(-1)
+
+            self.prog.reset(self.queue, global_sizes, None, dhead, val).wait()
+
+            val = numpy.int32(0)
+            self.prog.reset(self.queue, global_sizes, None, dlocks, val).wait()
+
+            global_sizes = self.global_sizes[pa.name]
+            val = numpy.int32(-1)
+            self.prog.reset(self.queue, global_sizes, None, dnext, val).wait()
+
+    def reset_data(self):
+        """ Initialize the data structures.
+
+        Head is initialized to -1
+        Next is initialized to -1
+        locks is initialized to 0
 
         """
 
         if self.with_cl:
-        
-            for pa in self.arrays:
-                enqueue_copy(self.queue, dst=self.cellids[pa.name],
-                             src=self.dcellids[pa.name])
-
-                enqueue_copy(self.queue, dst=self.head[pa.name],
-                             src=self.dhead[pa.name])
-        
-                enqueue_copy(self.queue, dst=self.next[pa.name],
-                             src=self.dnext[pa.name])
-        
-                enqueue_copy(self.queue, dst=self.ix[pa.name],
-                             src=self.dix[pa.name])
-        
-                enqueue_copy(self.queue, dst=self.iy[pa.name],
-                             src=self.diy[pa.name])
-        
-                enqueue_copy(self.queue, dst=self.iz[pa.name],
-                             src=self.diz[pa.name])
-                
+            self.reset_cl_data()
+        else:
+            self.reset_cy_data()

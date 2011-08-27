@@ -63,11 +63,132 @@ class LinkedListSPHNeighborLocator(OpenCLNeighborLocator):
         # Initialize the cache if using with Cython
         self.particle_cache = []
         if self.cache:
-            self.initialize_cache()
+            self._initialize_cache()
 
-        # set the dirty bit to True
-        self.is_dirty = True
+    #######################################################################
+    # public interface
+    #######################################################################
+    def get_nearest_particles(self, i, output_array, exclude_index=-1):
+        """ Return nearest particles from source array to the dest point.
 
+        The search radius is the scale factor times the particle's h
+
+        Parameters:
+        -----------
+
+        i : int
+            The destination index 
+
+        output_array : (in/out) LongArray
+            Neighbor indices are stored in this array.
+
+        exclude_index : int
+            Optional index to exclude from the neighbor list
+            NOTIMPLEMENTED!
+            
+        """
+        if self.cache:
+            return self.neighbor_cache[i]
+        else:
+            self._get_nearest_particles_nocahe(i, output_array)
+            
+    ##########################################################################
+    # non-public interface
+    ##########################################################################
+    def _update(self):
+        """ Update the bin structure and compute cache contents.
+
+        Caching is only done if explicitly requested and should be
+        avoided for large problems to reduce the memory footprint.
+
+        """
+        
+        # update the domain manager
+        self.manager.update()
+
+        # set the cache if required
+        if self.cache:
+            self._initialize_cache()
+            self._udpdate_cache()
+    
+    def _get_nearest_particles_nocahe(self, i, output_array, exclude_index=-1):
+        """ Use the linked list to get nearest neighbors.
+
+        The functions defined in `linked_list_functions.pyx` are used to
+        find the nearest neighbors.
+
+        Parameters:
+        -----------
+
+        i : (in) int
+            The destination particle index
+
+        output_array : (in/out) LongArray
+            Neighbor indices are stored in this array.
+
+        exclude_index : int
+            Optional index to exclude from the neighbor list
+            NOTIMPLEMENTED!
+
+        """
+        manager = self.manager
+        src = self.source
+        dst = self.dest
+        
+        # Enqueue a copy if the binning is done with OpenCL
+        manager.enqueue_copy()
+
+        # get the bin structure parameters
+        ncx = manager.ncx
+        ncy = manager.ncy
+        ncells = manager.ncells
+
+        # linked list for the source
+        head = manager.head[src.name]
+        next = manager.next[src.name]
+        
+        # cellid for the destination
+        cellid  = manager.cellids[dst.name][i]
+        ix = manager.ix[dst.name][i]
+        iy = manager.iy[dst.name][i]
+        iz = manager.iz[dst.name][i]
+        
+        # get all neighbors from the 27 neighboring cells
+        nbrs =  ll.get_neighbors(cellid, ix, iy, iz,
+                                 ncx, ncy, ncells, head, next)
+        
+        x = dst.x.astype(numpy.float32)
+        y = dst.y.astype(numpy.float32)
+        z = dst.z.astype(numpy.float32)
+        h = dst.h.astype(numpy.float32)
+
+        radius = self.scale_fac * h[i]
+
+        # filter the neighbors to within a cutoff radius
+        nbrs = ll.get_neighbors_within_radius(i, radius, x, y, z,
+                                              nbrs)
+        
+        output_array.resize( len(nbrs) )
+        output_array.set_data( nbrs )
+    
+    def _initialize_cache(self):
+        """ Iniitialize the particle neighbor cache contents.
+
+        The particle cache is one LongArray for each destination particle.
+
+        """
+        np = self.dest.get_number_of_particles()
+        self.particle_cache = [ LongArray() for i in range(np) ]
+
+    def _udpdate_cache(self):
+        """ Compute the contents of the cache """
+
+        np = self.dest.get_number_of_particles()
+
+        for i in range(np):
+            nbrs = self.particle_cache[i]
+            self._get_nearest_particles_nocahe(i, nbrs)
+    
     def neighbor_loop_code_start(self):
         """ Return a string for the start of the neighbor loop code """
 
@@ -142,115 +263,6 @@ class LinkedListSPHNeighborLocator(OpenCLNeighborLocator):
                 '__global int* head': head,
                 '__global int* next': next
                 }
-    
-    def get_nearest_particles(self, i, output_array, exclude_index=-1):
-        """ Return nearest particles from source array to the dest point.
-
-        The search radius is the scale factor times the particle's h
-
-        Parameters:
-        -----------
-
-        i : int
-            The destination index 
-
-        output_array : LongArray
-            Neighbor indices for the point
-
-        exclude_index : int
-            Optional index to exclude from the neighbor list
-            NOTIMPLEMENTED!
-            
-        """
-        if self.cache:
-            return self.neighbor_cache[i]
-        else:
-            self.get_nearest_particles_nocahe(i, output_array)
-
-    def get_nearest_particles_nocahe(self, i, output_array, exclude_index=-1):
-
-        manager = self.manager
-        src = self.source
-        dst = self.dest
-        
-        # Enqueue a copy if the binning is done with OpenCL
-        manager.enqueue_copy()
-
-        # get the bin structure parameters
-        ncx = manager.ncx
-        ncy = manager.ncy
-        ncells = manager.ncells
-
-        # linked list for the source
-        head = manager.head[src.name]
-        next = manager.next[src.name]
-        
-        # cellid for the destination
-        cellid  = manager.cellids[dst.name][i]
-        ix = manager.ix[dst.name][i]
-        iy = manager.iy[dst.name][i]
-        iz = manager.iz[dst.name][i]
-        
-        # get all neighbors from the 27 neighboring cells
-        nbrs =  ll.get_neighbors(cellid, ix, iy, iz,
-                                 ncx, ncy, ncells, head, next)
-        
-        x = dst.x.astype(numpy.float32)
-        y = dst.y.astype(numpy.float32)
-        z = dst.z.astype(numpy.float32)
-        h = dst.h.astype(numpy.float32)
-
-        radius = self.scale_fac * h[i]
-
-        # filter the neighbors to within a cutoff radius
-        nbrs = ll.get_neighbors_within_radius(i, radius, x, y, z,
-                                              nbrs)
-        
-        output_array.resize( len(nbrs) )
-        output_array.set_data( nbrs )
-
-    def initialize_cache(self):
-        """ Iniitialize the particle neighbor cache contents.
-
-        The particle cache is one LongArray for each destination particle.
-
-        """
-        np = self.dest.get_number_of_particles()
-        self.particle_cache = [ LongArray() for i in range(np) ]
-
-    def update(self):
-        """ Update the bin structure and compute cache contents if
-        necessary."""
-
-        # update the domain manager
-        self.manager.update()
-
-        if self.is_dirty:
-
-            if self.cache:
-
-                self.initialize_cache()
-
-                self._udpdate_cache()
-
-            self.is_dirty = False
-
-    def update_status(self):
-        """ Update the dirty bit for the locator and the DomainManager"""
-        if not self.is_dirty:
-            self.is_dirty = self.source.is_dirty or self.dest.is_dirty
-
-        self.manager.update_status()
-
-    def _udpdate_cache(self):
-        """ Compute the contents of the cache """
-
-        np = self.dest.get_number_of_particles()
-
-        for i in range(np):
-            nbrs = self.particle_cache[i]
-
-            self.get_nearest_particles_nocahe(i, nbrs)
 
 
 class AllPairNeighborLocator(OpenCLNeighborLocator):

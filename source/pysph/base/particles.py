@@ -106,6 +106,7 @@ class Particles(object):
                  locator_type = SPHNeighborLocator,
                  periodic_domain=None,
                  min_cell_size=-1,
+                 max_cell_size=0,
                  max_radius_scale=2,
                  update_particles=True):
         
@@ -133,6 +134,7 @@ class Particles(object):
         self.load_balancing = load_balancing
         self.locator_type = locator_type
         self.min_cell_size = min_cell_size
+        self.max_cell_size = max_cell_size
         self.periodic_domain = periodic_domain
         self.parallel_manager = None
 
@@ -162,6 +164,7 @@ class Particles(object):
         #if not self.in_parallel:
         self.cell_manager = CellManager(arrays_to_bin=self.arrays,
                                         min_cell_size=self.min_cell_size,
+                                        max_cell_size=self.max_cell_size,
                                         max_radius_scale=self.max_radius_scale,
                                         periodic_domain=self.periodic_domain)
         #else:
@@ -417,7 +420,6 @@ class CLParticles(Particles):
         self.domain_manager = self.get_domain_manager(context)
 
         # Update the domain manager
-        self.domain_manager.update_status()
         self.domain_manager.update()
 
     def get_domain_manager(self, context):
@@ -487,7 +489,6 @@ class CLParticles(Particles):
         The reason this is done is to avoid any repeated updates.
 
         """
-        self.domain_manager.update_status()
         self.domain_manager.update()
 
     def read_from_buffer(self):
