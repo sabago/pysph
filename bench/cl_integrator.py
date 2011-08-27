@@ -57,10 +57,11 @@ solver1.add_operation(solver.SPHIntegration(
                       )
 
 solver1.add_operation_step(types=[0])
-solver1.setup_integrator(particles1)
+solver1.setup(particles1)
 solver1.set_final_time(tf)
 solver1.set_time_step(dt)
 solver1.set_print_freq(nsteps + 1)
+solver1.set_output_directory(".")
 
 # create the OpenCL solver
 solver2 = solver.Solver(dim=2, integrator_type=solver.EulerIntegrator)
@@ -75,10 +76,11 @@ solver2.add_operation(solver.SPHIntegration(
 solver2.add_operation_step(types=[0])
 
 solver2.set_cl(True)
-solver2.setup_integrator(particles2)
+solver2.setup(particles2)
 solver2.set_final_time(tf)
 solver2.set_time_step(dt)
 solver2.set_print_freq(nsteps + 1)
+solver2.set_output_directory(".")
 
 t1 = time()
 solver1.solve()
