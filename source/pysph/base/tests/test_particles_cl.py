@@ -5,7 +5,8 @@ from pysph.base.particle_array import get_particle_array
 from pysph.base.locator import OpenCLNeighborLocatorType
 from pysph.base.domain_manager import DomainManagerType, LinkedListManager
 
-from pysph.solver.cl_utils import create_some_context, HAS_CL, enqueue_copy
+from pysph.solver.cl_utils import create_some_context, HAS_CL, enqueue_copy,\
+     get_real
 
 import unittest
 import numpy
@@ -37,6 +38,8 @@ class CLParticlesTestCase(unittest.TestCase):
         pa = get_particle_array(name="test", cl_precision="single",
                                 x=x, y=y, h=h)
 
+        self.scale_fac = 2.0
+        
         self.particles = particles = CLParticles(
             [pa,], OpenCLNeighborLocatorType.LinkedListSPHNeighborLocator,
             DomainManagerType.LinkedListManager)
@@ -60,8 +63,9 @@ class CLParticlesTestCase(unittest.TestCase):
 
         self.assertEqual( domain_manager.with_cl, True )
 
-        cell_size = numpy.float32(0.6)
-        self.assertAlmostEqual( domain_manager.cell_size, cell_size, 10 )
+        cell_size = 0.3 * (self.scale_fac + 1.0)
+        cell_size = get_real(cell_size, "single")
+        self.assertAlmostEqual( domain_manager.cell_size, cell_size, 6 )
         self.assertEqual( domain_manager.ncells, 4 )
 
         np = 4
@@ -90,13 +94,10 @@ class CLParticlesTestCase(unittest.TestCase):
 
         particles = self.particles
         
-        particles.setup_cl(self.ctx)    
+        particles.setup_cl(self.ctx)
 
         pa = self.particles.arrays[0]
         domain_manager = particles.domain_manager
-
-        self.assertEqual( pa.is_dirty, False )
-        self.assertEqual( domain_manager.is_dirty, False )
 
         cellids = domain_manager.cellids['test']
         ix = domain_manager.ix['test']
@@ -146,8 +147,6 @@ class CLParticlesTestCase(unittest.TestCase):
 
         particles.update()
 
-        self.assertEqual( pa.is_dirty, False )
-
         cellids = domain_manager.cellids['test']
         ix = domain_manager.ix['test']
         iy = domain_manager.iy['test']
@@ -169,7 +168,6 @@ class CLParticlesTestCase(unittest.TestCase):
         self.assertEqual( cellids[1], 0 )
         self.assertEqual( cellids[2], 2 )
         self.assertEqual( cellids[3], 3 )
-
 
 if __name__ == '__main__':
     unittest.main()
