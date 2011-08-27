@@ -42,6 +42,46 @@ on the kind of solver employed. To get a list of valid options::
    $ python example.py -h
 
 -------------------------------------------------------
+Simple examples to try
+-------------------------------------------------------
+
+The following examples should not take too long to run and you should
+see some nice output. You would need to install Mayavi_ to use the
+PySPH viewer for the 2D examples.
+
++ :file:`examples/nbody.py`: An N-Body problem (:doc:`../intro/getting_started`)::
+
+        $ python nbody.py --final-time=1
+ 	$ pysph_viewer
+
++ :file:`examples/dam-break/dam_break_simple.py`: A 2D dam break
+  problem with few particles.::
+
+        $ python dam_break_simple.py &
+	$ pysph_viewer
+
++ :file:`examples/stress/stress2d_balls.py`: 2D elastic collision of two balls::
+
+        $ python stress2d_balls.py &
+	$ pysph_viewer
+
++ :file:`examples/shock-tube/2D/noh.py`: A cylindrical implosion of
+  gas that produces a shock that moves radially outward.::
+  
+        $ python noh.py
+        $ pysph_viewer
+
++ :file:`examples/elliptical_drop.py`: An initially circular patch of
+  incompressible fluid that deforms to an ellipse.::
+
+        $ python examples.py
+        $ pysph_viewer
+
++ :file:`examples/shock-tube/wc_blastwave.py`: A 1D simulation of 2
+  blast waves that collide with each other. Refer to
+  :doc:`../tutorials/shock_tube` to see how to view the results.
+
+-------------------------------------------------------
 Example: Running a dam break simulation with PySPH
 -------------------------------------------------------
 
