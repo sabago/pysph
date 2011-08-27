@@ -24,8 +24,10 @@ your system administrator if you do not have administrative rights.
 + Setuptools_ to install python dependencies via `easy_install`
 + Numpy_ : >= 1.3
 + Virtualenv_ to create your isolated Python environment. 
-+ Mercurial_ to download the code.
 + MPI_ to enable PySPH to run in parallel
+
+Additionally, you need Mercurial_ installed if you want to check out
+the latest development version of PySPH.
 
 For Ubuntu systems, you can install these like so::
 
@@ -45,14 +47,22 @@ Your virtualenv may be set up like so::
      virtualenv ~/envs/pysph
      source ~/envs/pysph/bin/activate
 
-Once you've activated your virtual environment, you can install the
-python specific dependencies like so::
+You can now install PySPH for your virtual environment::
+
+     easy_install mayavi2 pysph
+
+If you want to build PySPH from source, you will need Cython_. We
+recommend you also install Sphinx_ to build the documentation and
+Nose_ to run the tests. PySPH comes with a default application to view
+simulation results interactively. This requires Mayavi_ to be
+installed on your system.
+
+These packages can be installed like so::
 
        easy_install cython nose sphinx mpi4py mayavi2
 
-
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-Installing PySPH
+Installing PySPH from source
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 Assuming all the previous steps completed without any error, you can
@@ -73,6 +83,11 @@ download PySPH and install it like so::
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 Running the tests
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+.. note:: 
+
+   Ignore this step if you installed PySPH with setuptools_ and
+   easy install.
 
 We recommend you test the fitness of your PySPH installation by
 running the test suite::
@@ -126,5 +141,13 @@ like so::
 .. _Mercurial: http://mercurial.selenic.com
 
 .. _Sphinx: http://sphinx.pocoo.org/
+
+.. _Mayavi: http://code.enthought.com/
+
+.. _Cython: http://cython.org
+
+.. _Sphinx: http://sphinx.pocoo.org/
+
+.. _Nose: http://www.somethingaboutorange.com/mrl/projects/nose
 
 ..  LocalWords:  mpi openmpi Setuptools Virtualenv
