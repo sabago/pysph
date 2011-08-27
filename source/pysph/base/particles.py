@@ -106,6 +106,7 @@ class Particles(object):
                  locator_type = SPHNeighborLocator,
                  periodic_domain=None,
                  min_cell_size=-1,
+                 max_radius_scale=2,
                  update_particles=True):
         
         """ Constructor
@@ -135,6 +136,8 @@ class Particles(object):
         self.periodic_domain = periodic_domain
         self.parallel_manager = None
 
+        self.max_radius_scale = max_radius_scale
+
         # Some sanity checks on the input arrays.
         assert len(arrays) > 0, "Particles must be given some arrays!"
         prec = arrays[0].cl_precision
@@ -159,6 +162,7 @@ class Particles(object):
         #if not self.in_parallel:
         self.cell_manager = CellManager(arrays_to_bin=self.arrays,
                                         min_cell_size=self.min_cell_size,
+                                        max_radius_scale=self.max_radius_scale,
                                         periodic_domain=self.periodic_domain)
         #else:
         #    self.cell_manager = ParallelCellManager(
