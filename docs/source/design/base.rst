@@ -7,5 +7,5 @@ Base Module
 .. toctree::
     :maxdepth: 3
     
-    ParticleArrays and Partilces <working_with_particles>
+    ParticleArrays and Particles <working_with_particles>
     
