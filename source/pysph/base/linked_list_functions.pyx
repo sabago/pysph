@@ -52,6 +52,31 @@ cpdef inline int get_cellid(int ix, int iy, int iz,
     """
     return iz * (ncx * ncy) + iy * ncx + ix
 
+cpdef inline tuple unflatten(int cid, int ncx, int ncy):
+    """Unflatten a three dimensional cell index.
+
+    Parameters:
+    -----------
+
+    cid : int
+        The flattened cell index
+
+    ncx, ncy : int
+        Number of cells in x and y
+
+    """
+    cdef int ix, iy, iz
+    cdef int tmp = ncx*ncy
+    
+    iz = cid / tmp
+
+    cid -= (iz * tmp)
+    iy = cid / ncx
+
+    ix = cid - (iy * ncx)
+
+    return ix, iy, iz
+
 cpdef numpy.ndarray brute_force_neighbors(
     float xi, float yi, float zi, int np, float radius,
     numpy.ndarray[ndim=1, dtype=numpy.float32_t] x,
