@@ -197,11 +197,11 @@ class SinglePrecisionLinkedListManagerTestCase(unittest.TestCase):
         # check the neighbor lists
         cy_bins = cy_manager.cellids[name]
         cy_head = cy_manager.head[name]
-        cy_next = cy_manager.next[name]
+        cy_next = cy_manager.Next[name]
         
         cl_bins = cl_manager.cellids[name]
         cl_head = cl_manager.head[name]
-        cl_next = cl_manager.next[name]
+        cl_next = cl_manager.Next[name]
 
         for i in range(self.np):
 
@@ -219,7 +219,47 @@ class SinglePrecisionLinkedListManagerTestCase(unittest.TestCase):
             for j in range( nnbrs ):
                 self.assertEqual( cl_nbrs[j], cy_nbrs[j] )
 
-    def test_neighbor_locator(self):
+    def test_iterator(self):
+        """Test the iterator for the linked list manager.
+
+        The iterator should only return forward cells for each cell.
+
+        """
+
+        manager = self.cy_manager
+
+        # update the data
+        manager.update()
+
+        ncx = manager.ncx
+        ncy = manager.ncy
+        ncz = manager.ncz
+
+        for cell_nbrs in manager:
+
+            # get the forward neighbors the brute force way
+            cid = manager._current_cell - 1
+            ix, iy, iz = ll.unflatten(cid, ncx, ncy)
+
+            _cell_nbrs = []
+
+            for i in range(ix -1, ix + 2):
+                for j in range(iy -1, iy + 2):
+                    for k in range(iz -1, iz + 2):
+
+                        if ( (i >= 0) and (i < ncx) ):
+                            if ( (j >= 0) and (j < ncy) ):
+                                if ( (k >=0) and (k < ncz) ):
+                                    _cid = i + j*ncx + k*ncx*ncy
+                                    if _cid >= cid:
+                                        _cell_nbrs.append(_cid)
+
+            self.assertEqual(cell_nbrs, _cell_nbrs)
+
+        # the current cell should be back to 0 after StopIteration
+        self.assertEqual(manager._current_cell, 0)
+            
+    def _test_neighbor_locator(self):
         """Test the neighbors returned by the OpenCL locator.
 
         The neighbors for each particle returned by a locator based on

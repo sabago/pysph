@@ -418,7 +418,12 @@ class SimpleBlockManager(ParallelManager):
         cm.delete_empty_cells()
 
     def _compute_block_size(self):
-        """Compute the block size."""
+        """Compute the block size.
+
+        The block size is chosen as some scale factor times the global
+        largest smoothing length.
+
+        """
         self._update_global_properties()
         self.block_size = self.block_scale_factor*self.glb_max_h
 

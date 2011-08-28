@@ -103,7 +103,7 @@ class TestShockTube(unittest.TestCase):
             domain_manager.enqueue_copy()
 
             head = domain_manager.head["test"]
-            next = domain_manager.next["test"]
+            next = domain_manager.Next["test"]
             cellids = domain_manager.cellids["test"]
 
             # test the bin structure for each particle

@@ -8,7 +8,7 @@ if HAS_CL:
     mf = cl.mem_flags
 
 # Cython functions for neighbor list construction
-from linked_list_functions import cbin
+from linked_list_functions import cbin, unflatten
 
 from point import Point
 from cell import py_find_cell_id
@@ -60,8 +60,27 @@ class DomainManager:
             pa = self.arrays[i]
             pa.setup_cl(context, queue)
 
+    #######################################################################
+    # public interface
+    #######################################################################
     def update(self):
         pass
+
+    #######################################################################
+    # object interface
+    #######################################################################
+    def __iter__(self):
+        """The Domain manager produces an iterator for all it's data.
+        
+        This is needed as the function that will ask for cell
+        neighbors should be agnostic about the DomainManager type and
+        simply requires a means to iterate through it's data.
+
+        """
+        return self
+
+    def next(self):
+        raise RuntimeError("Do not iterate over the DomainManager base class!")
 
 class LinkedListManager(DomainManager):
     """ Domain manager using bins as the indexing scheme and a linked
@@ -78,7 +97,7 @@ class LinkedListManager(DomainManager):
         The dictionary is keyed on name of the ParticleArray,
         with the head array as value.
 
-    next : dict
+    Next : dict
         Next array for each ParticleArray maintained.
         The dictionary is keyed on name of the ParticleArray,
         with the next array as value.
@@ -176,7 +195,7 @@ class LinkedListManager(DomainManager):
         self._find_bounds()
 
         # The linked list structures for the arrays.
-        self.next = {}
+        self.Next = {}
         self.head = {}
         self.cellids = {}
         self.locks = {}
@@ -205,6 +224,9 @@ class LinkedListManager(DomainManager):
         # dict for kernel launch parameters 
         self.global_sizes = {}
         self.local_sizes = {}
+
+        # initialize counter for the iterator
+        self._current_cell = 0
 
         # initialize the linked list
         self._init_linked_list()
@@ -245,7 +267,7 @@ class LinkedListManager(DomainManager):
                 enqueue_copy(self.queue, dst=self.head[pa.name],
                              src=self.dhead[pa.name])
         
-                enqueue_copy(self.queue, dst=self.next[pa.name],
+                enqueue_copy(self.queue, dst=self.Next[pa.name],
                              src=self.dnext[pa.name])
         
                 enqueue_copy(self.queue, dst=self.ix[pa.name],
@@ -383,7 +405,7 @@ class LinkedListManager(DomainManager):
             iz = numpy.ones(np, numpy.uint32)
 
             self.head[pa.name] = head
-            self.next[pa.name] = next
+            self.Next[pa.name] = next
             self.cellids[pa.name] = cellids
             self.locks[pa.name] = locks
 
@@ -406,7 +428,7 @@ class LinkedListManager(DomainManager):
             self.local_sizes[pa.name] = (1,)
 
             head = self.head[pa.name]
-            next = self.next[pa.name]
+            next = self.Next[pa.name]
             cellids = self.cellids[pa.name]
             locks = self.locks[pa.name]
 
@@ -475,7 +497,7 @@ class LinkedListManager(DomainManager):
                   self.iy[pa.name],
                   self.iz[pa.name],
                   self.head[pa.name],
-                  self.next[pa.name],
+                  self.Next[pa.name],
                   mx, my, mz,
                   numpy.int32(ncx), numpy.int32(ncy), numpy.int32(ncz),
                   cell_size, numpy.int32(np),
@@ -546,7 +568,59 @@ class LinkedListManager(DomainManager):
         """ Read the OpenCL kernel source file and build the program """
         src_file = get_pysph_root() + '/base/linked_list.cl'
         src = cl_read(src_file, precision=self.cl_precision)
-        self.prog = cl.Program(self.context, src).build()        
+        self.prog = cl.Program(self.context, src).build()
+
+    #######################################################################
+    # object interface
+    #######################################################################
+    def next(self):
+        """Iterator interface to get cell neighbors.
+
+        Usage:
+        ------
+
+            for cell_nbrs in LinkedListManager():
+                ...
+
+            where, the length of the iterator is `ncells` and at each call,
+            the `forward` neighbors for the cell are returned.
+
+
+        The `forward` cells for a given cell with index cid are
+        neighboring cells with an index cid' >= cid
+        
+        """
+        if self._current_cell == self.ncells:
+            self._current_cell = 0
+            raise StopIteration
+        else:
+            # we are getting neighbors for the current cell
+            cid = self._current_cell
+
+            # get the cell indices for the current cell to search for
+            ncx = self.ncx
+            ncy = self.ncy
+            ncz = self.ncz
+
+            ix, iy, iz = unflatten(cid, ncx, ncy)
+
+            # determine the range of search
+            imin = max(ix -1, 0)
+            jmin = max(iy -1, 0)
+            kmin = max(iz -1, 0)
+
+            imax = min(ix + 2, ncx)
+            jmax = min(iy + 2, ncy)
+            kmax = min(iz + 2, ncz)
+
+            # raise the counter for the current cell
+            self._current_cell += 1
+
+            return [i+j*ncx+k*ncx*ncy \
+                    for i in range(imin, imax) \
+                    for j in range(jmin, jmax) \
+                    for k in range(kmin, kmax) \
+                    if i+j*ncx+k*ncx*ncy >= cid]
 
     ##########################################################################
     # DEPRECATED
@@ -554,7 +628,7 @@ class LinkedListManager(DomainManager):
     def reset_cy_data(self):
         for pa in self.arrays:
             head = self.head[pa.name]
-            next = self.next[pa.name]
+            next = self.Next[pa.name]
 
             head[:] = -1
             next[:] = -1

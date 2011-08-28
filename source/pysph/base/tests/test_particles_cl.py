@@ -73,7 +73,7 @@ class CLParticlesTestCase(unittest.TestCase):
 
         head = domain_manager.head['test']
         locks = domain_manager.locks['test']
-        next = domain_manager.next['test']
+        next = domain_manager.Next['test']
         cellids = domain_manager.cellids['test']
         ix = domain_manager.ix['test']
         iy = domain_manager.iy['test']
