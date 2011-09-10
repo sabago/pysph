@@ -6,7 +6,17 @@ import os
 import pysph.base.api as base
 from pysph.base.cell import py_find_cell_id
 
-class PrintNeighborInformation(object):
+class SaveCellManagerData(object):
+    """Post-step function to save the cell manager's data.
+
+    Two files are created, 'neighbors' contains partile neighbor
+    information as returned by the neighbor locator. For each
+    particle, a LongArray for it's neighbor indices are stored.
+
+    The second file
+    'cells', holds cell data for each cell (partilce indices, coordinates)
+
+    """
 
     def __init__(self, rank = 0, path=None, count=10):
         self.rank = rank
@@ -37,16 +47,20 @@ class PrintNeighborInformation(object):
         cell_manager = particles.cell_manager
         cell_size = cell_manager.cell_size
 
+        neighbor_idx = {}
+
         for i in range(num_locs):
             loc = locators[i]
             dest = loc.dest
+            src = loc.source
             
             particle_indices = dest.get('idx')
 
             x, y, z = dest.get("x", "y", "z")
 
-            neighbor_idx = {}
-            
+            neighbor_idx[dest.name + '-' + src.name] = {}
+            d = neighbor_idx[dest.name + '-' + src.name]
+
             nrp = dest.num_real_particles
 
             for j in range(nrp):
@@ -60,16 +74,19 @@ class PrintNeighborInformation(object):
 
                 idx = temp.get_carray("idx")
 
-                neighbor_idx[particle_idx] = {'neighbors':idx, 'cid':cid}
+                d[particle_idx] = {'neighbors':idx, 'cid':cid}
             
-            fname = fname_base + "_" + dest.name + "_" + str(time)
-            
+            fname = fname_base + "_" + dest.name + "_" + str(solver.count)
+
+            # save particle neighbor information.
             f = open(fname, 'w')
             pickle.dump(neighbor_idx, f)
             f.close()
             
             fname_cells = os.path.join(self.path+"/cells_"+str(self.rank))
-            fname_cells += "_" + str(time)
+            fname_cells += "_" + str(solver.count)
+
+            # ask the cell manager to save the particle representation
             cell_manager.get_particle_representation(fname_cells)
             
 

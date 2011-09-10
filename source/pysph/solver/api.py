@@ -21,7 +21,7 @@ from particle_generator import DensityComputationMode, MassComputationMode, \
 from application import Application
 
 
-from post_step_functions import PrintNeighborInformation
+from post_step_functions import SaveCellManagerData
 
 from plot import ParticleInformation
 
