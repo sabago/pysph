@@ -274,16 +274,6 @@ class TestStress1D(unittest.TestCase):
                        ['_tmpx'])
         return calc
 
-    def test_stress_rate_d(self):
-        raise nose.SkipTest('This test segfaults!')
-        calc = self.get_calc(StressRateD)
-        calc.sph()
-
-    def test_stress_rate_s(self):
-        raise nose.SkipTest('This test segfaults!')
-        calc = self.get_calc(StressRateS)
-        calc.sph()
-
 class TestStress2D(unittest.TestCase):
     def setUp(self):
         self.kernel = kernels.CubicSplineKernel(2)
@@ -782,10 +772,6 @@ class TestStress3D(unittest.TestCase):
         got, exp = pa.tmp3, self.zero
         self.assertTrue(allclose(exp[self.idx], got[self.idx]), msg='expected:%s, got:%s'%(exp,got))
 
-
-    def test_monaghan_art_stress_acc(self):
-        raise nose.SkipTest('Not implemented!')
-
     def test_stress_rate_d_1(self):
         # TODO: also check the rotation rate effect
         pa = self.pa
@@ -889,37 +875,6 @@ class TestStress3D(unittest.TestCase):
         self.check(pa.tmp1, exp1, 1e-2)
         self.check(pa.tmp2, exp2, 1e-2)
         self.check(pa.tmp3, exp3, 1e-2)
-
-    def test_stress_acc(self):
-        raise nose.SkipTest('This test fails!')
-        # TODO: also check the rotation rate effect
-        pa = self.pa
-        #pa.u = self.f
-        pa.sigma00 = self.h
-        pa.sigma01 = self.g
-        #pa.sigma11 = -self.h
-        # e00 = self.fx
-        # e01 = self.fy/2
-        # e02 = self.fz/2
-        # r01 = self.fy/2
-        # r02 = self.fz/2
-        s00 = pa.sigma00
-        s01 = pa.sigma01
-
-        exp1 = self.hx + self.gy
-        exp2 = self.gx
-        exp3 = numpy.zeros_like(pa.x)
-
-        calc = self.get_calc(SimpleStressAcceleration.withargs(xsph=False))
-        calc.sph('tmp1', 'tmp2', 'tmp3')
-        
-        #print exp1, self.f, self.fz
-        self.check(pa.tmp1, exp1, 2e-2)
-        self.check(pa.tmp2, exp2, 2e-2)
-        self.check(pa.tmp3, exp3, 2e-2)
-
- 
-
 
 if __name__ == '__main__':
     nose.main()
