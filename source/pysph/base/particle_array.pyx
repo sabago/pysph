@@ -810,8 +810,8 @@ cdef class ParticleArray:
               sure particles are aligned properly.
 
         """
-        cdef str prop_name, data_type
-        cdef object data, default
+        cdef str prop_name=None, data_type=None
+        cdef object data=None, default=None
         cdef bint array_size_proper = False
         cdef PyObject* temp_obj
 

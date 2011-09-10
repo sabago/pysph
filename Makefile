@@ -55,10 +55,10 @@ cleanall : clean
 #	-rm $(patsubst %.pyx,%.c,$(wildcard $(PKG)/*/*.pyx))
 
 test :
-	python `which nosetests` --exe -a '!slow' $(PKG)
+	python `which nosetests` --exe -a '!slow' pysph
 
 testall :
-	python `which nosetests` --exe $(PKG)
+	python `which nosetests` --exe pysph
 
 bench :
 	# try '$$ make bench BENCH="point kernels"' etc to limit the benchmarks run
