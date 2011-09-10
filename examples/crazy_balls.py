@@ -57,7 +57,7 @@ def create_particles_2d(**kwargs):
 
     m = numpy.ones_like(x) * dx**2
 
-    vol_per_particle = numpy.power(0.5**2/np ,1.0/3.0)
+    vol_per_particle = numpy.power(0.5**2/np ,1.0/2.0)
     radius = 2 * vol_per_particle
 
     print "Using smoothing length: ", radius
@@ -101,13 +101,8 @@ class CrazyIntegrator(solver.EulerIntegrator):
 
                 # simply use periodicity for the positions
                 if prop in ['x', 'y', 'z']:
-                    for i in range(np):
-                        xnew = updated_array[i]
-                        if xnew > 1:
-                            xnew -= 1
-                        if xnew < 0:
-                            xnew += 1
-                        updated_array[i] = xnew                        
+                    updated_array[numpy.where(updated_array < 0)[0]] += 1
+                    updated_array[numpy.where(updated_array > 1)[0]] -= 1
 
                 array.set( **{prop:updated_array} )
 
@@ -148,17 +143,17 @@ s.add_operation(solver.SPHIntegration(
 app.setup(
     solver=s,
     variable_h=False,
-    create_particles=create_particles_3d)
+    create_particles=create_particles_2d)
 
 cm = s.particles.cell_manager
 print "Number of cells, cell size = %d, %g"%(len(cm.cells_dict), cm.cell_size)
 
-s.set_time_step(1e-2)
-s.set_final_time(25)
+s.set_time_step(2.5e-2)
+s.set_final_time(5)
 
 # add a post step function to save the neighbor information every 10
 # iterations
-#s.post_step_functions.append( solver.SaveCellManagerData(
-#    s.pid, path=s.output_directory, count=10) )
+s.post_step_functions.append( solver.SaveCellManagerData(
+    s.pid, path=s.output_directory, count=10) )
 
 app.run()
