@@ -21,8 +21,8 @@ cdef class ArtificialPotentialForce(SPHFunctionParticle):
     #cdef double gx, gy, gz
 
     def __init__(self, ParticleArray source, ParticleArray dest,
-                 bint setup_arrays=True, double factorp=1.0,
-                 factorm = 1.0, **kwargs):
+                 bint setup_arrays=True, double factor1=1.0,
+                 factor2=1.0, **kwargs):
         
         SPHFunctionParticle.__init__(self, source, dest, setup_arrays,
                                      **kwargs)
@@ -30,8 +30,8 @@ cdef class ArtificialPotentialForce(SPHFunctionParticle):
         self.id = 'artificial_potential'
         self.tag = "velocity"
 
-        self.factorp = factorp
-        self.factorm = factorm
+        self.factor1 = factor1
+        self.factor2 = factor2
 
     def set_src_dst_reads(self):
         pass
@@ -68,11 +68,12 @@ cdef class ArtificialPotentialForce(SPHFunctionParticle):
         w = kernel.function(self._dst, self._src, hab)
 
         if q > 0.5:
-            w *= self.factorm
+            w *= self.factor1
         else:
-            w *= self.factorp
+            w *= self.factor2
 
-        nr[0] += rab.x * w
-        nr[1] += rab.y * w
+        w = w * self.s_m.data[source_pid]/self.s_rho.data[source_pid]
+
+        nr[0] += rab.x * w 
+        nr[1] += rab.y * w 
         nr[2] += rab.z * w
-
