@@ -133,15 +133,15 @@ class ExampleTestCase(unittest.TestCase):
 
             parallel_result = utils.load_and_concatenate(
                 directory=dir2, nprocs=1, prefix=prefix)["arrays"]
-                                                       
+            
         finally:
             shutil.rmtree(dir1, True)
             shutil.rmtree(dir2, True)
 
         # test
-        self._test(serial_result, parallel_result)
+        self._test(dir1, serial_result, dir2, parallel_result)
 
-    def _test(self, serial_result, parallel_result):
+    def _test(self, serial_dir, serial_result, parallel_dir, parallel_result):
 
         # make sure the array names are the same
         serial_arrays = serial_result.keys()
@@ -195,6 +195,64 @@ class EllipticalDropTestCase(ExampleTestCase):
     def test_elliptical_drop_block_4(self):
         self._test_elliptical_drop(nprocs=4, iter=100, timeout=360,
                                    parallel_mode="block")
+
+class CrazyBallsExampleTestCase(ExampleTestCase):
+    """Compare the results for the `crazy_balls` example.
+
+    We mainly test for density values and neighbor indices per
+    particle in serial and parallel.
+
+    """
+    
+    def _test(self, serial_dir, serial_result, parallel_dir, parallel_result):
+        """Test the result for the serial and parallel runs."""
+
+        # make sure the array names are the same
+        serial_arrays = serial_result.keys()
+        parallel_arrays = parallel_result.keys()
+
+        self.assertTrue( serial_arrays == parallel_arrays )
+
+        arrays = serial_arrays
+        
+        # first check the densities
+        for array in arrays:
+
+            rho_serial = serial_result[array].get("rho")
+            rho_parallel = parallel_result[array].get("rho")
+
+            np = len(rho_serial)
+            self.assertTrue( len(rho_parallel) == np )
+
+            idx = parallel_result[array].get("idx")
+            for i in range(np):
+                self.assertAlmostEqual( rho_serial[idx[i]], rho_parallel[i], 10 )
+
+    def _test_crazy_balls(self, nprocs, parallel_mode, iters=500, timeout=300):
+        self.run_example('../../../../examples/crazy_balls.py',
+                         timestep=1e-3, iters=iters,
+                         nprocs=nprocs, timeout=timeout,
+                         parallel_mode=parallel_mode)
+
+    @attr(parallel=True)
+    def test_crazy_balls_simple_2(self):
+        """Crazy balls the simple parallel manager and 2 processors."""
+        self._test_crazy_balls(nprocs=2, parallel_mode="simple")
+
+    @attr(parallel=True)
+    def test_crazy_balls_simple_4(self):
+        """Crazy balls the simple parallel manager and 4 processors."""
+        self._test_crazy_balls(nprocs=4, parallel_mode="simple")
+
+    @attr(parallel=True)
+    def test_crazy_balls_block_2(self):
+        """Crazy balls the block parallel manager and 2 processors."""
+        self._test_crazy_balls(nprocs=2, parallel_mode="block")
+
+    @attr(parallel=True)
+    def test_crazy_balls_block_4(self):
+        """Crazy balls the block parallel manager and 4 processors."""
+        self._test_crazy_balls(nprocs=4, parallel_mode="block")        
 
 if __name__ == "__main__":
     unittest.main()
