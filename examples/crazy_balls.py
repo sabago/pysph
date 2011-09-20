@@ -42,6 +42,8 @@ def create_particles_3d(**kwargs):
                                     u=u, v=v, w=w,
                                     m=m,h=h)
 
+    print "Number of particles: ", fluid.get_number_of_particles()
+
     return [fluid,]
 
 def create_particles_2d(**kwargs):
@@ -69,6 +71,8 @@ def create_particles_2d(**kwargs):
                                     u=u, v=v,
                                     m=m,
                                     h=h)
+
+    print "Number of particles: ", fluid.get_number_of_particles()
 
     return [fluid,]
 
@@ -140,6 +144,9 @@ s.add_operation(solver.SPHIntegration(
 
                 )
 
+s.set_time_step(1e-2)
+s.set_final_time(5)
+
 app.setup(
     solver=s,
     variable_h=False,
@@ -148,12 +155,9 @@ app.setup(
 cm = s.particles.cell_manager
 print "Number of cells, cell size = %d, %g"%(len(cm.cells_dict), cm.cell_size)
 
-s.set_time_step(2.5e-2)
-s.set_final_time(5)
-
 # add a post step function to save the neighbor information every 10
 # iterations
-s.post_step_functions.append( solver.SaveCellManagerData(
-    s.pid, path=s.output_directory, count=10) )
+#s.post_step_functions.append( solver.SaveCellManagerData(
+#    s.pid, path=s.output_directory, count=50) )
 
 app.run()
