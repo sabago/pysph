@@ -78,7 +78,7 @@ class Function(object):
         return func
 
 ################################################################################
-# `SPHFunctionParticle` class.
+# `SPHFunction` class.
 ################################################################################
 cdef class SPHFunction:
     """ Base class to represent an operation on a particle array.
@@ -102,36 +102,62 @@ cdef class SPHFunction:
     destination pairs
 
     """
-    def __init__(self, ParticleArray source, ParticleArray dest=None,
-                 bint setup_arrays=True, setup_reads=True, *args, **kwargs):
-        """ dest argument is unused. self.dest is set to source """
+    def __init__(self, list arrays, list on_types, object dm,
+                 object function_data):
+
+        """Constructor.
+
+        The SPHFunction object is a generic 'function' that operates
+        on a bunch of destination particle arrays. The
+        source-destination pairs for the interactions are decided at
+        run time from the on types and from types arguments. The
+        kernel is used to compute the interaction if necessary. 
+
+        """
         self.name = ""
         self.id = ""
         self.tag = ""
-        self.source = source
-        self.dest = source
 
-        #Default properties
-        self.x = 'x'
-        self.y = 'y'
-        self.z = 'z'
-        self.u = 'u'
-        self.v = 'v'
-        self.w = 'w'
-        self.m = 'm'
-        self.rho = 'rho'
-        self.h = 'h'
-        self.p = 'p'
-        self.e = 'e'
-        self.cs = 'cs'
-        
-        self.num_outputs = 3
+        self.arrays = arrays
+        self.on_types = on_types
 
         self.src_reads = []
         self.dst_reads = []
 
+        # sph kernel used to evaluate contributions
         self.kernel = None
 
+        # domain manager for the spatial indexing
+        self.dm = dm
+
+        # destination arrays
+        self.dsts = []
+
+        # destination arrays data
+        self.dst_data = []
+
+        # generate the destination particle arrays. The destination
+        # arrays are chosen from the on_types specification and the
+        # 'dest' object actually stored is a ParticleArrayData which
+        # gives access to all requisite carrays for the function.
+        for dst in arrays:
+            if dst in on_types:
+                self.dsts.append( dst )
+                self.dst_data.append( function_data(dst) )
+
+        # number of destination arrays
+        self.ndsts = len( self.dsts )
+
+        # a list of destination props that may need resetting at the
+        # calc level. We can't reset at the function level since the
+        # values need to be computed across functions
+        self.to_reset = []                
+
+        #################################################################
+        # OpenCL support possibly deprecated within the new framework
+        # This will have to be re-worked
+        #################################################################
+        
         self.cl_kernel_src_file = ''
         self.cl_kernel = object()
         self.cl_program = object()
@@ -141,99 +167,51 @@ cdef class SPHFunction:
         self.cl_args = []
         self.cl_args_name = []
 
-        self.global_sizes = (self.dest.get_number_of_particles(), 1, 1)
+        #self.global_sizes = (self.dest.get_number_of_particles(), 1, 1)
         self.local_sizes = (1,1,1)
 
         # setup the source and destination reads
-        if setup_reads:
-            self.set_src_dst_reads()
-        
-        if setup_arrays:
-            self.setup_arrays()
+        #if setup_reads:
+        #    self.set_src_dst_reads()
 
-        # a list of destination props that may need resetting at the
-        # calc level. We can't reset at the function level since the
-        # values need to be computed across functions
-        self.to_reset = []
+    cpdef eval(self, double t=0, double dt=0):
+        """Evaluate the function.
 
-    # convenience methods to be able to use class instead of Function object
-    # for default construction (testing) and class.withargs(*) as an alias for
-    # explicitly creating Function objects
-    @classmethod
-    def withargs(cls, *args, **kwargs):
-        """ Return a :class:`Function` object for this class with arguments """
-        return Function(cls, *args, **kwargs)
-    
-    @classmethod
-    def get_func(cls, source, dest):
-        """ Construct an instance of this class with default arguments
-        This method enables this class to act like a :class:`Function`
-        instance
+        SPHFunction calculates some quiantity for destination particle
+        arrays without any recourse to neighbor lookups.
 
-        """        
-        return Function(cls).get_func(source, dest)
-    
-    @classmethod
-    def get_func_class(cls):
-        """ Get the class for which func will be created """
-        return cls
-    
-    cpdef setup_arrays(self):
-        """ Gets the various property arrays from the particle arrays. """
-        self.s_x = self.source.get_carray(self.x)
-        self.s_y = self.source.get_carray(self.y)
-        self.s_z = self.source.get_carray(self.z)
-        self.s_u = self.source.get_carray(self.u)
-        self.s_v = self.source.get_carray(self.v)
-        self.s_w = self.source.get_carray(self.w)
-        self.s_h = self.source.get_carray(self.h)
-        self.s_m = self.source.get_carray(self.m)
-        self.s_rho = self.source.get_carray(self.rho)
-        self.s_p = self.source.get_carray(self.p)
-        self.s_e = self.source.get_carray(self.e)
-        self.s_cs = self.source.get_carray(self.cs)
-
-        self.d_x = self.dest.get_carray(self.x)
-        self.d_y = self.dest.get_carray(self.y)
-        self.d_z = self.dest.get_carray(self.z)
-        self.d_u = self.dest.get_carray(self.u)
-        self.d_v = self.dest.get_carray(self.v)
-        self.d_w = self.dest.get_carray(self.w)
-        self.d_h = self.dest.get_carray(self.h)
-        self.d_m = self.dest.get_carray(self.m)
-        self.d_rho = self.dest.get_carray(self.rho)
-        self.d_p = self.dest.get_carray(self.p)
-        self.d_e = self.dest.get_carray(self.e)
-        self.d_cs = self.dest.get_carray(self.cs)
-    
-    cpdef eval(self, KernelBase kernel, DoubleArray output1,
-               DoubleArray output2, DoubleArray output3):
-        """ Evaluate the store the results in the output arrays """
-        cdef double result[3]
-        cdef size_t i
-        
-        # get the tag array pointer
-        cdef LongArray tag_arr = self.dest.get_carray('tag')
-
-        self.setup_iter_data()
-        cdef size_t np = self.dest.get_number_of_particles()
-
-        for i in range(np):
-            if tag_arr.data[i] == LocalReal:
-                self.eval_single(i, kernel, result)
-                output1.data[i] += result[0]
-                output2.data[i] += result[1]
-                output3.data[i] += result[2]
-            else:
-                output1.data[i] = output2.data[i] = output3.data[i] = 0
-
-    cdef void eval_single(self, size_t dest_pid, KernelBase kernel,
-                          double * result):
-        """ Evaluate the function on a single dest particle
-        
-        Implement this in a subclass to do the actual computation
+        The simplest example for this case is the external gravity
+        force that is added to each particle.
 
         """
+        cdef ParticleArray dst
+        cdef size_t i, np
+        cdef object dm = self.dm
+
+        cdef size_t this_cell
+
+        # loop over all cells
+        print "Looping over all cells"
+        for nbr_cells in dm:
+            this_cell = nbr_cells[0]
+
+            print "This cell is ", this_cell
+
+            # loop over the destination arrays
+            for dst_id in range( self.ndsts ):
+                dst = self.dsts[dst_id]
+
+                dst_indices = dm.get_indices( dst, this_cell )
+
+                print "Destination = %s, indices = %s"%(dst.name, dst_indices)
+
+                # evaluate the contribution to the destination for this cell
+                print "Evaluating on a single cell"
+                self.eval_single( dst_id, dst_indices, nbr_cells, t, dt )
+
+    cdef void eval_single(self, size_t dst_id, object dst_indices, object nbr_cells,
+                          double t=0, double dt=0):
+        """ Evaluate the function on a single dest particle."""
         raise NotImplementedError, 'SPHFunction.eval_single()'
     	
     cpdef setup_iter_data(self):
@@ -388,17 +366,11 @@ cdef class SPHFunctionParticle(SPHFunction):
     source will be in the ``s_m`` array.
 
     """
-    def __init__(self, ParticleArray source, ParticleArray dest,
-                 bint setup_arrays=True, hks=False,
-                 exclude_self=False,
-                 FixedDestNbrParticleLocator nbr_locator=None,
-                 *args, **kwargs):
+    def __init__(self, list arrays, list on_types, object dm,
+                 object function_data, list from_types, KernelBase kernel=None,
+                 **kwargs):
+        SPHFunction.__init__(self, arrays, on_types, dm, function_data)
 
-        SPHFunction.__init__(self, source, setup_arrays=False, *args, **kwargs)
-
-        self.dest = dest
-        self.exclude_self = exclude_self
-        
         #kernel correction of Bonnet and Lok
         self.bonnet_and_lok_correction = False
 
@@ -406,34 +378,84 @@ cdef class SPHFunctionParticle(SPHFunction):
         self.rkpm_first_order_correction = False
 
         # type of kernel symmetrization
-        self.hks = hks
+        self.hks = True
 
-        if setup_arrays:
-            self.setup_arrays()
+        # SPH kernel to use
+        self.kernel = kernel
 
-    cdef void eval_single(self, size_t dest_pid, KernelBase kernel,
-                          double * result):
+        # from types to determine the sources
+        self.from_types = from_types
+
+        # source particle arrays
+        self.srcs = []
+
+        # source particles array data
+        self.src_data = []
+
+        # generate the source particle arrays. The source
+        # arrays are chosen from the on_types specification and the
+        # 'source' object actually stored is a ParticleArrayData which
+        # gives access to all requisite carrays for the function.
+        for pa in arrays:
+            if pa in from_types:
+                self.srcs.append( pa )
+                self.src_data.append( function_data(pa) )
+
+        # number of destination arrays
+        self.nsrcs = len( self.srcs )
+
+    cdef void eval_single(self, size_t dst_id, object dst_indices, object nbr_cells,
+                          double t=0, double dt=0):
         """ Computes contribution of all neighbors on particle at dest_pid """
-        cdef LongArray nbrs = self.nbr_locator.get_nearest_particles(dest_pid)
-        cdef size_t nnbrs = nbrs.length
-        cdef size_t j
+        cdef ParticleArray src
+        cdef ParticleArray dst = self.dsts[dst_id]
+        cdef size_t src_id
 
-        if self.exclude_self:
-            if self.src is self.dest:
-                # this works because nbrs has self particle in last position
-                nnbrs -= 1
-        
-        result[0] = result[1] = result[2] = 0.0
-        for j in range(nnbrs):
-            self.eval_nbr(nbrs.data[j], dest_pid, kernel, result)
-    
-    cdef void eval_nbr(self, size_t source_pid, size_t dest_pid,
-                   KernelBase kernel, double * result):
-        """ Computes contribution of particle at source_pid on dest_pid
-        
-        Implement this in a subclass to do the actual computation
+        cdef object dm = self.dm
 
-        """
+        this_cell = nbr_cells[0]
+
+        # Handle interactions from within the same cell
+        for src_id in range(self.nsrcs):
+            src = self.srcs[src_id]
+            is_symmetric = src in self.dsts
+
+            # handle interactions for same cell same array
+            if dst == src:
+                print "Interactions on same cell and same array"
+                self.eval_self( dst_id, dst_indices )
+
+            # handle interactions for same cell different array
+            else:
+                print "Interaction on same cell differnet array"
+                src_indices = dm.get_indices( src, this_cell )
+                self.eval_nbr( dst_id, src_id,
+                               dst_indices, src_indices, is_symmetric )
+
+        # Handle interactions from neighboring cells
+        print "Interaction between neighboring cells"
+        for cid in nbr_cells[1:]:
+            print "Neighboring cell %d"%(cid)
+            for src_id in range(self.nsrcs):
+                src = self.srcs[src_id]
+
+                is_symmetric = src in self.dsts
+
+                print "Interaction is symmetric? %s "%(is_symmetric)
+                
+                src_indices = dm.get_indices( src, cid )
+                #dst_indices = dm.get_indices( dst, cid )
+
+                print "dst_indices = %s, src_indices = %s"%(dst_indices,src_indices)
+                
+                self.eval_nbr( dst_id, src_id,
+                               dst_indices, src_indices, is_symmetric )
+                    
+    cdef void eval_self(self, size_t dst_id, object dst_indices):
+        raise NotImplementedError, "SPHFunctionParticle.eval_self()"
+
+    cdef void eval_nbr(self, size_t dst_id, size_t src_id,
+                       object dst_indices, object src_indices, bint is_symmetric):
         raise NotImplementedError, 'SPHFunctionParticle.eval_nbr()'
 
     cdef double rkpm_first_order_kernel_correction(self, size_t dest_pid):
@@ -497,9 +519,10 @@ cdef class CSPHFunctionParticle(SPHFunctionParticle):
     operations in separate funcs so the results can be reused
     """
 
-    cdef void eval_single(self, size_t dest_pid, KernelBase kernel,
-                          double * result):
+    cdef void eval_single(self, size_t i, object dst_indices, object nbr_cells,
+                          double t=0, double dt=0):
         """ Computes contribution of all neighbors on particle at dest_pid """
+        cdef double result[3]
         cdef double dnr[3] # denominator
         cdef LongArray nbrs = self.nbr_locator.get_nearest_particles(dest_pid)
         cdef size_t nnbrs = nbrs.length
@@ -510,8 +533,16 @@ cdef class CSPHFunctionParticle(SPHFunctionParticle):
         
         result[0] = result[1] = result[2] = 0.0
         dnr[0] = dnr[1] = dnr[2] = 0.0
+
+        tag = self.dest.get("tag", only_real_particles=False)
+        print "Evaluating for particle %d with tag %d"%(dest_pid, tag[dest_pid])
+        if tag[dest_pid] == 1:
+            print "nnbrs = %d"%(nnbrs)
+
+        # REMOVE THIS!
+        dest_pid = 1
         for j in range(nnbrs):
-            self.eval_nbr_csph(nbrs.data[j], dest_pid, kernel, result, dnr)
+            self.eval_nbr_csph(nbrs.data[j], dest_pid, self.kernel, result, dnr)
         
         for m in range(3):
             if dnr[m] != 0.0:

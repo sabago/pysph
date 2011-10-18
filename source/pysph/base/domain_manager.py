@@ -8,7 +8,7 @@ if HAS_CL:
     mf = cl.mem_flags
 
 # Cython functions for neighbor list construction
-from linked_list_functions import cbin, unflatten
+from linked_list_functions import cbin, unflatten, cell_neighbors
 
 from point import Point
 from cell import py_find_cell_id
@@ -248,6 +248,12 @@ class LinkedListManager(DomainManager):
             self._cl_update()
         else:
             self._cy_update()
+
+    def get_indices(self, array, cid):
+        head = self.head[array.name]
+        next = self.Next[array.name]
+
+        return cell_neighbors(cid, head, next)            
 
     def enqueue_copy(self):
         """ Copy the Buffer contents to the host
@@ -503,7 +509,6 @@ class LinkedListManager(DomainManager):
                   cell_size, numpy.int32(np),
                   self.mcx, self.mcy, self.mcz
                   )
-
 
     def _cl_update(self):
         """ Construct the linked lists for the particle arrays using OpenCL"""

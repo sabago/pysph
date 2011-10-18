@@ -11,28 +11,43 @@ from pysph.base.kernels cimport KernelBase
 from pysph.base.nnps cimport FixedDestNbrParticleLocator
 
 cdef class SPHFunction:
-    cdef public ParticleArray source, dest
-    cdef public FixedDestNbrParticleLocator nbr_locator
-    cdef public num_outputs
 
-    cdef public str name, id
+    # function name
+    cdef public str name
+
+    # function id
+    cdef public str id
+
+    # function tag
     cdef public str tag
-    
-    cdef public str h, m, rho, p, e, x, y, z, u, v, w
-    cdef public str tmpx, tmpy, tmpz, type
-    cdef public str cs
 
+    # arrays for the function
+    cdef public list arrays
+
+    # on-types to determine the destination arrays
+    cdef public list on_types
+
+    # destination particle arrays and data
+    cdef public list dsts 
+    cdef public list dst_data
+
+    # number of destination particle arrays
+    cdef size_t ndsts
+
+    # SPH kernel : not needed for SPHFunction
+    cdef public KernelBase kernel
+    
     # a list of destination props that may need resetting at the calc level
     cdef public list to_reset
+
+    # domain manager for spatial indexing
+    cdef public object dm 
             
     # Lists on a per-function basis indicating which particle
     # arrays from the source and destination arrays are read.
     
     cdef public list src_reads
     cdef public list dst_reads
-
-    # SPH kernel
-    cdef public KernelBase kernel
 
     # OpenCL Context
     cdef public object context
@@ -68,15 +83,13 @@ cdef class SPHFunction:
     cdef public DoubleArray d_p, d_e    
     cdef public DoubleArray d_cs    
 
-    cpdef setup_arrays(self)
     cpdef setup_iter_data(self)
 
-    cpdef eval(self, KernelBase kernel, DoubleArray output1,
-               DoubleArray output2, DoubleArray output3)
+    cpdef eval(self, double t=*, double dt=*)
 
-    cdef void eval_single(self, size_t dest_pid, KernelBase kernel,
-                          double *result)
-
+    cdef void eval_single(self, size_t dst_id, object dst_indices, object nbr_cells,
+                          double t=*, double dt=*)
+        
 ################################################################################
 # `SPHFunctionParticle` class.
 ################################################################################
@@ -96,10 +109,29 @@ cdef class SPHFunctionParticle(SPHFunction):
     cdef public DoubleArray bl_l11, bl_l12, bl_l13, bl_l22, bl_l23, bl_l33
 
     # type of kernel symmetrization to use
-    cdef public bint hks    
+    cdef public bint hks
 
-    cdef void eval_nbr(self, size_t source_pid, size_t dest_pid,
-                       KernelBase kernel, double* result)
+    # from types to determine source particle arrays
+    cdef public list from_types
+
+    # source particle arrays and the correspoinding data objects
+    cdef public list srcs
+    cdef public list src_data
+
+    # number of source particle arrays
+    cdef public size_t nsrcs
+
+    #######################################################################
+    # Member functions
+    #######################################################################
+
+    # Evaluate the contribution from the same particle array within
+    # the same cell.
+    cdef void eval_self(self, size_t dst_id, object dst_indices)
+
+    # Evaluate the contribution for different particle arrays.
+    cdef void eval_nbr(self, size_t dst_id, size_t src_id,
+                       object dst_indices, object src_indices, bint is_symmetric)
 
     cdef double rkpm_first_order_kernel_correction(self, size_t dest_pid)
 
