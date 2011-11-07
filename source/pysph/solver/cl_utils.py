@@ -39,7 +39,7 @@ def create_context_from_gpu():
     """ Create an OpenCL context using the CPU as the default device """
     cl_devices = get_cl_devices()
     if ( cl_devices['GPU'] == [] ):
-        raise ValueError("No CPU device found! ")
+        raise ValueError("No GPU device found! ")
 
     return cl.Context( devices=cl_devices['GPU'] )
 
@@ -81,8 +81,11 @@ def get_cl_include():
         inc_dir = ["-I" + path.join(PYSPH_ROOT, "base"),
                    "-I" + path.join(PYSPH_ROOT, "solver") ]
         
-    else:
-        raise RuntimeWarning("Not supported yet")
+    else: # assume it is the latest version
+        
+        inc_dir = ["-I" + path.join(PYSPH_ROOT, "base"),
+                   "-I" + path.join(PYSPH_ROOT, "solver") ]
+        #raise RuntimeWarning("Not supported yet")
 
     return inc_dir
 
@@ -163,7 +166,6 @@ def get_real(val, precision):
         return numpy.float64(val)
     else:
         raise ValueError ("precision %s not supported!"%(precision))
-    
 
 def create_program(template, func, loc=None):
     """ Create an OpenCL program given a template string and function
@@ -223,6 +225,9 @@ def enqueue_copy(queue, src, dst):
             cl.enqueue_read_buffer(queue, mem=src, hostbuf=dst)
 
     elif cl.version.VERSION_TEXT == "2011.1.1":
+        cl.enqueue_copy(queue, dest=dst, src=src).wait()
+
+    else: # we assume that it is the latest version        
         cl.enqueue_copy(queue, dest=dst, src=src).wait()
 
     queue.finish()
