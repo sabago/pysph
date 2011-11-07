@@ -10,7 +10,7 @@ CLDomain = base.DomainManagerType
 CLLocator = base.OpenCLNeighborLocatorType
 
 # number of particles
-np = 65536
+np = 1 << 20
 
 # number of times a single calc is evaluated
 neval = 5
@@ -47,7 +47,7 @@ for platform in platforms:
             
         for prec in precision_types:
             print "--------------------------------------------------------"
-            print "Summation Density Comparison using %s precision"%(prec)
+            print """Summation Density for %g million particles using %s precision"""%(np/1e6, prec)
         
             pa = base.get_particle_array(cl_precision=prec,
                                          name="test", x=x,h=h,m=m,rho=rho)
@@ -73,6 +73,8 @@ for platform in platforms:
                                  kernel=kernel,
                                  funcs=[func,],
                                  updates=['rho'] )
+
+            cl_calc.reset_arrays = True
 
             # setup OpenCL for PySPH
             cl_calc.setup_cl(ctx)
@@ -100,7 +102,7 @@ for platform in platforms:
             print "PyOpenCL buffer transfer time: %g s "%(read_elapsed)
             
             cl_rho = pa.get('_tmpx').copy()
-            
+
             # Do the same thing with Cython.
             t1 = time.time()
             for i in range(neval):
