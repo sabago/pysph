@@ -46,7 +46,7 @@ $TaitEquation
 #include "cl_common.cl"
 #include "kernels.h"
 
-__kernel void IdealGasEquation(%(kernel_args)s)
+__kernel void TaitEquation(%(kernel_args)s)
 {
   
   

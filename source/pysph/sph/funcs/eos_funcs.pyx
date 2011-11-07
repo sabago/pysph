@@ -132,7 +132,7 @@ cdef class TaitEquation(SPHFunction):
 
         self.set_cl_kernel_args(output1, output2, output3)
 
-        self.cl_program.IdealGasEquation(
+        self.cl_program.TaitEquation(
             queue, self.global_sizes, self.local_sizes, *self.cl_args).wait()
 
 
