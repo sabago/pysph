@@ -212,8 +212,8 @@ cdef class SPHCalc:
         self.cl_kernel_src_file = ''
         self.cl_kernel_function_name = ''
 
-        self.check_internals()
         self.setup_internals()
+        self.check_internals()
         
     cpdef check_internals(self):
         """ Check for inconsistencies and set the neighbor locator. """
@@ -481,8 +481,8 @@ class CLCalc(SPHCalc):
         self.cl_kernel_src_file = ''
         self.cl_kernel_function_name = ''
 
-        self.check_internals()
         self.setup_internals()
+        self.check_internals()
 
     def setup_internals(self):
         self.cl_kernel_function_name = self.funcs[0].cl_kernel_function_name
