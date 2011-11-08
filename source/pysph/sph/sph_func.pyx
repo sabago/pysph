@@ -74,7 +74,9 @@ class Function(object):
     
     def get_func(self, source, dest):
         """ Return a SPHFunctionParticle instance with source and dest """
-        func = self.sph_func(source, dest, *self.args, **self.kwargs)
+
+        func = self.sph_func(source=source, dest=dest,
+                             *self.args, **self.kwargs)
         return func
 
 ################################################################################
@@ -140,9 +142,6 @@ cdef class SPHFunction:
 
         self.cl_args = []
         self.cl_args_name = []
-
-        self.global_sizes = (self.dest.get_number_of_particles(), 1, 1)
-        self.local_sizes = (1,1,1)
 
         # setup the source and destination reads
         if setup_reads:
@@ -262,7 +261,23 @@ cdef class SPHFunction:
         example.
 
         """
-        return calc.updates        
+        return calc.updates
+
+    def setup_kernel_launch_parameters(self):
+        """OpenCL kernel workgroup and workitem dimensions setup
+
+        Currently we're using the default:
+
+        global_sizes = (ndp, 1, 1)
+        local_sizes = (1, 1, 1)
+
+        Where ndp is the number of destination particle arrays.
+
+        """
+
+        ndp = self.dest.get_number_of_particles()
+        self.global_sizes = (ndp, 1, 1)
+        self.local_sizes = (1,1,1)
 
     def setup_cl(self, object program, object context):
         """ OpenCL setup for the function.
@@ -270,14 +285,12 @@ cdef class SPHFunction:
         You may determine the OpenCL kernel launch parameters from within
         this function
 
-        Currently we're using the default:
-
-        global_sizes = (ndp, 1, 1)
-        local_sizes = (1, 1, 1)
-
         """
         self.cl_program = program
         self.context = context
+
+        # set the kernel launch parameters for this function
+        self.setup_kernel_launch_parameters()
 
     def set_cl_kernel_args(self, output1=None, output2=None, output3=None):
 
