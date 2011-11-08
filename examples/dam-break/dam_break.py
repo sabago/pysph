@@ -249,16 +249,16 @@ app.setup(
     solver=s,
     variable_h=False, create_particles=get_particles, min_cell_size=4*h,
     locator_type=base.NeighborLocatorType.SPHNeighborLocator,
-    domain_manager=base.DomainManagerType.DomainManager,
-    cl_locator_type=base.OpenCLNeighborLocatorType.AllPairNeighborLocator
+    domain_manager_type=base.DomainManagerType.LinkedListManager,
+    cl_locator_type=base.OpenCLNeighborLocatorType.LinkedListSPHNeighborLocator
     )
 
 # this tells the solver to compute the max time step dynamically
-s.time_step_function = solver.ViscousTimeStep(co=co,cfl=0.3,
-                                              particles=s.particles)
+#s.time_step_function = solver.ViscousTimeStep(co=co,cfl=0.3,
+#                                              particles=s.particles)
 
-#s.time_step_function = solver.ViscousAndForceBasedTimeStep(co=co, cfl=0.3,
-#                                                           particles=s.particles)
+s.time_step_function = solver.ViscousAndForceBasedTimeStep(co=co, cfl=0.3,
+                                                          particles=s.particles)
 
 if app.options.with_cl:
     msg = """\n\n
