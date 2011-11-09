@@ -292,16 +292,16 @@ class LinkedListManager(DomainManager):
 
         """
 
-        mx, my, mz = 1000.0, 1000.0, 1000.0
-        Mx, My, Mz = -1000.0, -1000.0, -1000.0
+        inf = numpy.inf
+
+        mx, my, mz = inf, inf, inf
+        Mx, My, Mz = -inf, -inf, -inf
         Mh = 0.0
 
         # update the minimum and maximum for the particle arrays
         for pa in self.arrays:
             pa.read_from_buffer()
             pa.update_min_max(props=['x','y','z','h'])
-
-        if self.narrays > 0:
 
             if pa.properties['x'].minimum < mx:
                 mx = get_real( pa.properties['x'].minimum, self.cl_precision )
