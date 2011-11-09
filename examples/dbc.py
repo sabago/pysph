@@ -111,8 +111,8 @@ fluid = base.get_particle_array(name="fluid", type=0, x=xf, y=yf,
 boundary = base.get_particle_array(name="boundary", type=1, x=xb, y=yb, 
                                    h=hb, m=mb, rho=rhob)
 
-particles = base.Particles(arrays=[boundary,fluid])
-app.particles = particles
+def get_particles(**kwargs):
+    return [fluid, boundary]
 
 s = solver.Solver(dim=2, integrator_type=solver.EulerIntegrator)
 
@@ -135,15 +135,6 @@ s.add_operation(solver.SPHIntegration(
 
                 )
 
-#momentum equation, no viscosity
-s.add_operation(solver.SPHIntegration(
-
-    sph.MomentumEquation.withargs(alpha=0.0, beta=0.0),
-    on_types=[Fluid], from_types=[Fluid, Solid],  
-    updates=['u','v'], id='mom')
-
-                )
-
 #Gravity force
 s.add_operation(solver.SPHIntegration(
         
@@ -152,6 +143,15 @@ s.add_operation(solver.SPHIntegration(
          updates=['u','v'],id='gravity')
                  
                  )
+
+#momentum equation, no viscosity
+s.add_operation(solver.SPHIntegration(
+
+    sph.MomentumEquation.withargs(alpha=0.0, beta=0.0),
+    on_types=[Fluid], from_types=[Fluid, Solid],  
+    updates=['u','v'], id='mom')
+
+                )
 
 #XSPH correction
 s.add_operation(solver.SPHIntegration(
@@ -173,8 +173,14 @@ s.add_operation(solver.SPHIntegration(
                 )
 
 s.set_final_time(1)
-s.set_time_step(3e-4)
+s.set_time_step(1e-5)
 
-app.setup(s)
+app.setup(
+    solver=s,
+    variable_h=False, create_particles=get_particles, min_cell_size=4*h,
+    locator_type=base.NeighborLocatorType.SPHNeighborLocator,
+    domain_manager_type=base.DomainManagerType.LinkedListManager,
+    cl_locator_type=base.OpenCLNeighborLocatorType.LinkedListSPHNeighborLocator
+    )
 
 app.run()
