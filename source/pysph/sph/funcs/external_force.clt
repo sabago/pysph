@@ -12,9 +12,9 @@ __kernel void GravityForce(%(kernel_args)s)
 {
     %(workgroup_code)s
 
-    tmpx[dest_id] = gx;
-    tmpy[dest_id] = gy;
-    tmpz[dest_id] = gz;
+    tmpx[dest_id] += gx;
+    tmpy[dest_id] += gy;
+    tmpz[dest_id] += gz;
   
 } // __kernel GravityForce
 $GravityForce
