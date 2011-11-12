@@ -42,3 +42,5 @@ from locator import OpenCLNeighborLocator, LinkedListSPHNeighborLocator, \
 
 from locator import OpenCLNeighborLocatorType
 
+# radix sort
+from radix_sort import AMDRadixSort

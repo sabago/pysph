@@ -3,9 +3,9 @@
 from pysph.sph.sph_calc import SPHCalc, CLCalc
 from pysph.sph.sph_func import SPHFunctionParticle
 
-import pysph.base.api as base
-Fluid = base.ParticleType.Fluid
-Solid = base.ParticleType.Solid
+from pysph.base.particle_types import ParticleType
+Fluid = ParticleType.Fluid
+Solid = ParticleType.Solid
 
 class SPHOperation(object):
     """ This class that represents a general SPH operation
@@ -165,6 +165,7 @@ class SPHOperation(object):
                             # get the function with the src dst pair
 
                             func = self.function.get_func(source=src, dest=dst)
+
                             func.id = self.id
 
                             # make an entry in the dict for this destination

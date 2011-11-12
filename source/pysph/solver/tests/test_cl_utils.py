@@ -59,6 +59,12 @@ def test_cl_read():
     # cleanup.
     os.remove(name)
 
+def test_round_up():
+    """Test the rounding up function"""
+
+    # got any better ideas?
+    assert clu.round_up(1000) == 1024
+    assert clu.round_up(500) == 512
 
 if __name__ == '__main__':
     test_cl_read()
