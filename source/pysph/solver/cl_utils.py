@@ -231,3 +231,30 @@ def enqueue_copy(queue, src, dst):
         cl.enqueue_copy(queue, dest=dst, src=src).wait()
 
     queue.finish()
+
+def round_up(n):
+    """Round up 'n' to the nearest power of 2
+
+    The code here is borrowed from AMD APP SDK 2.5:
+
+    SDKCommon.cpp::roundToPowerOf2
+
+    """
+    n -= 1
+    for i in range(8):
+        n |= n >> (1<<i)
+    n += 1
+    return n
+
+def ispowerof2(val):
+    """Test if the input is a power of 2"""
+    if( (val & (-val))-val == 0 & (val != 0)):
+        return True
+    else:
+        return False
+
+def uint32mask():
+    """Reserved value for 32 bit unsigned ints"""
+    return (1<<32) - 1
+
+
