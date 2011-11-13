@@ -47,7 +47,7 @@ class AMDRadixSort:
         # the group size could be changed to any convenient size
         self.group_size = 64
 
-    def initialize(self, keys, values=None):
+    def initialize(self, keys, values=None, context=None):
         """Initialize the radix sort manager"""
         # store the keys and values
         self.keys = keys
@@ -65,7 +65,11 @@ class AMDRadixSort:
         # number of elements
         self.n = len( keys )
 
+        # pad etc
         self._setup()
+
+        # OpenCL setup
+        self._setup_cl(context)
 
     def sort(self):
         """The main sorting routine"""
