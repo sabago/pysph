@@ -192,7 +192,7 @@ class DomainManager:
 
         self.ncells = numpy.int32(self.ncx * self.ncy * self.ncz)
 
-        def _setup_program(self):
+    def _setup_program(self):
             pass
 
 class LinkedListManager(DomainManager):
