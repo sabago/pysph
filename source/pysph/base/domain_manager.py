@@ -766,7 +766,10 @@ class RadixSortManager(DomainManager):
         self._init_buffers()
 
         # update the data structures
-        self._cl_update()
+        if self.with_cl:
+            self._cl_update()
+        else:
+            self._py_update()
 
     ###########################################################################
     # non-public interface
@@ -836,18 +839,23 @@ class RadixSortManager(DomainManager):
         narrays = self.narrays
         rsort = self.rsort
 
-        ctx = self.context
+        if not self.with_cl:
+            for pa in self.arrays:
+                rsort[pa.name] = AMDRadixSort()
 
-        for i in range(narrays):
-            pa = self.arrays[i]
+        else:
+            ctx = self.context                
 
-            # use the AMD radix sort implementation for CPU devices 
-            if clu.iscpucontext(ctx):
-                rsort[ pa.name ] = AMDRadixSort()
+            for i in range(narrays):
+                pa = self.arrays[i]
 
-            # for Nvidia GPU's we prolly want to use their implemetation
-            elif clu.isgpucontext(ctx):
-                raise NotImplementedError
+                # use the AMD radix sort implementation for CPU devices 
+                if clu.iscpucontext(ctx):
+                    rsort[ pa.name ] = AMDRadixSort()
+
+                # for Nvidia GPU's we prolly want to use their implemetation
+                elif clu.isgpucontext(ctx):
+                    raise NotImplementedError
     
     def _cl_update(self):
         """Update the data structures.
@@ -918,9 +926,65 @@ class RadixSortManager(DomainManager):
             # read the result back to host
             # THIS MAY NEED TO BE DONE OR WE COULD SIMPLY LET IT RESIDE
             # ON THE DEVICE.
-            
+
     def _setup_program(self):
         """ Read the OpenCL kernel source file and build the program """
         src_file = get_pysph_root() + '/base/radix_sort.cl'
         src = cl_read(src_file, precision=self.cl_precision)
-        self.prog = cl.Program(self.context, src).build()
+        self.prog = cl.Program(self.context, src).build()            
+
+    def _py_update(self):
+        """Update the data structures using Python"""
+
+        cellsize = self.cell_size
+        cellsize1 = 1.0/cellsize
+
+        narrays = self.narrays
+        for i in range(narrays):
+            pa = self.arrays[i]
+            np = pa.get_number_of_particles()
+
+            # bin the particles
+            cellids = self.cellids[pa.name]
+            x, y, z = pa.get("x", "y", "z")
+
+            for j in range(np):
+                _ix = int(numpy.floor( x[j] * cellsize1 ))
+                _iy = int(numpy.floor( y[j] * cellsize1 ))
+                _iz = int(numpy.floor( z[j] * cellsize1 ))
+
+                cellids[j] = (_iz - self.mcz)*self.ncx*self.ncy + \
+                             (_iy - self.mcy)*self.ncx + \
+                             (_ix - self.mcx)
+            
+            # sort the cellids and indices
+            keys = cellids
+            values = self.indices[pa.name]
+
+            rsort = self.rsort[pa.name]
+            rsort._sort_cpu(keys, values)
+
+            # compute the cell_count array
+            cellc = self.cell_counts[pa.name]
+            cellids = keys
+
+            for j in range(np):
+
+                cellid = cellids[j]
+
+                if j == 0:
+                    for k in range(cellid + 1):
+                        cellc[k] = 0
+
+                elif j == (np - 1):
+                    for k in range(cellid+1, self.ncells + 1):
+                        cellc[k] = np
+
+                    cellidm = cellids[j-1]
+                    for k in range(cellid - cellidm):
+                        cellc[cellid - k] = j
+
+                else:
+                    cellidm = cellids[j-1]
+                    for k in range(cellid - cellidm):
+                        cellc[cellid - k] = j
