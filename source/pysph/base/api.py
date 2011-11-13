@@ -33,7 +33,7 @@ DummyFluid = ParticleType.DummyFluid
 from geometry import MeshPoint, Line, Geometry
 
 # LinkedListManager
-from domain_manager import LinkedListManager, DomainManager, \
+from domain_manager import LinkedListManager, DomainManager, RadixSortManager, \
      DomainManagerType
 
 # OpenCL locator
