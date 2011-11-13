@@ -48,9 +48,9 @@ class AMDRadixSortTestCase(unittest.TestCase):
         # store the reference sorted keys for comparison
         self.sortedkeys = numpy.sort(keys, kind="mergesort")
         
-        # instantiate the RadixSortManager
+        # instantiate the RadixSort class
         self.rsort = base.AMDRadixSort(radix=8)
-        self.rsort.initialize(keys, values=None)
+        self.rsort.initialize(keys, values=None, context=None)
         
     def test_constructor(self):
         """Test the basic construction for AMDRaidxSort"""
@@ -76,12 +76,10 @@ class AMDRadixSortTestCase(unittest.TestCase):
         """Test the sorting routine"""
         rsort = self.rsort
 
-        # do the OpenCL setup
-        rsort._setup_cl()
-
-        # now sort the data
+        # sort the data
         rsort.sort()
 
+        # get the sol and expected values
         sol = rsort.keys
         ref = self.sortedkeys
 

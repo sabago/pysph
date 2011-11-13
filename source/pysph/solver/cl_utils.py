@@ -66,6 +66,17 @@ def create_some_context():
 
     return context
 
+def iscpucontext(ctx):
+    """Return True or False if the context is for a CPU device"""
+    for device in ctx.devices:
+        if device.type == cl.device_type.CPU:
+            return True
+
+def isgpucontext(ctx):
+    for device in ctx.devices:
+        if device.type == cl.device_type.GPU:
+            return True    
+
 def get_cl_include():
     """ Include directories for OpenCL definitions """
 
