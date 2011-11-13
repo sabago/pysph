@@ -49,7 +49,8 @@ class AMDRadixSortTestCase(unittest.TestCase):
         self.sortedkeys = numpy.sort(keys, kind="mergesort")
         
         # instantiate the RadixSortManager
-        self.rsort = base.AMDRadixSort(keys, values=None, radix=8)
+        self.rsort = base.AMDRadixSort(radix=8)
+        self.rsort.initialize(keys, values=None)
         
     def test_constructor(self):
         """Test the basic construction for AMDRaidxSort"""

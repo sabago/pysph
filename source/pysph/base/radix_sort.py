@@ -20,33 +20,24 @@ class AMDRadixSort:
     elements required. The keys are assumed to be 32 bit
     unsigned bits and we sort them 8 bits at a time. As
     a result, the number of histogram bins/buckets for
-    this implementation is also 256.    
+    this implementation is also 256.
 
+    Since we expect this radix sort routine to be used to sort
+    particle cell indices as keys and particle indices as values,
+    the values are also assumed to be unsigned integers.
+    
     """
 
-    def __init__(self, keys, values=None, radix=8):
+    def __init__(self, radix=8):
         """Constructor.
 
         Parameters:
         ------------
 
-        keys : array (uint32)
-            The keys used to sort the data
-
-        values : array
-            The values to be sorted based on the keys.
-
         radix : int (8)
             The number of bits per pass of the radix sort.
 
         """
-        
-        # store the keys and values
-        self.keys = keys
-        self.values = values
-
-        # number of elements
-        self.n = len( keys )
 
         # the following variables are analogous to the AMD's
         # variables
@@ -55,6 +46,24 @@ class AMDRadixSort:
 
         # the group size could be changed to any convenient size
         self.group_size = 64
+
+    def initialize(self, keys, values=None):
+        """Initialize the radix sort manager"""
+        # store the keys and values
+        self.keys = keys
+
+        # a keys only sort treats the values as keys
+        if values is None:
+            self.values = keys.copy()
+        else:
+            nvalues = len(values); nkeys = len(keys)
+            if not nvalues == nkeys:
+                raise RuntimeError( "len(keys) %d != len(values) %d"%(nkeys,
+                                                                      nvalues) )
+            self.values = values
+
+        # number of elements
+        self.n = len( keys )
 
         self._setup()
 
@@ -96,9 +105,25 @@ class AMDRadixSort:
 
         # read only the original un-padded data into keys
         self.keys[:] = self._keys[:self.n]
+        self.values[:] = self._values[:self.n]
 
     def _histogram(self, bits):
-        """Launch the histogram kernel"""
+        """Launch the histogram kernel
+
+        Each thread will load it's work region (256 values) into
+        shared memory and will compute the histogram/frequency of
+        occurance of each element. Remember that the implementation
+        assumes that we sort the 32 bit keys and values 8 bits at a
+        time and as such the histogram bins/buckets for each thread
+        are also 256.
+
+        We first copy the currenty unsorted data to the device before
+        calculating local memory size and then launching the kernel.
+
+        After the kernel launch, we read the computed thread
+        histograms to the host, where these will be scanned.
+
+        """
 
         ctx = self.context
         q = self.queue
@@ -124,7 +149,18 @@ class AMDRadixSort:
         clu.enqueue_copy(q, src=self.dhistograms, dst=self.histograms)
 
     def _permute(self, bits):
-        """Launch the permute kernel"""
+        """Launch the permute kernel
+
+        Using the host-scanned thread histograms, this kernel shuffles
+        the array values in the keys and values to perform the actual
+        sort.
+
+        We first copy the scanned histograms to the device, compute
+        local mem size and then launch the kernel. After the kernel
+        launch, the sorted keys and values are read back to the host
+        for the next pass.
+
+        """
 
         ctx = self.context
         q = self.queue
@@ -143,12 +179,16 @@ class AMDRadixSort:
 
         # enqueue the kernel for execution
         self.program.permute(q, global_sizes, local_sizes,
-                             self.dkeys, self.dscanedhistograms,
-                             bits, local_mem, self.dsortedkeys).wait()
+                             self.dkeys, self.dvalues,
+                             self.dscanedhistograms,
+                             bits, local_mem,
+                             self.dsortedkeys, self.dsortedvalues).wait()
 
         # read sorted results back to the host
         clu.enqueue_copy(q, src=self.dsortedkeys,
                          dst=self.sortedkeys)
+
+        clu.enqueue_copy(q, src=self.dsortedvalues, dst=self.sortedvalues)
 
     def _setup(self):
         """Prepare the data for the algorithm
@@ -169,11 +209,12 @@ class AMDRadixSort:
             n = clu.round_up(self.n)
             pad = numpy.ones(n - self.n, numpy.int32) * clu.uint32mask()
 
-            # _keys is the padded array we use internally
-            self._keys = numpy.concatenate((self.keys, pad)).astype(numpy.uint32)
+            # _keys and _values are the  padded arrays we use internally
+            self._keys = numpy.concatenate( (self.keys,
+                                             pad) ).astype(numpy.uint32)
 
-            # TODO : PAD THE VALUES AS WELL
-            
+            self._values = numpy.concatenate( (self.values,
+                                               pad) ).astype(numpy.uint32)
         else:
             self._keys = self.keys
             self._values = self.values
@@ -204,8 +245,12 @@ class AMDRadixSort:
         ctx = self.context
 
         # first allocate the keys and values on the device
+        # these serve as the unsorted keys and values on the device
         self.dkeys = cl.Buffer(ctx, mf.READ_WRITE|mf.COPY_HOST_PTR,
                                hostbuf=self._keys)
+
+        self.dvalues = cl.Buffer(ctx, mf.READ_WRITE|mf.COPY_HOST_PTR,
+                                 hostbuf=self._values)
 
         # Output from the histogram kernel
         # each thread will write it's histogram/count
@@ -226,6 +271,10 @@ class AMDRadixSort:
         # This should obviously be of size num_elements
         self.sortedkeys = numpy.ones(self.nelements, numpy.uint32)
         self.dsortedkeys = cl.Buffer(ctx, mf.READ_WRITE, size=self.nelements*4)
+
+        self.sortedvalues = numpy.ones(self.nelements, numpy.uint32)
+        self.dsortedvalues = cl.Buffer(ctx, mf.READ_WRITE,
+                                       size=self.nelements*4)
 
     def _create_program(self):
         """Read the OpenCL kernel file and build"""
