@@ -286,4 +286,59 @@ class AMDRadixSort:
         src = open(src_file).read()
         self.program = cl.Program(self.context, src).build()
         
-        
+    def _sort_cpu(self, keys, values=None):
+        """Perform a reference radix sort for verification on the CPU
+
+        The reference implemetation is analogous to the AMD-APP-SDK's
+        reference host implementation.
+
+        """
+        if values is None:
+            values = keys.copy()
+
+        n = len(keys)
+
+        sortedkeys = numpy.ones(n, numpy.uint32)
+        sortedvalues = numpy.ones(n, numpy.uint32)
+
+        mask = self.radices - 1
+
+        # allocate the histogram buffer. This is simply a buffer of
+        # length RADICES (256)
+        histograms = numpy.ones(self.radices, numpy.uint32)
+
+        # Sort the data
+        for bits in range(0, 32, self.radix):
+
+            # initialize the histograms to 0
+            histograms[:] = 0.0
+
+            # calculate histograms for all elements
+            for i in range(n):
+                element = keys[i]
+                val = (element >> bits) & mask
+                histograms[val] += 1
+
+            # scan the histograms (exclusive)
+            _sum = 0.0
+            for i in range(self.radices):
+                val = histograms[i]
+                histograms[i] = _sum
+                _sum += val
+
+            # permute the keys and values
+            for i in range(n):
+                element = keys[i]
+                val = ( element << bits ) & mask
+                index = histograms[val]
+                
+                sortedkeys[index] = keys[i]
+                sortedvalues[index] = values[i]
+                
+                histograms[val] = index + 1
+
+            # swap the buffers for the next pass
+            keys[:] = sortedkeys[:]
+            values[:] = sortedvalues[:]
+
+            
