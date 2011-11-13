@@ -145,17 +145,21 @@ void histogram(__global const uint* unsortedData,
  * @brief   Permutes the element to appropriate places based on
  *          prescaned buckets values
  * @param   unsortedData        array of unsorted elments
+ * @param   unsortedValues      array of unsorted values
  * @param   scanedBuckets       prescaned buckets for permuations
  * @param   shiftCount          shift count
  * @param   sharedBuckets       shared array for scaned buckets
  * @param   sortedData          array for sorted elements
+ * @param   sortedValues        array for the values to be sorted
  */
 __kernel
 void permute(__global const uint* unsortedData,
+	     __global const uint* unsortedValues,
              __global const uint* scanedBuckets,
              uint shiftCount,
              __local ushort* sharedBuckets,
-             __global uint* sortedData)
+             __global uint* sortedData,
+	     __global uint* sortedValues)
 {
 
     size_t groupId = get_group_id(0);
@@ -180,6 +184,10 @@ void permute(__global const uint* unsortedData,
         value = (value >> shiftCount) & 0xFFU;
         uint index = sharedBuckets[localId * RADICES + value];
         sortedData[index] = unsortedData[globalId * RADICES + i];
+	
+	// permute the values as well
+	sortedValues[index] = unsortedValues[globalId * RADICES + i];
+
         sharedBuckets[localId * RADICES + value] = index + 1;
 	barrier(CLK_LOCAL_MEM_FENCE);
 
