@@ -21,6 +21,7 @@ from radix_sort import AMDRadixSort
 class DomainManagerType:
     DomainManager = 0
     LinkedListManager = 1
+    RadixSortManager = 2
 
 class DomainManager:
     def __init__(self, arrays, context=None, with_cl=True):
@@ -193,7 +194,7 @@ class DomainManager:
         self.ncells = numpy.int32(self.ncx * self.ncy * self.ncz)
 
     def _setup_program(self):
-            pass
+        pass
 
 class LinkedListManager(DomainManager):
     """ Domain manager using bins as the indexing scheme and a linked
@@ -535,7 +536,6 @@ class LinkedListManager(DomainManager):
                                               self.dlocks[pa.name]
                                               ).wait()        
 
-
     def _setup_program(self):
         """ Read the OpenCL kernel source file and build the program """
         src_file = get_pysph_root() + '/base/linked_list.cl'
@@ -763,7 +763,7 @@ class RadixSortManager(DomainManager):
         self._find_bounds()
 
         # reset the data structures
-        self._init_host_buffers()
+        self._init_buffers()
 
         # update the data structures
         self._cl_update()
@@ -771,7 +771,7 @@ class RadixSortManager(DomainManager):
     ###########################################################################
     # non-public interface
     ###########################################################################
-    def _init_host_buffers(self):
+    def _init_buffers(self):
         """Allocate host and device buffers for the RadixSortManager"""
 
         # at this point the number of cells is known 
@@ -807,16 +807,21 @@ class RadixSortManager(DomainManager):
         for i in range(narrays):
             pa = self.arrays[i]
 
+            cellids = self.cellids[pa.name]
             indices = self.indices[pa.name]
             cellc = self.cell_counts[pa.name]
 
             # Initialize the buffers
+            dcellids = cl.Buffer(self.context, mf.READ_WRITE|mf.COPY_HOST_PTR,
+                                 hostbuf=cellids)
+            
             dindices = cl.Buffer(self.context, mf.READ_WRITE|mf.COPY_HOST_PTR,
                                  hostbuf=indices)
             
             dcellc = cl.Buffer(self.context, mf.READ_WRITE|mf.COPY_HOST_PTR,
                                hostbuf=cellc)
 
+            self.dcellids[pa.name] = cellids
             self.dindices[pa.name] = dindices
             self.dcell_counts[ pa.name ] = dcellc
 
@@ -869,7 +874,7 @@ class RadixSortManager(DomainManager):
         narrays = self.narrays
         for i in range(narrays):
             pa = self.arrays[i]
-            np = pa.get_number_of_particles()
+            np = numpy.uint32( pa.get_number_of_particles() )
 
             # get launch parameters for this array
             global_sizes = (np,1,1)
@@ -883,9 +888,9 @@ class RadixSortManager(DomainManager):
             cellids = self.cellids[pa.name]
             dcellids = self.dcellids[pa.name]
             
-            self.program.bin( q, global_sizes, local_sizes,
-                              x, y, z, dcellids,
-                              ncx, ncy, ncz, mcx, mcy, mcz ).wait()
+            self.prog.bin( q, global_sizes, local_sizes,
+                           x, y, z, dcellids, self.cell_size,
+                           ncx, ncy, ncz, mcx, mcy, mcz ).wait()
                            
             # read the cellids into host array
             clu.enqueue_copy(q, src=dcellids, dst=cellids)
@@ -905,17 +910,17 @@ class RadixSortManager(DomainManager):
             # ALSO, DCELLIDS IS PROBABLY PADDED WITH EXTRA ELEMENTS SO WE
             # MUST BE CAREFUL. MAYBE THE GLOBAL SIZE (NP) WILL TAKE CARE
             # OF IT BUT I DON'T KNOW
-            self.program.compute_cell_counts(q, global_sizes, local_sizes,
-                                             dcellids).wait()
+            dcell_counts = self.dcell_counts[pa.name]
+            self.prog.compute_cell_counts(q, global_sizes, local_sizes,
+                                          dcellids, dcell_counts,
+                                          self.ncells, np).wait()
 
             # read the result back to host
             # THIS MAY NEED TO BE DONE OR WE COULD SIMPLY LET IT RESIDE
             # ON THE DEVICE.
-                                             
             
     def _setup_program(self):
         """ Read the OpenCL kernel source file and build the program """
-        # TODO: The kernel code to compute the cell counts and bin the
-        # particles needs to be defined in a separate kernel
-        # file. These two Kernels are used in cl_update
-        pass
+        src_file = get_pysph_root() + '/base/radix_sort.cl'
+        src = cl_read(src_file, precision=self.cl_precision)
+        self.prog = cl.Program(self.context, src).build()
