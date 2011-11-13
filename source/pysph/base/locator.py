@@ -145,7 +145,7 @@ class LinkedListSPHNeighborLocator(OpenCLNeighborLocator):
 
         # linked list for the source
         head = manager.head[src.name]
-        next = manager.next[src.name]
+        next = manager.Next[src.name]
         
         # cellid for the destination
         cellid  = manager.cellids[dst.name][i]
