@@ -259,7 +259,7 @@ class SinglePrecisionLinkedListManagerTestCase(unittest.TestCase):
         # the current cell should be back to 0 after StopIteration
         self.assertEqual(manager._current_cell, 0)
             
-    def _test_neighbor_locator(self):
+    def test_neighbor_locator(self):
         """Test the neighbors returned by the OpenCL locator.
 
         The neighbors for each particle returned by a locator based on
