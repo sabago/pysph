@@ -189,8 +189,7 @@ class AMDRadixSort:
                              self.dsortedkeys, self.dsortedvalues).wait()
 
         # read sorted results back to the host
-        clu.enqueue_copy(q, src=self.dsortedkeys,
-                         dst=self.sortedkeys)
+        clu.enqueue_copy(q, src=self.dsortedkeys, dst=self.sortedkeys)
 
         clu.enqueue_copy(q, src=self.dsortedvalues, dst=self.sortedvalues)
 
@@ -305,13 +304,13 @@ class AMDRadixSort:
 
         # allocate the histogram buffer. This is simply a buffer of
         # length RADICES (256)
-        histograms = numpy.ones(self.radices, numpy.uint32)
+        histograms = numpy.zeros(self.radices, numpy.uint32)
 
         # Sort the data
         for bits in range(0, 32, self.radix):
 
             # initialize the histograms to 0
-            histograms[:] = 0.0
+            histograms[:] = 0
 
             # calculate histograms for all elements
             for i in range(n):
@@ -329,7 +328,7 @@ class AMDRadixSort:
             # permute the keys and values
             for i in range(n):
                 element = keys[i]
-                val = ( element << bits ) & mask
+                val = ( element >> bits ) & mask
                 index = histograms[val]
                 
                 sortedkeys[index] = keys[i]
