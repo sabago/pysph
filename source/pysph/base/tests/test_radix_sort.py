@@ -86,6 +86,20 @@ class AMDRadixSortTestCase(unittest.TestCase):
         # test the sort
         for i in range(rsort.n):
             self.assertEqual( sol[i], ref[i] )
+
+    def test_sort_cpu(self):
+
+        rsort = self.rsort
+
+        keys = self.keys
+        sortedkeys = self.sortedkeys
+
+        rsort._sort_cpu(keys)
+
+        n = len(keys)
+
+        for i in range(n):
+            self.assertEqual( keys[i], sortedkeys[i] )
         
 
 if __name__ == "__main__":
