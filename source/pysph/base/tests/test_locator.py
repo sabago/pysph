@@ -1,4 +1,4 @@
-""" Test the linked list functions """
+"""Tests for the different neighbor locators"""
 
 import numpy
 import numpy.random as random
@@ -7,12 +7,11 @@ import unittest
 
 # PySPH imports
 import pysph.base.api as base
-from pysph.solver.api import get_real, HAS_CL
+import pysph.solver.cl_utils as clu
 
-# Cython functions for the neighbor list
 import pysph.base.linked_list_functions as ll
 
-if not HAS_CL:
+if not clu.HAS_CL:
     try:
         import nose.plugins.skip as skip
         reason = "PyOpenCL not installed"
@@ -20,7 +19,11 @@ if not HAS_CL:
     except ImportError:
         pass
 
-class SinglePrecisionLinkedListManagerTestCase(unittest.TestCase):
+##########################################################################    
+#`LocatorTestCase` class
+##########################################################################
+class LocatorTestCase(unittest.TestCase):
+    """General setup for all the neighbor locators"""
 
     def setUp(self):
         """ The setup consists of points randomly distributed in a
@@ -51,13 +54,23 @@ class SinglePrecisionLinkedListManagerTestCase(unittest.TestCase):
         # the scale factor for the cell sizes
         self.kernel_scale_factor = kernel_scale_factor = 2.0
 
+        self._setup()
+
+##########################################################################    
+#`LinkedListSPHNeighborLocatorTestCase` class
+##########################################################################
+class LinkedListSPHNeighborLocatorTestCase(LocatorTestCase):
+
+    def _setup(self):
+
+        # create the linked list managers
         self.cl_manager = base.LinkedListManager(
             arrays=[self.cl_pa,],
-            kernel_scale_factor=kernel_scale_factor)
+            kernel_scale_factor=self.kernel_scale_factor)
 
         self.cy_manager = base.LinkedListManager(
             arrays=[self.cy_pa,], with_cl=False,
-            kernel_scale_factor=kernel_scale_factor)
+            kernel_scale_factor=self.kernel_scale_factor)
 
         self.cy_manager.cl_precision = "single"
 
@@ -66,68 +79,18 @@ class SinglePrecisionLinkedListManagerTestCase(unittest.TestCase):
             manager=self.cy_manager,
             source=self.cy_pa, dest=self.cy_pa)
 
-    def test_neighbor_locator_construct(self):
-        """ Test the constructor for the LinkedListSPHNeighborLocator.
-        """
+    def test_constructor(self):
+        """ LinkedListSPHNeighborLocator: test_constructor"""
         loc = self.loc
 
         self.assertEqual( loc.cache, False )
         self.assertEqual( loc.with_cl, False )
         self.assertAlmostEqual( loc.scale_fac, 2.0, 10 )
 
-        self.assertEqual( loc.particle_cache, [] )
+        self.assertEqual( loc.particle_cache, [] )        
 
-    def test_constructor(self):
-        """ Test the constructor for the LinkedListManager.
-        """
-
-        cl_manager = self.cl_manager
-        cy_manager = self.cy_manager
-
-        # check the with_cl flag
-        self.assertEqual(cy_manager.with_cl, False)
-        self.assertEqual(cl_manager.with_cl, True)
-
-        # get the global simulation bounds for the data
-        mx, my, mz = min(self.x), min(self.y), min(self.z)
-        Mx, My, Mz = max(self.x), max(self.y), max(self.z)
-
-        # convert to single precision
-        mx = get_real(mx, self.cl_precision)
-        my = get_real(my, self.cl_precision)
-        mz = get_real(mz, self.cl_precision)
-
-        Mx = get_real(Mx, self.cl_precision)
-        My = get_real(My, self.cl_precision)
-        Mz = get_real(Mz, self.cl_precision)
-
-        Mh = get_real(max(self.h), self.cl_precision)
-
-        # get the cell size for the domain manager. Remember that we
-        # choose (k + 1) as the scaling constant.
-        cell_size = (self.kernel_scale_factor + 1) * Mh
-
-        # convert the cell sizes to single precision
-        cy_cell_size = get_real(cell_size, self.cl_precision)
-        cl_cell_size = get_real(cell_size, self.cl_precision)
-
-        # check the simulation bounds.
-        self.assertAlmostEqual(cl_manager.mx, mx, 8)
-        self.assertAlmostEqual(cl_manager.my, my, 8)
-        self.assertAlmostEqual(cl_manager.mz, mz, 8)
-
-        self.assertAlmostEqual(cl_manager.Mx, Mx, 8)
-        self.assertAlmostEqual(cl_manager.My, My, 8)
-        self.assertAlmostEqual(cl_manager.Mz, Mz, 8)        
-
-        self.assertAlmostEqual(cl_manager.Mh, Mh, 8)
-
-        # check the cell sizes for the Cython and OpenCL managers
-        self.assertAlmostEqual(cl_manager.cell_size, cl_cell_size, 8)
-        self.assertAlmostEqual(cy_manager.cell_size, cy_cell_size, 8)
-
-    def test_bin_particles(self):
-        """ Test the Cyhton and OpenCL binning.
+    def test_binning(self):
+        """ LinkedListSPHNeighborLocator: test_binning
 
         The particles are binned with respect to the two managers and
         the cell indices for the binnings are compared. What this test
@@ -168,16 +131,16 @@ class SinglePrecisionLinkedListManagerTestCase(unittest.TestCase):
             self.assertEqual( cy_iy[i], cl_iy[i] )
             self.assertEqual( cy_iz[i], cl_iz[i] )
 
-    def test_construct_neighbor_list(self):
-        """ Test construction of the neighbor lists.
+    def test_udpate(self):
+        """ LinkedListSPHNeighborLocator: test_update
 
         The two domain managers are used to independently bin and
         construct the neighbor list for each particle. The neighbors
-        are then compared. This test establshes that OpenCL and
-        Cython produce the same neighbor lists, and thus are equivalent.
+        within a cell are then compared. This test establshes that
+        OpenCL and Cython produce the same neighbor lists per cell,
+        and thus are equivalent.
 
         """
-
         name = self.cy_pa.name
         
         cy_manager = self.cy_manager
@@ -217,50 +180,10 @@ class SinglePrecisionLinkedListManagerTestCase(unittest.TestCase):
 
             # the sorted list of neighbors should be the same
             for j in range( nnbrs ):
-                self.assertEqual( cl_nbrs[j], cy_nbrs[j] )
+                self.assertEqual( cl_nbrs[j], cy_nbrs[j] )        
 
-    def test_iterator(self):
-        """Test the iterator for the linked list manager.
-
-        The iterator should only return forward cells for each cell.
-
-        """
-
-        manager = self.cy_manager
-
-        # update the data
-        manager.update()
-
-        ncx = manager.ncx
-        ncy = manager.ncy
-        ncz = manager.ncz
-
-        for cell_nbrs in manager:
-
-            # get the forward neighbors the brute force way
-            cid = manager._current_cell - 1
-            ix, iy, iz = ll.unflatten(cid, ncx, ncy)
-
-            _cell_nbrs = []
-
-            for i in range(ix -1, ix + 2):
-                for j in range(iy -1, iy + 2):
-                    for k in range(iz -1, iz + 2):
-
-                        if ( (i >= 0) and (i < ncx) ):
-                            if ( (j >= 0) and (j < ncy) ):
-                                if ( (k >=0) and (k < ncz) ):
-                                    _cid = i + j*ncx + k*ncx*ncy
-                                    if _cid >= cid:
-                                        _cell_nbrs.append(_cid)
-
-            self.assertEqual(cell_nbrs, _cell_nbrs)
-
-        # the current cell should be back to 0 after StopIteration
-        self.assertEqual(manager._current_cell, 0)
-            
     def test_neighbor_locator(self):
-        """Test the neighbors returned by the OpenCL locator.
+        """LinkedListSPHNeighborLocator: test_neighbor_locator
 
         The neighbors for each particle returned by a locator based on
         the Cython domain manager are compared with the brute force
@@ -271,7 +194,6 @@ class SinglePrecisionLinkedListManagerTestCase(unittest.TestCase):
         conclude that the OpenCL neighbors are also correct.
 
         """
-
         loc = self.loc
 
         # update the data structure
@@ -308,5 +230,82 @@ class SinglePrecisionLinkedListManagerTestCase(unittest.TestCase):
             for j in range(nnbrs):
                 self.assertEqual( loc_nbrs[j], brute_nbrs[j] )
 
-if __name__ == '__main__':
+
+############################################################################
+#`RadixSortNeighborLocator` class
+############################################################################
+class RadixSortNeighborLocator(LocatorTestCase):
+
+    def _setup(self):
+
+        # construct the OpenCL and Cython managers
+        self.cl_manager = base.RadixSortManager(
+            arrays=[self.cl_pa,],
+            kernel_scale_factor=self.kernel_scale_factor)
+
+        self.cy_manager = base.RadixSortManager(
+            arrays=[self.cy_pa,],
+            kernel_scale_factor=self.kernel_scale_factor,
+            with_cl=False)
+
+        # construct the neighbor locator
+        self.loc = base.RadixSortNeighborLocator(
+            manager=self.cy_manager,
+            source=self.cy_pa, dest=self.cy_pa)
+
+    def test_neighbor_locator(self):
+        """RadixSortNeighborLocator: test_neighbor_locator
+
+        The neighbors for each particle returned by a locator based on
+        the Cython domain manager are compared with the brute force
+        neighbors. This test establishes that the true neighbors are
+        returned by the Cython domain manager.
+
+        Since the OpenCL and Cython generate equivalent neighbors, we
+        conclude that the OpenCL neighbors are also correct.
+
+        """
+        loc = self.loc
+
+        # update the data structure
+        self.cy_manager.update()
+
+        # get the co-ordinate data in single precision
+        x = self.x.astype(numpy.float32)
+        y = self.y.astype(numpy.float32)
+        z = self.z.astype(numpy.float32)
+        h = self.h.astype(numpy.float32)
+
+        # get the updated data structures
+        d_indices = self.cy_manager.indices["test"]
+        
+        for i in range(self.np):
+
+            xi = x[ d_indices[i] ]
+            yi = y[ d_indices[i] ]
+            zi = z[ d_indices[i] ]
+            
+            # the search radius is (k * hi)
+            radius = loc.scale_fac * h[i]
+            brute_nbrs = ll.brute_force_neighbors(xi, yi, zi,
+                                                  self.np,
+                                                  radius,
+                                                  x, y, z)
+
+            # get the neighbors with Cython
+            nbrs = base.LongArray()
+            loc.get_nearest_particles(i, nbrs)
+            loc_nbrs = nbrs.get_npy_array()
+            loc_nbrs.sort()
+
+            # the number of neighbors should be the same
+            nnbrs = len(loc_nbrs)
+            self.assertEqual(len(loc_nbrs), len(brute_nbrs))
+
+            # each neighbor in turn should be the same when sorted
+            for j in range(nnbrs):
+                self.assertEqual( loc_nbrs[j], brute_nbrs[j] )
+
+if __name__ == "__main__":
     unittest.main()
+

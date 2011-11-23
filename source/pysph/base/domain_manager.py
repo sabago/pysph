@@ -286,7 +286,7 @@ class LinkedListManager(DomainManager):
         # set the cell size
         self.const_cell_size = cell_size
         if cell_size:
-            self.const_cell_size = get_real(const_cell_size, self.cl_precision)
+            self.const_cell_size = get_real(cell_size, self.cl_precision)
 
         # find global bounds (simulation box and ncells)
         self._find_bounds()
@@ -724,7 +724,7 @@ class RadixSortManager(DomainManager):
         # set the cell size
         self.const_cell_size = cell_size
         if cell_size is not None:
-            self.const_cell_size = get_real(const_cell_size, self.cl_precision)
+            self.const_cell_size = get_real(cell_size, self.cl_precision)
 
         # find global bounds (simulation box and ncells)
         self._find_bounds()
@@ -775,8 +775,21 @@ class RadixSortManager(DomainManager):
     # non-public interface
     ###########################################################################
     def _init_buffers(self):
-        """Allocate host and device buffers for the RadixSortManager"""
+        """Allocate host and device buffers for the RadixSortManager
 
+        The arrays needed for the manager are:
+
+        (a) cellids of size np which indicates which cell the particle
+        belongs to.
+
+        (b) indices of size np which is initially a linear index range
+        for the particles. After sorting, this array is used to
+        determine particles within a cell.
+
+        (c) cell_counts of size ncells +1 which is used to determine
+        the start and end index for the particles within a cell.
+        
+        """
         # at this point the number of cells is known 
         ncells = self.ncells
         for i in range(self.narrays):
@@ -903,7 +916,7 @@ class RadixSortManager(DomainManager):
             # read the cellids into host array
             clu.enqueue_copy(q, src=dcellids, dst=cellids)
 
-            # initialize the RadixSort example with keys and values
+            # initialize the RadixSort with keys and values
             keys = cellids
             values = self.indices[pa.name]
             
@@ -914,24 +927,18 @@ class RadixSortManager(DomainManager):
             rsort.sort()
             
             # now compute the cell counts array from the sorted cellids
-            # JUST INDICATIVE, THIS WILL NOT WORK RIGHT NOW
             # ALSO, DCELLIDS IS PROBABLY PADDED WITH EXTRA ELEMENTS SO WE
             # MUST BE CAREFUL. MAYBE THE GLOBAL SIZE (NP) WILL TAKE CARE
             # OF IT BUT I DON'T KNOW
             dcell_counts = self.dcell_counts[pa.name]
+            sortedcellids = rsort.dsortedkeys
             self.prog.compute_cell_counts(q, global_sizes, local_sizes,
-                                          dcellids, dcell_counts,
+                                          sortedcellids, dcell_counts,
                                           self.ncells, np).wait()
 
             # read the result back to host
             # THIS MAY NEED TO BE DONE OR WE COULD SIMPLY LET IT RESIDE
             # ON THE DEVICE.
-
-    def _setup_program(self):
-        """ Read the OpenCL kernel source file and build the program """
-        src_file = get_pysph_root() + '/base/radix_sort.cl'
-        src = cl_read(src_file, precision=self.cl_precision)
-        self.prog = cl.Program(self.context, src).build()            
 
     def _py_update(self):
         """Update the data structures using Python"""
@@ -953,9 +960,9 @@ class RadixSortManager(DomainManager):
                 _iy = int(numpy.floor( y[j] * cellsize1 ))
                 _iz = int(numpy.floor( z[j] * cellsize1 ))
 
-                cellids[j] = (_iz - self.mcz)*self.ncx*self.ncy + \
-                             (_iy - self.mcy)*self.ncx + \
-                             (_ix - self.mcx)
+                cellids[j] = numpy.uint32( (_iz - self.mcz)*self.ncx*self.ncy + \
+                                           (_iy - self.mcy)*self.ncx + \
+                                           (_ix - self.mcx) )
             
             # sort the cellids and indices
             keys = cellids
@@ -988,3 +995,9 @@ class RadixSortManager(DomainManager):
                     cellidm = cellids[j-1]
                     for k in range(cellid - cellidm):
                         cellc[cellid - k] = j
+ 
+    def _setup_program(self):
+        """ Read the OpenCL kernel source file and build the program """
+        src_file = get_pysph_root() + '/base/radix_sort.cl'
+        src = cl_read(src_file, precision=self.cl_precision)
+        self.prog = cl.Program(self.context, src).build()
