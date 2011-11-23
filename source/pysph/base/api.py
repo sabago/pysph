@@ -38,7 +38,7 @@ from domain_manager import LinkedListManager, DomainManager, RadixSortManager, \
 
 # OpenCL locator
 from locator import OpenCLNeighborLocator, LinkedListSPHNeighborLocator, \
-     AllPairNeighborLocator
+     AllPairNeighborLocator, RadixSortNeighborLocator
 
 from locator import OpenCLNeighborLocatorType
 

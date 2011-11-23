@@ -9,7 +9,6 @@ import pysph.base.domain_manager as domain_manager
 manager = base.domain_manager.LinkedListManager(arrays=[pa1,pa2])
 
 # update the bin structure
-manager.update_status()
 manager.update()
 
 # optional: Copy buffer contents if using with OpenCL
@@ -36,8 +35,8 @@ nbrs = get_neighbors( cellid=manager.cellid[pa1.name][i],
 import numpy
 cimport numpy
 
-cpdef inline int get_cellid(int ix, int iy, int iz,
-                            int ncx, int ncy, int ncz):
+cpdef inline int flatten(int ix, int iy, int iz,
+                         int ncx, int ncy, int ncz):
     """ Return the flattened index for the 3 dimensional cell index
 
     Parameters:
@@ -132,12 +131,12 @@ cpdef numpy.ndarray brute_force_neighbors(
 
     return nbrs[:index]
 
-cpdef numpy.ndarray get_neighbors_within_radius(
-    int i, float radius,
+cpdef numpy.ndarray filter_neighbors(
+    float xi, float yi, float zi, float radius,
     numpy.ndarray[ndim=1, dtype=numpy.float32_t] x,
     numpy.ndarray[ndim=1, dtype=numpy.float32_t] y,
     numpy.ndarray[ndim=1, dtype=numpy.float32_t] z,
-    numpy.ndarray[ndim=1, dtype=numpy.int32_t] nbrs):
+    numpy.ndarray[ndim=1, dtype=numpy.uint32_t] nbrs):
     """ Return neighbors within a specified radius.
 
     Neighbors returned from all neighboring 27 cells for a particle
@@ -162,25 +161,20 @@ cpdef numpy.ndarray get_neighbors_within_radius(
 
     """
     cdef int j, s_idx, index
-    cdef float xi = x[i]
-    cdef float yi = y[i]
-    cdef float zi = z[i]
-
     cdef float xj, yj, zj
-    cdef int nnbrs = len(nbrs)
     cdef float dist2
+
+    cdef int nnbrs = len(nbrs)
     cdef float radius2 = radius * radius
 
-    cdef numpy.ndarray[ndim=1, dtype=numpy.int32_t] tmp
-    tmp = numpy.ones(0, numpy.int32)
+    cdef numpy.ndarray[ndim=1, dtype=numpy.uint32_t] tmp
+    tmp = numpy.ones(0, numpy.uint32)
 
     index = 0
     for j in range(nnbrs):
         s_idx = nbrs[j]
 
-        xj = x[s_idx]
-        yj = y[s_idx]
-        zj = z[s_idx]
+        xj = x[s_idx]; yj = y[s_idx]; zj = z[s_idx]
 
         dist2 = (xi-xj)*(xi-xj) + (yi-yj)*(yi-yj) + (zi-zj)*(zi-zj)
         if dist2 < radius2:
@@ -192,7 +186,7 @@ cpdef numpy.ndarray get_neighbors_within_radius(
             index += 1
 
     return tmp[:index]
-    
+
 cpdef numpy.ndarray get_neighbors(
     int cellid, int ix, int iy, int iz,
     int ncx, int ncy, int ncells,
@@ -222,10 +216,10 @@ cpdef numpy.ndarray get_neighbors(
         Source Next array with respect to the binning
 
     """    
-    cdef numpy.ndarray[ndim=1, dtype=numpy.int32_t] nbrs, tmp
+    cdef numpy.ndarray[ndim=1, dtype=numpy.uint32_t] nbrs, tmp
     cdef int i, j, k, cid
 
-    nbrs = numpy.ones(0, numpy.int32)
+    nbrs = numpy.ones(0, numpy.uint32)
 
     for i in [ix-1, ix, ix+1]:
         for j in [iy-1, iy, iy+1]:
@@ -260,9 +254,9 @@ cpdef numpy.ndarray cell_neighbors(
 
     """ 
     cdef int next_id, index
-    cdef numpy.ndarray[ndim=1, dtype=numpy.int32_t] nbrs
+    cdef numpy.ndarray[ndim=1, dtype=numpy.uint32_t] nbrs
 
-    nbrs = numpy.ones(0, numpy.int32)
+    nbrs = numpy.ones(0, numpy.uint32)
     
     next_id = head[cellid]
 

@@ -1,4 +1,6 @@
 import linked_list_functions as ll
+import radix_sort_functions as rs
+
 import numpy
 
 # PySPH imports
@@ -7,7 +9,7 @@ from carray import LongArray
 class OpenCLNeighborLocatorType:
     AllPairNeighborLocator = 0
     LinkedListSPHNeighborLocator = 1
-    
+    RadixSortNeighborLocator = 2
 
 class OpenCLNeighborLocator(object):
     pass
@@ -157,16 +159,19 @@ class LinkedListSPHNeighborLocator(OpenCLNeighborLocator):
         nbrs =  ll.get_neighbors(cellid, ix, iy, iz,
                                  ncx, ncy, ncells, head, next)
         
-        x = dst.x.astype(numpy.float32)
-        y = dst.y.astype(numpy.float32)
-        z = dst.z.astype(numpy.float32)
-        h = dst.h.astype(numpy.float32)
+        x = src.x.astype(numpy.float32)
+        y = src.y.astype(numpy.float32)
+        z = src.z.astype(numpy.float32)
 
+        xi = numpy.float32( dst.x[i] )
+        yi = numpy.float32( dst.y[i] )
+        zi = numpy.float32( dst.z[i] )
+
+        h = dst.h.astype(numpy.float32)
         radius = self.scale_fac * h[i]
 
         # filter the neighbors to within a cutoff radius
-        nbrs = ll.get_neighbors_within_radius(i, radius, x, y, z,
-                                              nbrs)
+        nbrs = ll.filter_neighbors(xi, yi, zi, radius, x, y, z, nbrs)
         
         output_array.resize( len(nbrs) )
         output_array.set_data( nbrs )
@@ -350,3 +355,153 @@ class AllPairNeighborLocator(OpenCLNeighborLocator):
         """ Update the dirty bit for the locator and the DomainManager"""
         if not self.is_dirty:
             self.is_dirty = self.source.is_dirty or self.dest.is_dirty
+
+
+##############################################################################
+#`RadixSortNeighborLocator` class
+##############################################################################
+class RadixSortNeighborLocator(OpenCLNeighborLocator):
+    """Neighbor locator using the RadixSortManager as domain manager."""
+
+    def __init__(self, manager, source, dest, scale_fac=2.0, cache=False):
+        """ Construct a neighbor locator between a pair of arrays.
+
+        Parameters:
+        -----------
+
+        manager : DomainManager
+             The underlying domain manager used for the indexing scheme for the
+             particles.
+
+        source : ParticleArray
+             The source particle array from where neighbors are sought.
+
+        dest : ParticleArray
+             The destination particle array for whom neighbors are sought.
+
+        scale_fac : float
+            Maximum kernel scale factor to determine cell size for binning.
+
+        cache : bool
+            Flag to indicate if neighbors are to be cached.
+            
+        """
+        self.manager = manager
+        self.source = source
+        self.dest = dest
+
+        self.with_cl = manager.with_cl
+        self.scale_fac = scale_fac
+        self.cache = cache
+
+        # Initialize the cache if using with Cython
+        self.particle_cache = []
+        if self.cache:
+            self._initialize_cache()
+
+    #######################################################################
+    # public interface
+    #######################################################################
+    def get_nearest_particles(self, i, output_array, exclude_index=-1):
+        """ Return nearest particles from source array to the dest point.
+
+        The search radius is the scale factor times the particle's h
+
+        Parameters:
+        -----------
+
+        i : int
+            The destination index 
+
+        output_array : (in/out) LongArray
+            Neighbor indices are stored in this array.
+
+        exclude_index : int
+            Optional index to exclude from the neighbor list
+            NOTIMPLEMENTED!
+            
+        """
+        if self.cache:
+            return self.neighbor_cache[i]
+        else:
+            self._get_nearest_particles_nocahe(i, output_array)
+
+    ##########################################################################
+    # non-public interface
+    ##########################################################################
+    def _update(self):
+        """ Update the bin structure and compute cache contents.
+
+        Caching is only done if explicitly requested and should be
+        avoided for large problems to reduce the memory footprint.
+
+        """
+        
+        # update the domain manager
+        self.manager.update()
+
+        # set the cache if required
+        if self.cache:
+            self._initialize_cache()
+            self._udpdate_cache()
+    
+    def _get_nearest_particles_nocahe(self, i, output_array, exclude_index=-1):
+        """ Use the linked list to get nearest neighbors.
+
+        The functions defined in `linked_list_functions.pyx` are used to
+        find the nearest neighbors.
+
+        Parameters:
+        -----------
+
+        i : (in) int
+            The destination particle index
+
+        output_array : (in/out) LongArray
+            Neighbor indices are stored in this array.
+
+        exclude_index : int
+            Optional index to exclude from the neighbor list
+            NOTIMPLEMENTED!
+
+        """
+        manager = self.manager
+        src = self.source
+        dst = self.dest
+        
+        # Enqueue a copy if the binning is done with OpenCL
+        #manager.enqueue_copy()
+
+        # get the bin structure parameters
+        ncx = manager.ncx
+        ncy = manager.ncy
+        ncells = manager.ncells
+
+        # cell_counts and indices for the source
+        cellc = manager.cell_counts[ src.name ]
+        s_indices = manager.indices[ src.name ]
+
+        # destination indices
+        d_indices = manager.indices[ dst.name ]
+        
+        # cellid for the destination particle
+        cellid  = manager.cellids[dst.name][i]
+        
+        # get all neighbors from the 27 neighboring cells
+        nbrs = rs.get_neighbors(cellid, ncx, ncy, ncells, cellc, s_indices)
+        
+        xs = src.x.astype(numpy.float32)
+        ys = src.y.astype(numpy.float32)
+        zs = src.z.astype(numpy.float32)
+
+        xi = numpy.float32( dst.x[d_indices[i]] )
+        yi = numpy.float32( dst.y[d_indices[i]] )
+        zi = numpy.float32( dst.z[d_indices[i]] )
+        
+        radius = numpy.float32( self.scale_fac * dst.h[d_indices[i]] )
+
+        # filter the neighbors to within a cutoff radius
+        nbrs = ll.filter_neighbors(xi, yi, zi, radius, xs, ys, zs, nbrs)
+        
+        output_array.resize( len(nbrs) )
+        output_array.set_data( nbrs )
