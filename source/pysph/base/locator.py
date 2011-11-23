@@ -1,5 +1,4 @@
-import linked_list_functions as ll
-import radix_sort_functions as rs
+import nnps_util as util
 
 import numpy
 
@@ -156,8 +155,8 @@ class LinkedListSPHNeighborLocator(OpenCLNeighborLocator):
         iz = manager.iz[dst.name][i]
         
         # get all neighbors from the 27 neighboring cells
-        nbrs =  ll.get_neighbors(cellid, ix, iy, iz,
-                                 ncx, ncy, ncells, head, next)
+        nbrs =  util.ll_get_neighbors(cellid, ix, iy, iz,
+                                      ncx, ncy, ncells, head, next)
         
         x = src.x.astype(numpy.float32)
         y = src.y.astype(numpy.float32)
@@ -171,7 +170,7 @@ class LinkedListSPHNeighborLocator(OpenCLNeighborLocator):
         radius = self.scale_fac * h[i]
 
         # filter the neighbors to within a cutoff radius
-        nbrs = ll.filter_neighbors(xi, yi, zi, radius, x, y, z, nbrs)
+        nbrs = util.filter_neighbors(xi, yi, zi, radius, x, y, z, nbrs)
         
         output_array.resize( len(nbrs) )
         output_array.set_data( nbrs )
@@ -488,7 +487,7 @@ class RadixSortNeighborLocator(OpenCLNeighborLocator):
         cellid  = manager.cellids[dst.name][i]
         
         # get all neighbors from the 27 neighboring cells
-        nbrs = rs.get_neighbors(cellid, ncx, ncy, ncells, cellc, s_indices)
+        nbrs = util.rs_get_neighbors(cellid, ncx, ncy, ncells, cellc, s_indices)
         
         xs = src.x.astype(numpy.float32)
         ys = src.y.astype(numpy.float32)
@@ -501,7 +500,7 @@ class RadixSortNeighborLocator(OpenCLNeighborLocator):
         radius = numpy.float32( self.scale_fac * dst.h[d_indices[i]] )
 
         # filter the neighbors to within a cutoff radius
-        nbrs = ll.filter_neighbors(xi, yi, zi, radius, xs, ys, zs, nbrs)
+        nbrs = util.filter_neighbors(xi, yi, zi, radius, xs, ys, zs, nbrs)
         
         output_array.resize( len(nbrs) )
         output_array.set_data( nbrs )

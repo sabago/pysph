@@ -1,35 +1,13 @@
-""" Cython functions to get nearest neighbors from the linked list
-data structure
+""" Cython helper functions for the linked list and radix sort based
+neighbor locators.
 
 Functions defined in this file can be used to get neighbors from the
-linked list structure created from a LinkedListManager like so:
+LinkedListManager and RadixSortManager domain managers.
 
-# create the manager
-import pysph.base.domain_manager as domain_manager
-manager = base.domain_manager.LinkedListManager(arrays=[pa1,pa2])
-
-# update the bin structure
-manager.update()
-
-# optional: Copy buffer contents if using with OpenCL
-manager.enqueue_copy()
-
-# now the head and next arrays for a particle are available as
-pa1_head = manager.head[pa1.name]
-pa1.next = manager.next[pa1.name]
-
-# the flattened and unflattened cell indices are also available as
-pa1.ix = manager.ix[pa1.name]
-...
-
-#Now, near particles from pa2 from particle `i` in pa1 may be obtained
-nbrs = get_neighbors( cellid=manager.cellid[pa1.name][i],
-                      ix=manager.ix[pa1.name][i],
-                      iy=manager.iy[pa1.name][i],
-                      iz=manager.iz[pa1.name][i],
-                      ncx=manager.ncx, ncy=manager.ncy, ncells=manager.ncells,
-                      head = manager.head[pa2.name]
-                      next = manager.next[pa2.name] )        
+Both these domain managers use an underlying cell data structure to
+bin the particles. Functions defined herin can be used to query the
+neighbors within a particular cell or get all neighbors (in 27
+neighboring cells) within an SPH context.
 
 """
 import numpy
@@ -131,6 +109,54 @@ cpdef numpy.ndarray brute_force_neighbors(
 
     return nbrs[:index]
 
+cpdef cbin(numpy.ndarray[ndim=1, dtype=numpy.float32_t] x,
+           numpy.ndarray[ndim=1, dtype=numpy.float32_t] y,
+           numpy.ndarray[ndim=1, dtype=numpy.float32_t] z,
+           numpy.ndarray[ndim=1, dtype=numpy.uint32_t] bins,
+           numpy.ndarray[ndim=1, dtype=numpy.uint32_t] ix,
+           numpy.ndarray[ndim=1, dtype=numpy.uint32_t] iy,
+           numpy.ndarray[ndim=1, dtype=numpy.uint32_t] iz,
+           numpy.ndarray[ndim=1, dtype=numpy.int32_t] head,
+           numpy.ndarray[ndim=1, dtype=numpy.int32_t] next,
+           float mx, float my, float mz,
+           int ncx, int ncy, int ncz, float cell_size, int np,
+           int mcx, int mcy, int mcz):
+    """ Bin a set of points
+
+    Parameters:
+    -----------
+
+    x, y, z : array
+        Input points to bin
+
+    bins, ix, iy, iz : array
+        Output indices (flattened and unflattened)
+
+    head : array
+        Output head array for the linked list
+
+    next : array
+        Output next array for the linked list
+
+    """
+
+    cdef int i, _ix, _iy, _iz, _bin
+
+    for i in range(np):
+        _ix = numpy.int32( numpy.floor( x[i]/cell_size ) )
+        _iy = numpy.int32( numpy.floor( y[i]/cell_size ) )
+        _iz = numpy.int32( numpy.floor( z[i]/cell_size ) )
+
+        ix[i] = (_ix - mcx)
+        iy[i] = (_iy - mcy)
+        iz[i] = (_iz - mcz)
+
+        _bin = (_iz-mcz) * (ncx*ncy) + (_iy-mcy) * ncx + (_ix-mcx)
+        bins[i] = _bin
+        
+        next[i] = head[_bin]
+        head[_bin] = numpy.int32(i)
+
 cpdef numpy.ndarray filter_neighbors(
     float xi, float yi, float zi, float radius,
     numpy.ndarray[ndim=1, dtype=numpy.float32_t] x,
@@ -187,7 +213,14 @@ cpdef numpy.ndarray filter_neighbors(
 
     return tmp[:index]
 
-cpdef numpy.ndarray get_neighbors(
+###########################################################################
+# Linked List Functions
+
+# The following functions are to be used to locate neighbors when
+# using the LinkedListManager as the domain manager. From PySPH, these
+# functions are mainly called from the neighbor locators (locator.py)
+###########################################################################
+cpdef numpy.ndarray ll_get_neighbors(
     int cellid, int ix, int iy, int iz,
     int ncx, int ncy, int ncells,
     numpy.ndarray[ndim=1, dtype=numpy.int32_t] head,
@@ -227,18 +260,19 @@ cpdef numpy.ndarray get_neighbors(
                 cid = i + j*ncx + k*ncx*ncy
 
                 if ( (cid >= 0) and (cid < ncells) ):
-                    tmp = cell_neighbors(cid, head, next)
+                    tmp = ll_cell_neighbors(cid, head, next)
                     if tmp.size > 0:
                         nbrs = numpy.resize( nbrs, nbrs.size + tmp.size )
                         nbrs[-tmp.size:] = tmp[:]
 
     return nbrs
 
-cpdef numpy.ndarray cell_neighbors(
+cpdef numpy.ndarray ll_cell_neighbors(
     int cellid,
     numpy.ndarray[ndim=1, dtype=numpy.int32_t] head,
     numpy.ndarray[ndim=1, dtype=numpy.int32_t] next):
-    """ Return indices for points within the same cell.
+    """ Use the linked list data structures to find particles within
+    the same cell.
 
     Parameters:
     -----------
@@ -274,51 +308,76 @@ cpdef numpy.ndarray cell_neighbors(
 
     return nbrs[:index]
 
-cpdef cbin(numpy.ndarray[ndim=1, dtype=numpy.float32_t] x,
-           numpy.ndarray[ndim=1, dtype=numpy.float32_t] y,
-           numpy.ndarray[ndim=1, dtype=numpy.float32_t] z,
-           numpy.ndarray[ndim=1, dtype=numpy.uint32_t] bins,
-           numpy.ndarray[ndim=1, dtype=numpy.uint32_t] ix,
-           numpy.ndarray[ndim=1, dtype=numpy.uint32_t] iy,
-           numpy.ndarray[ndim=1, dtype=numpy.uint32_t] iz,
-           numpy.ndarray[ndim=1, dtype=numpy.int32_t] head,
-           numpy.ndarray[ndim=1, dtype=numpy.int32_t] next,
-           float mx, float my, float mz,
-           int ncx, int ncy, int ncz, float cell_size, int np,
-           int mcx, int mcy, int mcz):
-    """ Bin a set of points
+###########################################################################
+# Radix sort functions
+
+# The following functions are to be used to locate neighbors when
+# using the RadixSortManager as the domain manager. From PySPH, these
+# functions are mainly called from the neighbor locators (locator.py)
+###########################################################################
+cpdef numpy.ndarray rs_get_neighbors(
+    unsigned int cellid, int ncx, int ncy, unsigned int ncells,
+    numpy.ndarray[ndim=1, dtype=numpy.uint32_t] cell_counts,
+    numpy.ndarray[ndim=1, dtype=numpy.uint32_t] indices):
+    """Return particle indices from neighboring cells when using the
+    RadixSortManager.
 
     Parameters:
     -----------
 
-    x, y, z : array
-        Input points to bin
+    cellid : int
+        The index of the cell for which neighbors are sought.
 
-    bins, ix, iy, iz : array
-        Output indices (flattened and unflattened)
+    ncx,ncy : int
+        Number of cells in the 'x' and 'y' direction. This is used to
+        flatten and unflatten the cell index.
 
-    head : array
-        Output head array for the linked list
+    ncells : int
+        Total number of cells.
 
-    next : array
-        Output next array for the linked list
+    cell_counts : array
+        An array that determines the start and end indices for particles.
+        This is returned by the radix sort manager.
+
+    indices : array
+        Particle indices sorted based on the cell indices. This is
+        returned by the radix sort manager.
 
     """
 
-    cdef int i, _ix, _iy, _iz, _bin
+    # get the unflattened id
+    cdef int ix, iy, iz
+    ix, iy, iz = unflatten(cellid, ncx, ncy)
 
-    for i in range(np):
-        _ix = numpy.int32( numpy.floor( x[i]/cell_size ) )
-        _iy = numpy.int32( numpy.floor( y[i]/cell_size ) )
-        _iz = numpy.int32( numpy.floor( z[i]/cell_size ) )
+    cdef numpy.ndarray[ndim=1, dtype=numpy.uint32_t] nbrs
+    nbrs = numpy.ones(0, dtype=numpy.uint32)
 
-        ix[i] = (_ix - mcx)
-        iy[i] = (_iy - mcy)
-        iz[i] = (_iz - mcz)
+    for i in [ix-1, ix, ix+1]:
+        for j in [iy-1, iy, iy+1]:
+            for k in [iz-1, iz, iz+1]:
+                cid = i + j*ncx + k*ncx*ncy
+                if ( (cid >= 0) and (cid < ncells) ):
+                    tmp = rs_cell_neighbors(cid, cell_counts, indices)
+                    if tmp.size > 0:
+                        nbrs = numpy.concatenate( (nbrs, tmp) )
 
-        _bin = (_iz-mcz) * (ncx*ncy) + (_iy-mcy) * ncx + (_ix-mcx)
-        bins[i] = _bin
+    return nbrs
+
+cpdef rs_cell_neighbors(
+    int cellid,
+    numpy.ndarray[ndim=1, dtype=numpy.uint32_t] cell_counts,
+    numpy.ndarray[ndim=1, dtype=numpy.uint32_t] indices):
+    """Return the particle indices for a given cell."""
+
+    cdef unsigned int start = cell_counts[cellid]
+    cdef unsigned int end = cell_counts[cellid + 1]
+
+    cdef unsigned int nnbrs = end - start
+
+    cdef numpy.ndarray[ndim=1, dtype=numpy.uint32_t] nbrs
+    nbrs = numpy.ones( nnbrs, numpy.uint32 )
+
+    for i in range(nnbrs):
+        nbrs[i] = indices[ start + i ]
         
-        next[i] = head[_bin]
-        head[_bin] = numpy.int32(i)
-    
+    return nbrs
