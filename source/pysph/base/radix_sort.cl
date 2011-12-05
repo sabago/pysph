@@ -35,9 +35,9 @@ __kernel void bin(__global const REAL* x,
 		  uint const ncx, 
 		  uint const ncy,
 		  uint const ncz,
-		  REAL const mcx,
-		  REAL const mcy, 
-		  REAL const mcz
+		  uint const mcx,
+		  uint const mcy, 
+		  uint const mcz
 		  )
 {
   // each thread loads one value from global mem given by it's global id

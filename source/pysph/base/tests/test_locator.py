@@ -9,7 +9,7 @@ import unittest
 import pysph.base.api as base
 import pysph.solver.cl_utils as clu
 
-import pysph.base.linked_list_functions as ll
+import pysph.base.nnps_util as nnps
 
 if not clu.HAS_CL:
     try:
@@ -168,8 +168,8 @@ class LinkedListSPHNeighborLocatorTestCase(LocatorTestCase):
 
         for i in range(self.np):
 
-            cy_nbrs = ll.cell_neighbors( cy_bins[i], cy_head, cy_next )
-            cl_nbrs = ll.cell_neighbors( cl_bins[i], cl_head, cl_next )
+            cy_nbrs = nnps.ll_cell_neighbors( cy_bins[i], cy_head, cy_next )
+            cl_nbrs = nnps.ll_cell_neighbors( cl_bins[i], cl_head, cl_next )
 
             cy_nbrs.sort()
             cl_nbrs.sort()
@@ -180,7 +180,7 @@ class LinkedListSPHNeighborLocatorTestCase(LocatorTestCase):
 
             # the sorted list of neighbors should be the same
             for j in range( nnbrs ):
-                self.assertEqual( cl_nbrs[j], cy_nbrs[j] )        
+                self.assertEqual( cl_nbrs[j], cy_nbrs[j] )
 
     def test_neighbor_locator(self):
         """LinkedListSPHNeighborLocator: test_neighbor_locator
@@ -211,7 +211,7 @@ class LinkedListSPHNeighborLocatorTestCase(LocatorTestCase):
 
             # the search radius is (k * hi)
             radius = loc.scale_fac * h[i]
-            brute_nbrs = ll.brute_force_neighbors(xi, yi, zi,
+            brute_nbrs = nnps.brute_force_neighbors(xi, yi, zi,
                                                   self.np,
                                                   radius,
                                                   x, y, z)
@@ -253,6 +253,51 @@ class RadixSortNeighborLocator(LocatorTestCase):
             manager=self.cy_manager,
             source=self.cy_pa, dest=self.cy_pa)
 
+    def test_udpate(self):
+        """ RadixSortNeighborLocator: test_update
+
+        The two domain managers are used to independently bin and
+        construct the neighbor list for each particle. The neighbors
+        within a cell are then compared. This test establshes that
+        OpenCL and Cython produce the same neighbor lists per cell,
+        and thus are equivalent.
+
+        """
+        name = self.cy_pa.name
+        
+        cy = self.cy_manager
+        cl = self.cl_manager
+
+        # update the structure 
+        cy.update()
+        cl.update()
+
+        # read the buffer contents for the OpenCL manager
+        cl.enqueue_copy()
+
+        # Get the updated data structures
+        cl_cellids = cl.cellids[name]
+        cl_indices = cl.indices[name]
+        cl_cellc = cl.cell_counts[name]
+
+        cy_cellids = cy.cellids[name]
+        cy_indices = cy.indices[name]
+        cy_cellc = cy.cell_counts[name]
+        
+        # Check the cell counts and sorted arrays (indices and cellids)        
+        self.assertEqual( len(cl_cellids), len(cy_cellids) )
+        self.assertEqual( len(cl_indices), len(cy_indices) )
+        self.assertEqual( len(cl_cellc), len(cy_cellc) )
+
+        np = len(cl_indices)
+        for i in range(np):
+            self.assertEqual( cl_cellids[i], cy_cellids[i] )
+            self.assertEqual( cl_indices[i], cy_indices[i] )
+
+        ncells1 = len(cl_cellc)
+        for i in range(ncells1):
+            self.assertEqual( cl_cellc[i], cy_cellc[i] )
+        
     def test_neighbor_locator(self):
         """RadixSortNeighborLocator: test_neighbor_locator
 
@@ -287,10 +332,10 @@ class RadixSortNeighborLocator(LocatorTestCase):
             
             # the search radius is (k * hi)
             radius = loc.scale_fac * h[i]
-            brute_nbrs = ll.brute_force_neighbors(xi, yi, zi,
-                                                  self.np,
-                                                  radius,
-                                                  x, y, z)
+            brute_nbrs = nnps.brute_force_neighbors(xi, yi, zi,
+                                                    self.np,
+                                                    radius,
+                                                    x, y, z)
 
             # get the neighbors with Cython
             nbrs = base.LongArray()

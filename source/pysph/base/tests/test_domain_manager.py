@@ -8,7 +8,7 @@ import unittest
 import pysph.base.api as base
 import pysph.solver.cl_utils as clu
 
-import pysph.base.linked_list_functions as ll
+from pysph.base.nnps_util import unflatten
 
 if not clu.HAS_CL:
     try:
@@ -174,7 +174,7 @@ class LinkedListManagerTestCase(DomainManagerTestCase):
 
             # get the forward neighbors the brute force way
             cid = manager._current_cell - 1
-            ix, iy, iz = ll.unflatten(cid, ncx, ncy)
+            ix, iy, iz = unflatten(cid, ncx, ncy)
 
             _cell_nbrs = []
 
