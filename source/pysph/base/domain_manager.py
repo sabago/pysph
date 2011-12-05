@@ -10,7 +10,7 @@ if HAS_CL:
     mf = cl.mem_flags
 
 # Cython functions for neighbor list construction
-from linked_list_functions import cbin, unflatten
+from nnps_util import cbin, unflatten
 
 from point import Point
 from cell import py_find_cell_id
@@ -718,7 +718,7 @@ class RadixSortManager(DomainManager):
 
         DomainManager.__init__(self, arrays, context, with_cl)
 
-        # se the kernel scale factor
+        # set the kernel scale factor
         self.kernel_scale_factor = kernel_scale_factor
 
         # set the cell size
@@ -771,6 +771,18 @@ class RadixSortManager(DomainManager):
         else:
             self._py_update()
 
+    def enqueue_copy(self):
+        """ Copy the Buffer contents to the host
+
+        The cell counts buffer is copied to the host.
+
+        """
+        if self.with_cl:
+            for pa in self.arrays:
+                enqueue_copy(queue=self.queue,
+                             dst=self.cell_counts[pa.name],
+                             src=self.dcell_counts[pa.name])
+
     ###########################################################################
     # non-public interface
     ###########################################################################
@@ -809,8 +821,8 @@ class RadixSortManager(DomainManager):
             self.indices[ pa.name ] = indices
             self.cell_counts[ pa.name ] = cellc
 
-            if self.with_cl:
-                self._init_device_buffers()
+        if self.with_cl:
+            self._init_device_buffers()
 
     def _init_device_buffers(self):
         """Initialize the device buffers
@@ -837,7 +849,7 @@ class RadixSortManager(DomainManager):
             dcellc = cl.Buffer(self.context, mf.READ_WRITE|mf.COPY_HOST_PTR,
                                hostbuf=cellc)
 
-            self.dcellids[pa.name] = cellids
+            self.dcellids[pa.name] = dcellids
             self.dindices[pa.name] = dindices
             self.dcell_counts[ pa.name ] = dcellc
 
@@ -895,7 +907,7 @@ class RadixSortManager(DomainManager):
         narrays = self.narrays
         for i in range(narrays):
             pa = self.arrays[i]
-            np = numpy.uint32( pa.get_number_of_particles() )
+            np = pa.get_number_of_particles()
 
             # get launch parameters for this array
             global_sizes = (np,1,1)
@@ -919,7 +931,7 @@ class RadixSortManager(DomainManager):
             # initialize the RadixSort with keys and values
             keys = cellids
             values = self.indices[pa.name]
-            
+
             rsort = self.rsort[ pa.name ]
             rsort.initialize(keys, values, self.context)
 
@@ -934,7 +946,7 @@ class RadixSortManager(DomainManager):
             sortedcellids = rsort.dsortedkeys
             self.prog.compute_cell_counts(q, global_sizes, local_sizes,
                                           sortedcellids, dcell_counts,
-                                          self.ncells, np).wait()
+                                          self.ncells, numpy.uint32(np)).wait()
 
             # read the result back to host
             # THIS MAY NEED TO BE DONE OR WE COULD SIMPLY LET IT RESIDE

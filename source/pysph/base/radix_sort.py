@@ -106,6 +106,7 @@ class AMDRadixSort:
 
             # current output becomes input for the next pass
             self._keys[:] = self.sortedkeys[:]
+            self._values[:] = self.sortedvalues[:]
 
         # read only the original un-padded data into keys
         self.keys[:] = self._keys[:self.n]
@@ -137,8 +138,8 @@ class AMDRadixSort:
         local_sizes = (self.group_size,)
 
         # copy the unsorted data to the device 
-        # the unsorted data is in _keys and dkeys
         clu.enqueue_copy(q, src=self._keys, dst=self.dkeys)
+        clu.enqueue_copy(q, src=self._values, dst=self.dvalues)
 
         # allocate the local memory for the histogram kernel
         local_mem_size = self.group_size * self.radices * 2
@@ -190,7 +191,6 @@ class AMDRadixSort:
 
         # read sorted results back to the host
         clu.enqueue_copy(q, src=self.dsortedkeys, dst=self.sortedkeys)
-
         clu.enqueue_copy(q, src=self.dsortedvalues, dst=self.sortedvalues)
 
     def _setup(self):

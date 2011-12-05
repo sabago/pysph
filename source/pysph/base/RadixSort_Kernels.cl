@@ -183,9 +183,9 @@ void permute(__global const uint* unsortedData,
         uint value = unsortedData[globalId * RADICES + i];
         value = (value >> shiftCount) & 0xFFU;
         uint index = sharedBuckets[localId * RADICES + value];
-        sortedData[index] = unsortedData[globalId * RADICES + i];
 	
-	// permute the values as well
+	// permute
+        sortedData[index] = unsortedData[globalId * RADICES + i];
 	sortedValues[index] = unsortedValues[globalId * RADICES + i];
 
         sharedBuckets[localId * RADICES + value] = index + 1;

@@ -26,7 +26,7 @@ CLDomain = base.DomainManagerType
 CLLocator = base.OpenCLNeighborLocatorType
 Locator = base.NeighborLocatorType
 
-from pysph.base.linked_list_functions import cell_neighbors
+from pysph.base.nnps_util import ll_cell_neighbors
 from pysph.base.kernels import CubicSplineKernel
 from pysph.base.cell import py_find_cell_id
 
@@ -122,7 +122,7 @@ class TestShockTube(unittest.TestCase):
                 cl_index = cellids[i]
 
                 # get the particles in the the cell with OpenCL
-                cl_nbrs = cell_neighbors( cellids[i], head, next )
+                cl_nbrs = ll_cell_neighbors( cellids[i], head, next )
                 cl_nbrs.sort()
 
                 # the lenght of the neighbors should be the same
