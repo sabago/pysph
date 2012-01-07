@@ -749,7 +749,8 @@ class Solver(object):
     def setup_cl(self):
         """ Setup the OpenCL context and other initializations """
         if HAS_CL:
-            self.cl_context = create_some_context()
+            platform = cl.get_platforms()[0]
+            self.cl_context = cl.Context(platform.get_devices())
 
     def get_options(self, opt_parser):
         """ Implement this to add additional options for the application """

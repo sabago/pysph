@@ -21,9 +21,11 @@ __kernel void IdealGasEquation(%(kernel_args)s)
   
   %(workgroup_code)s
     
+  int particle_id = indices[dest_id];
+    
   REAL tmp = gamma - 1.0F;
-  REAL rhoa = d_rho[dest_id];
-  REAL ea = d_e[dest_id];
+  REAL rhoa = d_rho[particle_id];
+  REAL ea = d_e[particle_id];
   
   tmpx[dest_id] = tmp * rhoa * ea;
   
@@ -52,7 +54,8 @@ __kernel void TaitEquation(%(kernel_args)s)
   
   %(workgroup_code)s
 
-  REAL rhoa = d_rho[dest_id];
+  int particle_id = indices[dest_id];
+  REAL rhoa = d_rho[particle_id];
   REAL ratio = rhoa/ro;
   REAL gamma2 = 0.5F * (gamma - 1.0F);
   REAL tmp = pow(ratio, gamma);

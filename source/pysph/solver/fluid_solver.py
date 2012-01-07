@@ -13,7 +13,7 @@ from sph_equation import SPHOperation, SPHIntegration
 Fluids = base.ParticleType.Fluid
 Solids = base.ParticleType.Solid
 
-def get_circular_patch(name="", type=0, dx=0.025,
+def get_circular_patch(name="", type=0, dx=0.025/1.3,
                        cl_precision="single", **kwargs):
     
     x,y = numpy.mgrid[-1.05:1.05+1e-4:dx, -1.05:1.05+1e-4:dx]

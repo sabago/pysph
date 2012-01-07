@@ -25,19 +25,20 @@ defined in this file.
  * @param mcy                   minimim cell index in 'y'
  * @param mcz                   minimim cell index in 'z'
 
- */
-
+ 
+ #pragma OPENCL EXTENSION cl_amd_printf : enable
+*/
 __kernel void bin(__global const REAL* x,
 		  __global const REAL* y,
 		  __global const REAL* z,
 		  __global uint* cellids,
 		  REAL const cell_size,
-		  uint const ncx, 
-		  uint const ncy,
-		  uint const ncz,
-		  uint const mcx,
-		  uint const mcy, 
-		  uint const mcz
+		  int const ncx, 
+		  int const ncy,
+		  int const ncz,
+		  int const mcx,
+		  int const mcy, 
+		  int const mcz
 		  )
 {
   // each thread loads one value from global mem given by it's global id
@@ -49,7 +50,7 @@ __kernel void bin(__global const REAL* x,
   int IZ = (int)floor( z[gid]/cell_size );
 
   // compute the flattened cellid 
-  unsigned int cellid = (IZ - mcz) * (ncx*ncy) + (IY - mcy)*ncx + (IX - mcx);
+  unsigned int cellid = (uint) ((IZ - mcz) * (ncx*ncy) + (IY - mcy)*ncx + (IX - mcx));
 
   cellids[gid] = cellid;
 
@@ -71,50 +72,39 @@ __kernel void compute_cell_counts(__global const uint* cellids,
 				  uint const ncells,
 				  uint const np)
 {
-  
+
   unsigned int gid = get_global_id(0);
+  int cellid;
+  int cellidm;
 
-  unsigned int cellid;
-  unsigned int cellidm;
-
-  // Handle the case for the first thread
-  if ( gid == 0 )
-    {
-      cellid = cellids[gid];
-    
-      for (int i = 0; i <= cellid; i++)
-	cell_counts[i] = 0;
-    } 
+  cellid = cellids[gid];
   
-  // Handle the case for the last thread
-  else if ( gid == np - 1 )
-    {
-      cellid = cellids[gid];
-    
-      for (int i = cellid + 1; i < ncells + 1; i++)
-	cell_counts[i] = np;
-
-      cellidm = cellids[gid - 1];
-      if ( cellid > cellidm )
-	{
-	  for (int i = 0; i < cellid-cellidm; i++)
-	    cell_counts[cellid-i] = gid;
-
-	} // if
-      
-    } // else if
-
-  // Handle all other cases
-  else 
-    {
-      cellid = cellids[gid];
-      cellidm = cellids[gid-1];
-
-      if ( cellid > cellidm )
-	{
-	  for (int i = 0; i < cellid-cellidm; i++)
-	    cell_counts[cellid-i] = gid;
-	}
+  // Handle the case for the first thread 
+  if (gid==0){
+    for (int k=0; k<(cellid+1); ++k){
+      cell_counts[k] = 0;
     }
+  }      
+
+  // Handle the case for the last thread 
+  else if (gid==(np-1)){
+    for (int k=(cellid+1); k<(ncells+1); ++k){
+      cell_counts[k] = np;
+    }
+    cellidm = cellids[gid-1];
+    for (int k=0; k<(cellid-cellidm); ++k){
+      cell_counts[cellid-k] = gid;
+    }
+  }
+  
+  // Handle all other cases 
+  else{
+    cellidm = cellids[gid-1];
+    for (int k=0; k<(cellid-cellidm); ++k){
+      cell_counts[cellid-k] = gid;
+    }    
+  }
 
 } // __kernel
+
+

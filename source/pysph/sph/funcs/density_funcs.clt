@@ -11,15 +11,16 @@ __kernel void SPHRho(%(kernel_args)s)
     %(workgroup_code)s
 
     // The term `dest_id` will be suitably defined at this point.
+    int particle_id = indices[dest_id];
 
-    REAL4 pa = (REAL4)( d_x[dest_id], d_y[dest_id], 
-                        d_z[dest_id], d_h[dest_id] );
+    REAL4 pa = (REAL4)( d_x[particle_id], d_y[particle_id], 
+                        d_z[particle_id], d_h[particle_id] );
     REAL4 pb;
   
     REAL wmb = 0.0F ;
     REAL w, mb, dist, dst_rad, src_rad;
 
-    dst_rad = d_h[dest_id] * kernel_radius;
+    dst_rad = d_h[particle_id] * kernel_radius;
 
     %(neighbor_loop_code_start)s 
     {
@@ -45,7 +46,7 @@ __kernel void SPHRho(%(kernel_args)s)
 
     %(neighbor_loop_code_end)s 
 
-    tmpx[dest_id] += wmb;
+    tmpx[particle_id] += wmb;
   
 } // __kernel SPHRho
 
@@ -62,15 +63,16 @@ __kernel void SPHDensityRate(%(kernel_args)s)
     %(workgroup_code)s
 
     // The term `dest_id` will be suitably defined at this point.
+    int particle_id = indices[dest_id];
 
-    REAL4 pa = (REAL4)( d_x[dest_id], d_y[dest_id], 
-                        d_z[dest_id], d_h[dest_id] );
+    REAL4 pa = (REAL4)( d_x[particle_id], d_y[particle_id], 
+                        d_z[particle_id], d_h[particle_id] );
 
     REAL4 pb, grad;
     REAL dist, dst_rad, src_rad;
     REAL sum = 0.0F;
 
-    dst_rad = d_h[dest_id] * kernel_radius;
+    dst_rad = d_h[particle_id] * kernel_radius;
 
     %(neighbor_loop_code_start)s 
     {
@@ -87,9 +89,9 @@ __kernel void SPHDensityRate(%(kernel_args)s)
 	{
 
 	  kernel_gradient(pa, pb, &grad, dim, kernel_type);
-	  REAL4 vab = (REAL4)( d_u[dest_id] - s_u[src_id] ,
-			       d_v[dest_id] - s_v[src_id] ,
-			       d_w[dest_id] - s_w[src_id] ,
+	  REAL4 vab = (REAL4)( d_u[particle_id] - s_u[src_id] ,
+			       d_v[particle_id] - s_v[src_id] ,
+			       d_w[particle_id] - s_w[src_id] ,
 			       0.0F);
 
 	  sum += s_m[src_id] * dot(vab, grad);
@@ -101,7 +103,7 @@ __kernel void SPHDensityRate(%(kernel_args)s)
     
     %(neighbor_loop_code_end)s 
 
-       tmpx[dest_id] += sum;
+       tmpx[particle_id] += sum;
   
 } // __kernel SPHRho
 

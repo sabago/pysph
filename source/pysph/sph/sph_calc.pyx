@@ -449,6 +449,8 @@ class CLCalc(SPHCalc):
                  str id = "", bint kernel_gradient_correction=False,
                  kernel_correction=-1, int dim = 1, str snum=""):
 
+        self.reset_arrays = True
+
         self.nbr_info = nbr_info
         self.particles = particles
         self.sources = sources
@@ -571,8 +573,8 @@ class CLCalc(SPHCalc):
         workgroup_code = func.get_cl_workgroup_code()
 
         # get the neighbor loop code
-        locator = func.cl_locator
-
+        locator = func.cl_locator        
+        
         neighbor_loop_code_start = locator.neighbor_loop_code_start()
         neighbor_loop_code_end = locator.neighbor_loop_code_end()
         neighbor_loop_code_break = locator.neighbor_loop_code_break()

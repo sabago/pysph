@@ -150,7 +150,7 @@ class CLIntegrator(Integrator):
             # get the destination particle array for this calc
             
             pa = dest = calc.dest
-            
+            #print "Evaluating calc:: ", calc.id
             if calc.integrates:
                 calc.sph( *calc.dst_writes[k_num] )
 
