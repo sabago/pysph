@@ -197,9 +197,9 @@ class LinkedListSPHNeighborLocator(OpenCLNeighborLocator):
         """ Return a string for the start of the neighbor loop code """
 
         return """
-          int idx = cix[dest_id];
-          int idy = ciy[dest_id];
-          int idz = ciz[dest_id];
+          int idx = cix[particle_id];
+          int idy = ciy[particle_id];
+          int idz = ciz[particle_id];
 
           REAL tmp = ncx*ncy;
           int src_id, cid;
@@ -256,6 +256,7 @@ class LinkedListSPHNeighborLocator(OpenCLNeighborLocator):
                 
         head = self.manager.dhead[src.name]
         next = self.manager.dnext[src.name]
+        indices = self.manager.dindices[dst.name]
         
         return {'int const ncx': self.manager.ncx,
                 'int const ncy': self.manager.ncy,
@@ -265,7 +266,8 @@ class LinkedListSPHNeighborLocator(OpenCLNeighborLocator):
                 '__global uint* ciy': ciy,
                 '__global uint* ciz': ciz,
                 '__global int* head': head,
-                '__global int* next': next
+                '__global int* next': next,
+                '__global uint* indices': indices
                 }
 
 
@@ -341,7 +343,9 @@ class AllPairNeighborLocator(OpenCLNeighborLocator):
         src = self.source
         np = numpy.int32(src.get_number_of_particles())
 
-        return {'int const nbrs': np}
+        return {'int const nbrs': np,
+                '__global uint* indices': indices
+                }
 
     def update(self):
         """ Update the bin structure and compute cache contents if
@@ -469,7 +473,7 @@ class RadixSortNeighborLocator(OpenCLNeighborLocator):
         dst = self.dest
         
         # Enqueue a copy if the binning is done with OpenCL
-        #manager.enqueue_copy()
+        manager.enqueue_copy()
 
         # get the bin structure parameters
         ncx = manager.ncx
@@ -504,3 +508,82 @@ class RadixSortNeighborLocator(OpenCLNeighborLocator):
         
         output_array.resize( len(nbrs) )
         output_array.set_data( nbrs )
+
+
+    def neighbor_loop_code_start(self):
+        return """// unflatten cellid
+                  int idx, idy, idz;
+                  int s_cid, src_id;
+                  int start_id, end_id;
+                  int d_cid = cellids[ dest_id ];
+                  
+                  idz = convert_int_rtn( d_cid/(ncx*ncy) );
+                  
+                  d_cid = d_cid - (idz * ncx*ncy);
+                  idy = convert_int_rtn( d_cid/ncx );
+
+                  idx = d_cid - (idy * ncx);
+
+                  for (int ix = idx-1; ix <= idx+1; ix++)
+                    {
+                     for (int iy = idy-1; iy <= idy+1; iy++)
+                      {
+                       for (int iz = idz-1; iz <= idz+1; iz++)
+                         {
+                          if ( (ix >=0) && (iy >=0) && (iz >= 0) )
+                           {
+
+                            s_cid = (ix) + (iy * ncx) + (iz * ncx*ncy);
+                            if ( s_cid < ncells )
+                             {
+                              start_id = cell_counts[ s_cid ];
+                              end_id   = cell_counts[ s_cid + 1 ];
+                              
+                              for (int i=start_id; i<end_id; ++i)
+                                {
+
+                                 src_id = src_indices[ i ];
+                              
+"""
+
+    def neighbor_loop_code_end(self):
+        """ Return a string for the start of the neighbor loop code """
+
+        return """
+                       } // for (start,end)
+                       
+                    } // if cid < ncells
+                            
+		 } // if ix >= 0
+
+              } // for iz
+
+	   } // for iy
+
+         } // for ix
+
+         """
+
+    def neighbor_loop_code_break(self):
+        return ""
+
+    def get_kernel_args(self):
+        """ Add the kernel arguments for the OpenCL template """
+
+        dst = self.dest
+        src = self.source
+
+        # copying the buffers created in sort no dm!
+        cellids = self.manager.rsort[dst.name].dkeys
+        dst_indices = self.manager.rsort[dst.name].dvalues
+        src_indices = self.manager.rsort[src.name].dvalues
+        cell_counts = self.manager.dcell_counts[src.name]
+        
+        return {'int const ncx': self.manager.ncx,
+                'int const ncy': self.manager.ncy,
+                'int const ncells': self.manager.ncells,
+                '__global uint* cellids': cellids,
+                '__global uint* cell_counts': cell_counts,
+                '__global uint* src_indices': src_indices,
+                '__global uint* indices': dst_indices
+                }

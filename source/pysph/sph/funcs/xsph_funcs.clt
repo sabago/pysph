@@ -7,15 +7,16 @@ __kernel void XSPHCorrection(%(kernel_args)s)
 {
 
     %(workgroup_code)s
+    int particle_id = indices[dest_id];    
 
-  REAL4 pa = (REAL4)( d_x[dest_id], d_y[dest_id], d_z[dest_id], d_h[dest_id]);
+  REAL4 pa = (REAL4)( d_x[particle_id], d_y[particle_id], d_z[particle_id], d_h[particle_id]);
 
   REAL4 pb, vba;
   REAL w, dist, dst_rad, src_rad;
 
   REAL val = 0.0F;
 
-  dst_rad = d_h[dest_id] * kernel_radius;
+  dst_rad = d_h[particle_id] * kernel_radius;
   
     %(neighbor_loop_code_start)s 
 
@@ -31,16 +32,16 @@ __kernel void XSPHCorrection(%(kernel_args)s)
 
 	     w = kernel_function(pa, pb, dim, kernel_type);
 	     
-	     vba = (REAL4)( s_u[src_id] - d_u[dest_id],
-			    s_v[src_id] - d_v[dest_id],
-			    s_w[src_id] - d_w[dest_id],
+	     vba = (REAL4)( s_u[src_id] - d_u[particle_id],
+			    s_v[src_id] - d_v[particle_id],
+			    s_w[src_id] - d_w[particle_id],
 			    0.0F );
 
 	     val = w * (s_m[src_id] / s_rho[src_id]) * eps;
 	     
-	     tmpx[dest_id] += val * vba.x;
-	     tmpy[dest_id] += val * vba.y;
-	     tmpz[dest_id] += val * vba.z;
+	     tmpx[particle_id] += val * vba.x;
+	     tmpy[particle_id] += val * vba.y;
+	     tmpz[particle_id] += val * vba.z;
 	     
 	   } // if 
 

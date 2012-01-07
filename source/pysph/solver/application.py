@@ -449,12 +449,12 @@ class Application(object):
         if create_particles:
             self._create_particles(variable_h, create_particles, min_cell_size,
                                    **kwargs)
-
+        
         pm = self._parallel_manager
         if pm is not None:
             self.particles.parallel_manager = pm
             pm.initialize(self.particles)
-
+        
         self._solver.setup_solver(options.__dict__)
 
         dt = options.time_step
@@ -467,7 +467,7 @@ class Application(object):
 
         #setup the solver output file name
         fname = options.output
-
+        
         if HAS_MPI:
             comm = self.comm 
             rank = self.rank
@@ -503,14 +503,14 @@ class Application(object):
         if options.kernel is not None:
             solver.default_kernel = getattr(kernels,
                       kernels.kernel_names[options.kernel])(dim=solver.dim)
-
+        
         # Hernquist and Katz kernel correction
         # TODO. Fix the Kernel and Gradient Correction
         #solver.set_kernel_correction(options.kernel_correction)
 
         # OpenCL setup for the solver
         solver.set_cl(options.with_cl)
-        
+                        
         if options.resume is not None:
             solver.particles = self.particles # needed to be able to load particles
             r = solver.load_output(options.resume)
@@ -521,17 +521,17 @@ class Application(object):
 
         if options.integration is not None:
             solver.integrator_type =integration_methods[options.integration][1]
-
+        
         # setup the solver
         solver.setup(self.particles)
-
+        
         # print options for the solver
         #solver.set_arrays_to_print(options.arrays_to_print)
         
         # add solver interfaces
         self.command_manager = CommandManager(solver, self.comm)
         solver.set_command_handler(self.command_manager.execute_commands)
-
+        
         if self.rank == 0:
             # commandline interface
             if options.cmd_line:
