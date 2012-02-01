@@ -24,7 +24,7 @@ class DomainManagerType:
     RadixSortManager = 2
 
 class DomainManager:
-    def __init__(self, arrays, context=None, with_cl=True):
+    def __init__(self, arrays, context=None, with_cl=True, device='CPU'):
 
         if len(arrays) == 0:
             raise RuntimeError("No Arrays provided!")
@@ -50,7 +50,7 @@ class DomainManager:
         if with_cl:
             if HAS_CL:
                 self.with_cl = True
-                self._setup_cl(context)
+                self._setup_cl(context, device)
             else:
                 raise RuntimeError("PyOpenCL not found!")
         else:
@@ -81,11 +81,14 @@ class DomainManager:
     ###########################################################################
     # non-public interface
     ###########################################################################
-    def _setup_cl(self, context=None):
+    def _setup_cl(self, context=None, device=None):
         """ OpenCL setup for the CLNNPSManager  """
 
         if not context:
-            self.context = context = create_some_context()
+            if device=='GPU' or device=='gpu':
+                self.context = context = clu.create_context_from_gpu()
+            else:
+                self.context = context = clu.create_context_from_cpu()
         else:
             self.context = context
 
@@ -694,7 +697,7 @@ class RadixSortManager(DomainManager):
     """
 
     def __init__(self, arrays, cell_size=None, context=None,
-                 kernel_scale_factor = 2.0, with_cl=True):
+                 kernel_scale_factor = 2.0, with_cl=True, device='CPU'):
         """ Construct a RadixSort manager.
 
         Parameters:
@@ -725,8 +728,8 @@ class RadixSortManager(DomainManager):
         maximum smoothing length for all particles in the domain.
 
         """
-
-        DomainManager.__init__(self, arrays, context, with_cl)
+    
+        DomainManager.__init__(self, arrays, context, with_cl, device)
 
         # set the kernel scale factor
         self.kernel_scale_factor = kernel_scale_factor
@@ -872,8 +875,8 @@ class RadixSortManager(DomainManager):
         """Setup the RadixSort objects to be used.
 
         Currently, only the AMDRadixSort is available which works on
-        both the CPU and the GPU. When the Nvidia's sort is ported,
-        we'd have a better option on Nvidia GPUs.
+        both the CPU and the GPU. The NvidiaRadixSort works only on 
+        Nvidia GPU's.
 
         """
         narrays = self.narrays
@@ -952,10 +955,10 @@ class RadixSortManager(DomainManager):
 
             rsort = self.rsort[ pa.name ]
             rsort.initialize(keys, values, self.context)
-
+            
             # sort the keys (cellids) and values (indices)
             rsort.sort()
-
+            
             sortedcellids = rsort.dkeys
 
             self.prog.compute_cell_counts(q, global_sizes, local_sizes,
@@ -966,6 +969,7 @@ class RadixSortManager(DomainManager):
             # read the result back to host
             # THIS MAY NEED TO BE DONE OR WE COULD SIMPLY LET IT RESIDE
             # ON THE DEVICE.
+            clu.enqueue_copy(q, src=dcell_counts, dst=self.cell_counts[pa.name])
 
     def _py_update(self):
         """Update the data structures using Python"""
@@ -997,7 +1001,7 @@ class RadixSortManager(DomainManager):
 
             rsort = self.rsort[pa.name]
             rsort._sort_cpu(keys, values)
-
+            
             # compute the cell_count array
             cellc = self.cell_counts[pa.name]
             cellids = keys
