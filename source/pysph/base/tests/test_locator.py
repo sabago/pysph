@@ -11,6 +11,8 @@ import pysph.solver.cl_utils as clu
 
 import pysph.base.nnps_util as nnps
 
+from nose.plugins.attrib import attr
+
 if not clu.HAS_CL:
     try:
         import nose.plugins.skip as skip
@@ -35,7 +37,7 @@ class LocatorTestCase(unittest.TestCase):
         """
 
         self.cl_precision = cl_precision = "single"
-        self.np = np = 10001
+        self.np = np = 1<<14
 
         self.x = x = random.random(np) * 2.0 - 1.0
         self.y = y = random.random(np) * 2.0 - 1.0
@@ -181,7 +183,8 @@ class LinkedListSPHNeighborLocatorTestCase(LocatorTestCase):
             # the sorted list of neighbors should be the same
             for j in range( nnbrs ):
                 self.assertEqual( cl_nbrs[j], cy_nbrs[j] )
-
+                
+    @attr(slow=True)
     def test_neighbor_locator(self):
         """LinkedListSPHNeighborLocator: test_neighbor_locator
 
@@ -239,10 +242,6 @@ class RadixSortNeighborLocator(LocatorTestCase):
     def _setup(self):
 
         # construct the OpenCL and Cython managers
-        self.cl_manager = base.RadixSortManager(
-            arrays=[self.cl_pa,],
-            kernel_scale_factor=self.kernel_scale_factor)
-
         self.cy_manager = base.RadixSortManager(
             arrays=[self.cy_pa,],
             kernel_scale_factor=self.kernel_scale_factor,
@@ -253,8 +252,9 @@ class RadixSortNeighborLocator(LocatorTestCase):
             manager=self.cy_manager,
             source=self.cy_pa, dest=self.cy_pa)
 
-    def test_udpate(self):
-        """ RadixSortNeighborLocator: test_update
+    @unittest.skipIf(clu.get_cl_devices()['CPU'] == [], 'No CPU device detected')
+    def test_udpate_cpu(self):
+        """ RadixSortSPHNeighborLocator: test_update
 
         The two domain managers are used to independently bin and
         construct the neighbor list for each particle. The neighbors
@@ -263,41 +263,79 @@ class RadixSortNeighborLocator(LocatorTestCase):
         and thus are equivalent.
 
         """
+
+        self.cl_manager = base.RadixSortManager(
+            arrays=[self.cl_pa,],
+            kernel_scale_factor=self.kernel_scale_factor,
+            device='CPU')
+
         name = self.cy_pa.name
         
-        cy = self.cy_manager
-        cl = self.cl_manager
+        cy_manager = self.cy_manager
+        cl_manager = self.cl_manager
 
         # update the structure 
-        cy.update()
-        cl.update()
+        cy_manager.update()
+        cl_manager.update()
 
-        # read the buffer contents for the OpenCL manager
-        cl.enqueue_copy()
-
-        # Get the updated data structures
-        cl_cellids = cl.cellids[name]
-        cl_indices = cl.indices[name]
-        cl_cellc = cl.cell_counts[name]
-
-        cy_cellids = cy.cellids[name]
-        cy_indices = cy.indices[name]
-        cy_cellc = cy.cell_counts[name]
+        # the number of cells should be the same
+        ncells = len(cy_manager.indices[name])
+        self.assertEqual( len(cy_manager.indices[name]), len(cl_manager.indices[name]) )
         
-        # Check the cell counts and sorted arrays (indices and cellids)        
-        self.assertEqual( len(cl_cellids), len(cy_cellids) )
-        self.assertEqual( len(cl_indices), len(cy_indices) )
-        self.assertEqual( len(cl_cellc), len(cy_cellc) )
+        self.assertEqual( len(cy_manager.cell_counts[name]), len(cl_manager.cell_counts[name]) )
 
-        np = len(cl_indices)
-        for i in range(np):
-            self.assertEqual( cl_cellids[i], cy_cellids[i] )
-            self.assertEqual( cl_indices[i], cy_indices[i] )
+        cy_cellids = cy_manager.cellids[name]
+        cl_cellids = cl_manager.cellids[name]
 
-        ncells1 = len(cl_cellc)
-        for i in range(ncells1):
-            self.assertEqual( cl_cellc[i], cy_cellc[i] )
+        for i in range(self.np):
+            self.assertEqual( cy_cellids[i], cl_cellids[i] )
+            self.assertEqual( cy_manager.indices[name][i], cl_manager.indices[name][i] )
+
+        for i in range( len(cy_manager.cell_counts[name]) ):    
+            self.assertEqual( cy_manager.cell_counts[name][i], cl_manager.cell_counts[name][i] )
+
+    @unittest.skipIf(clu.get_cl_devices()['GPU'] == [],"No GPU device detected")
+    def test_udpate_gpu(self):
+        """ RadixSortSPHNeighborLocator: test_update
+
+        The two domain managers are used to independently bin and
+        construct the neighbor list for each particle. The neighbors
+        within a cell are then compared. This test establshes that
+        OpenCL and Cython produce the same neighbor lists per cell,
+        and thus are equivalent.
+
+        """
+        self.cl_manager = base.RadixSortManager(
+            arrays=[self.cl_pa,],
+            kernel_scale_factor=self.kernel_scale_factor,
+            device='GPU')
+
+        name = self.cy_pa.name
         
+        cy_manager = self.cy_manager
+        cl_manager = self.cl_manager
+
+        # update the structure 
+        cy_manager.update()
+        cl_manager.update()
+
+        # the number of cells should be the same
+        ncells = len(cy_manager.indices[name])
+        self.assertEqual( len(cy_manager.indices[name]), len(cl_manager.indices[name]) )
+        
+        self.assertEqual( len(cy_manager.cell_counts[name]), len(cl_manager.cell_counts[name]) )
+
+        cy_cellids = cy_manager.cellids[name]
+        cl_cellids = cl_manager.cellids[name]
+
+        for i in range(self.np):
+            self.assertEqual( cy_cellids[i], cl_cellids[i] )
+            self.assertEqual( cy_manager.indices[name][i], cl_manager.indices[name][i] )
+
+        for i in range( len(cy_manager.cell_counts[name]) ):    
+            self.assertEqual( cy_manager.cell_counts[name][i], cl_manager.cell_counts[name][i] )
+
+    @attr(slow=True)
     def test_neighbor_locator(self):
         """RadixSortNeighborLocator: test_neighbor_locator
 
@@ -351,6 +389,7 @@ class RadixSortNeighborLocator(LocatorTestCase):
             for j in range(nnbrs):
                 self.assertEqual( loc_nbrs[j], brute_nbrs[j] )
 
+        
 if __name__ == "__main__":
     unittest.main()
 
