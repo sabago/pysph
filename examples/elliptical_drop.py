@@ -18,13 +18,21 @@ s = solver.FluidSolver(dim=2, integrator_type=integrator_type)
 s.set_time_step(dt)
 s.set_final_time(tf)
 
+# app.setup(
+#     solver=s,
+#     variable_h=False,
+#     create_particles=solver.fluid_solver.get_circular_patch, name='fluid', type=0,
+#     locator_type=base.NeighborLocatorType.SPHNeighborLocator,
+#     cl_locator_type=base.OpenCLNeighborLocatorType.LinkedListSPHNeighborLocator,
+#     domain_manager_type=base.DomainManagerType.LinkedListManager)
+
 app.setup(
     solver=s,
     variable_h=False,
     create_particles=solver.fluid_solver.get_circular_patch, name='fluid', type=0,
     locator_type=base.NeighborLocatorType.SPHNeighborLocator,
-    cl_locator_type=base.OpenCLNeighborLocatorType.LinkedListSPHNeighborLocator,
-    domain_manager_type=base.DomainManagerType.LinkedListManager)
+    cl_locator_type=base.OpenCLNeighborLocatorType.RadixSortNeighborLocator,
+    domain_manager_type=base.DomainManagerType.RadixSortManager)
 
 if app.options.with_cl:
     msg = """\n\n

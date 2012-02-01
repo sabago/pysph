@@ -16,7 +16,7 @@ from point import Point
 from cell import py_find_cell_id
 
 # radix sort class
-from radix_sort import AMDRadixSort
+from radix_sort import AMDRadixSort, NvidiaRadixSort
 
 class DomainManagerType:
     DomainManager = 0
@@ -24,7 +24,7 @@ class DomainManagerType:
     RadixSortManager = 2
 
 class DomainManager:
-    def __init__(self, arrays, context=None, with_cl=True):
+    def __init__(self, arrays, context=None, with_cl=True, device='CPU'):
 
         if len(arrays) == 0:
             raise RuntimeError("No Arrays provided!")
@@ -50,7 +50,7 @@ class DomainManager:
         if with_cl:
             if HAS_CL:
                 self.with_cl = True
-                self._setup_cl(context)
+                self._setup_cl(context, device)
             else:
                 raise RuntimeError("PyOpenCL not found!")
         else:
@@ -81,11 +81,14 @@ class DomainManager:
     ###########################################################################
     # non-public interface
     ###########################################################################
-    def _setup_cl(self, context=None):
+    def _setup_cl(self, context=None, device=None):
         """ OpenCL setup for the CLNNPSManager  """
 
         if not context:
-            self.context = context = create_some_context()
+            if device=='GPU' or device=='gpu':
+                self.context = context = clu.create_context_from_gpu()
+            else:
+                self.context = context = clu.create_context_from_cpu()
         else:
             self.context = context
 
@@ -296,6 +299,7 @@ class LinkedListManager(DomainManager):
         self.head = {}
         self.cellids = {}
         self.locks = {}
+        self.indices = {}
 
         self.ix = {}
         self.iy = {}
@@ -306,6 +310,7 @@ class LinkedListManager(DomainManager):
         self.dhead = {}
         self.dcellids = {}
         self.dlocks = {}
+        self.dindices = {}
 
         self.dix = {}
         self.diy = {}
@@ -390,7 +395,8 @@ class LinkedListManager(DomainManager):
             next = numpy.ones(np, numpy.int32) * numpy.int32(-1)
             cellids = numpy.ones(np, numpy.uint32)
             locks = numpy.zeros(ncells, numpy.int32)
-
+            indices = numpy.arange(np, dtype=numpy.uint32)
+            
             ix = numpy.ones(np, numpy.uint32)
             iy = numpy.ones(np, numpy.uint32)
             iz = numpy.ones(np, numpy.uint32)
@@ -399,6 +405,7 @@ class LinkedListManager(DomainManager):
             self.Next[pa.name] = next
             self.cellids[pa.name] = cellids
             self.locks[pa.name] = locks
+            self.indices[pa.name] = indices
 
             self.ix[pa.name] = ix
             self.iy[pa.name] = iy
@@ -422,6 +429,7 @@ class LinkedListManager(DomainManager):
             next = self.Next[pa.name]
             cellids = self.cellids[pa.name]
             locks = self.locks[pa.name]
+            indices = self.indices[pa.name]
 
             ix = self.ix[pa.name]
             iy = self.iy[pa.name]
@@ -441,6 +449,10 @@ class LinkedListManager(DomainManager):
                                mf.READ_WRITE | mf.COPY_HOST_PTR,
                                hostbuf=locks)
 
+            dindices = cl.Buffer(self.context,
+                                 mf.READ_WRITE | mf.COPY_HOST_PTR,
+                                 hostbuf=indices)
+            
             dix = cl.Buffer(self.context,
                             mf.READ_WRITE | mf.COPY_HOST_PTR,
                             hostbuf=ix)
@@ -457,6 +469,7 @@ class LinkedListManager(DomainManager):
             self.dnext[pa.name] = dnext
             self.dcellids[pa.name] = dcellids
             self.dlocks[pa.name] = dlocks
+            self.dindices[pa.name] = dindices
 
             self.dix[pa.name] = dix
             self.diy[pa.name] = diy
@@ -684,7 +697,7 @@ class RadixSortManager(DomainManager):
     """
 
     def __init__(self, arrays, cell_size=None, context=None,
-                 kernel_scale_factor = 2.0, with_cl=True):
+                 kernel_scale_factor = 2.0, with_cl=True, device='CPU'):
         """ Construct a RadixSort manager.
 
         Parameters:
@@ -715,8 +728,8 @@ class RadixSortManager(DomainManager):
         maximum smoothing length for all particles in the domain.
 
         """
-
-        DomainManager.__init__(self, arrays, context, with_cl)
+    
+        DomainManager.__init__(self, arrays, context, with_cl, device)
 
         # set the kernel scale factor
         self.kernel_scale_factor = kernel_scale_factor
@@ -779,8 +792,13 @@ class RadixSortManager(DomainManager):
         """
         if self.with_cl:
             for pa in self.arrays:
-                enqueue_copy(queue=self.queue,
-                             dst=self.cell_counts[pa.name],
+                enqueue_copy(self.queue, dst=self.cellids[pa.name],
+                             src=self.dcellids[pa.name])
+
+                enqueue_copy(self.queue, dst=self.indices[pa.name],
+                             src=self.dindices[pa.name])
+                                
+                enqueue_copy(queue=self.queue, dst=self.cell_counts[pa.name],
                              src=self.dcell_counts[pa.name])
 
     ###########################################################################
@@ -857,8 +875,8 @@ class RadixSortManager(DomainManager):
         """Setup the RadixSort objects to be used.
 
         Currently, only the AMDRadixSort is available which works on
-        both the CPU and the GPU. When the Nvidia's sort is ported,
-        we'd have a better option on Nvidia GPUs.
+        both the CPU and the GPU. The NvidiaRadixSort works only on 
+        Nvidia GPU's.
 
         """
         narrays = self.narrays
@@ -871,16 +889,14 @@ class RadixSortManager(DomainManager):
         else:
             ctx = self.context                
 
-            for i in range(narrays):
-                pa = self.arrays[i]
-
-                # use the AMD radix sort implementation for CPU devices 
+            for pa in self.arrays:
                 if clu.iscpucontext(ctx):
                     rsort[ pa.name ] = AMDRadixSort()
 
-                # for Nvidia GPU's we prolly want to use their implemetation
                 elif clu.isgpucontext(ctx):
-                    raise NotImplementedError
+                    #rsort[ pa.name ] = AMDRadixSort()
+                    rsort[ pa.name ] = NvidiaRadixSort()
+                                                                        
     
     def _cl_update(self):
         """Update the data structures.
@@ -919,8 +935,13 @@ class RadixSortManager(DomainManager):
             
             # bin the particles to get device cellids
             cellids = self.cellids[pa.name]
+            indices = self.indices[pa.name]
+            cellc = self.cell_counts[pa.name]
+
             dcellids = self.dcellids[pa.name]
-            
+            dindices = self.dindices[pa.name]
+            dcell_counts = self.dcell_counts[pa.name]
+                        
             self.prog.bin( q, global_sizes, local_sizes,
                            x, y, z, dcellids, self.cell_size,
                            ncx, ncy, ncz, mcx, mcy, mcz ).wait()
@@ -930,27 +951,25 @@ class RadixSortManager(DomainManager):
 
             # initialize the RadixSort with keys and values
             keys = cellids
-            values = self.indices[pa.name]
+            values = indices
 
             rsort = self.rsort[ pa.name ]
             rsort.initialize(keys, values, self.context)
-
+            
             # sort the keys (cellids) and values (indices)
             rsort.sort()
             
-            # now compute the cell counts array from the sorted cellids
-            # ALSO, DCELLIDS IS PROBABLY PADDED WITH EXTRA ELEMENTS SO WE
-            # MUST BE CAREFUL. MAYBE THE GLOBAL SIZE (NP) WILL TAKE CARE
-            # OF IT BUT I DON'T KNOW
-            dcell_counts = self.dcell_counts[pa.name]
-            sortedcellids = rsort.dsortedkeys
+            sortedcellids = rsort.dkeys
+
             self.prog.compute_cell_counts(q, global_sizes, local_sizes,
                                           sortedcellids, dcell_counts,
-                                          self.ncells, numpy.uint32(np)).wait()
+                                          numpy.uint32(self.ncells),
+                                          numpy.uint32(np)).wait()
 
             # read the result back to host
             # THIS MAY NEED TO BE DONE OR WE COULD SIMPLY LET IT RESIDE
             # ON THE DEVICE.
+            clu.enqueue_copy(q, src=dcell_counts, dst=self.cell_counts[pa.name])
 
     def _py_update(self):
         """Update the data structures using Python"""
@@ -982,7 +1001,7 @@ class RadixSortManager(DomainManager):
 
             rsort = self.rsort[pa.name]
             rsort._sort_cpu(keys, values)
-
+            
             # compute the cell_count array
             cellc = self.cell_counts[pa.name]
             cellids = keys

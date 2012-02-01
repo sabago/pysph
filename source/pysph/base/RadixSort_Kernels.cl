@@ -95,6 +95,7 @@ jurisdiction and venue of these courts.
  */
 
 #pragma OPENCL EXTENSION cl_khr_byte_addressable_store : enable 
+// #pragma OPENCL EXTENSION cl_amd_printf : enable
 
 #define RADIX 8
 #define RADICES (1 << RADIX) // Number of elemets handled by each work-item
@@ -183,9 +184,9 @@ void permute(__global const uint* unsortedData,
         uint value = unsortedData[globalId * RADICES + i];
         value = (value >> shiftCount) & 0xFFU;
         uint index = sharedBuckets[localId * RADICES + value];
-	
-	// permute
         sortedData[index] = unsortedData[globalId * RADICES + i];
+
+	// permute the values as well
 	sortedValues[index] = unsortedValues[globalId * RADICES + i];
 
         sharedBuckets[localId * RADICES + value] = index + 1;

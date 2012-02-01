@@ -44,3 +44,5 @@ from locator import OpenCLNeighborLocatorType
 
 # radix sort
 from radix_sort import AMDRadixSort
+
+import nnps_util

@@ -23,14 +23,15 @@ __kernel void EnergyEquationNoVisc(%(kernel_args)s)
     %(workgroup_code)s
 
     // The term `dest_id` will be suitably defined at this point.
+    int particle_id = indices[dest_id];
 
-    REAL4 ra = (REAL4)( d_x[dest_id], d_y[dest_id], 
-                        d_z[dest_id], d_h[dest_id] );
+    REAL4 ra = (REAL4)( d_x[particle_id], d_y[particle_id], 
+                        d_z[particle_id], d_h[particle_id] );
 
-    REAL rhoa = d_rho[dest_id];
-    REAL Pa = d_p[dest_id];
+    REAL rhoa = d_rho[particle_id];
+    REAL Pa = d_p[particle_id];
 
-    REAL4 va = (REAL4)(d_u[dest_id], d_v[dest_id], d_w[dest_id], 0.0F);
+    REAL4 va = (REAL4)(d_u[particle_id], d_v[particle_id], d_w[particle_id], 0.0F);
 
     REAL4 grad;
     REAL temp;
@@ -39,7 +40,7 @@ __kernel void EnergyEquationNoVisc(%(kernel_args)s)
     REAL Pb, mb, rhob;
     REAL4 rb, vb; 
 
-    dst_rad = d_h[dest_id] * kernel_radius;
+    dst_rad = d_h[particle_id] * kernel_radius;
 
     %(neighbor_loop_code_start)s 
 
@@ -65,7 +66,7 @@ __kernel void EnergyEquationNoVisc(%(kernel_args)s)
 
 	    kernel_gradient(ra, rb, &grad, dim, kernel_type);
 
-	    tmpx[dest_id] += temp * ( dot(va-vb, grad) );
+	    tmpx[particle_id] += temp * ( dot(va-vb, grad) );
 
 	  }
 
@@ -103,21 +104,22 @@ __kernel void EnergyEquationWithVisc(%(kernel_args)s)
     %(workgroup_code)s
 
     // The term `dest_id` will be suitably defined at this point.
+    int particle_id = indices[dest_id];
 
-    REAL4 ra = (REAL4)( d_x[dest_id], d_y[dest_id], 
-                        d_z[dest_id], d_h[dest_id] );
+    REAL4 ra = (REAL4)( d_x[particle_id], d_y[particle_id], 
+                        d_z[particle_id], d_h[particle_id] );
   
-    REAL4 va = (REAL4)(d_u[dest_id], d_v[dest_id], d_w[dest_id], 0.0F);
+    REAL4 va = (REAL4)(d_u[particle_id], d_v[particle_id], d_w[particle_id], 0.0F);
     
-    REAL rhoa = d_rho[dest_id];
-    REAL Pa = d_p[dest_id];
+    REAL rhoa = d_rho[particle_id];
+    REAL Pa = d_p[particle_id];
     REAL4 grad, rb, vb;
     REAL temp, Pi_ab;
  
     REAL Pb, rhob, dot_product, dist;
     REAL dst_rad, src_rad;
 
-    dst_rad = d_h[dest_id] * kernel_radius;
+    dst_rad = d_h[particle_id] * kernel_radius;
 
     %(neighbor_loop_code_start)s 
 
@@ -148,10 +150,10 @@ __kernel void EnergyEquationWithVisc(%(kernel_args)s)
 	    Pi_ab = 0.0F;	
 	    if ( dot_product < 0.0F )
 	      {
-		REAL cab = 0.5F * ( d_cs[dest_id] + s_cs[src_id] );
+		REAL cab = 0.5F * ( d_cs[particle_id] + s_cs[src_id] );
 		REAL rhoab = 0.5F * (rhoa + rhob);
 	    
-		REAL hab = 0.5F * ( d_h[dest_id] + s_h[src_id] );
+		REAL hab = 0.5F * ( d_h[particle_id] + s_h[src_id] );
 		REAL mu = dot_product*hab;
 		REAL norm = length(ra-rb);
 
@@ -165,7 +167,7 @@ __kernel void EnergyEquationWithVisc(%(kernel_args)s)
 	    temp += Pi_ab;
 	    temp *= 0.5F*s_m[src_id];
 
-	    tmpx[dest_id] += temp * dot( va-vb, grad );
+	    tmpx[particle_id] += temp * dot( va-vb, grad );
 
 	  }
 

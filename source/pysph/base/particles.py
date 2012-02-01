@@ -435,6 +435,11 @@ class CLParticles(Particles):
                 arrays=self.arrays, context = context
                 )
 
+        if self.domain_manager_type == CLDomain.RadixSortManager:
+            return domain_manager.RadixSortManager(
+                arrays=self.arrays, context = context
+                )
+
         else:
             msg = "Manager type %s not understood!"%(self.domain_manager_type)
             raise ValueError(msg)
@@ -477,6 +482,17 @@ class CLParticles(Particles):
                 raise RuntimeError
 
             return locator.LinkedListSPHNeighborLocator(
+                manager=self.domain_manager, source=source, dest=dest,
+                scale_fac=scale_fac)
+
+        if self.cl_locator_type == \
+               CLLocator.RadixSortNeighborLocator:
+
+            if not self.domain_manager_type == \
+                   CLDomain.RadixSortManager:
+                raise RuntimeError
+
+            return locator.RadixSortNeighborLocator(
                 manager=self.domain_manager, source=source, dest=dest,
                 scale_fac=scale_fac)
 
