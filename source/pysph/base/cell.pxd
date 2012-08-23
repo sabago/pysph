@@ -35,8 +35,7 @@ cdef class Cell:
     cdef int num_arrays
 
     # Periodicity and ghost cells
-    cdef public PeriodicDomain periodic_domain
-    cdef public DomainLimits limits
+    cdef public DomainLimits domain
     
     # Member functions.
     cpdef int add_particles(self, Cell cell) except -1
@@ -93,8 +92,8 @@ cdef class CellManager:
     cdef public bint initialized
 
     # Periodicity and ghost cells
-    cdef public PeriodicDomain periodic_domain
-    cdef public DomainLimits limits
+    cdef public DomainLimits domain
+    cdef public bint periodicity
     cdef public dict ghost_cells
 
     # minimum and maximum smoothing lengths
@@ -191,4 +190,4 @@ cdef class DomainLimits:
     cdef public double ztranslate
 
     cdef public int dim
-    cdef public bint is_periodic
+    cdef public bint periodicity

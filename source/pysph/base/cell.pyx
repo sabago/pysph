@@ -244,7 +244,7 @@ cdef class Cell:
     """
 
     def __init__(self, IntPoint id, CellManager cell_manager=None, double
-                 cell_size=0.1, PeriodicDomain periodic_domain=None,
+                 cell_size=0.1, DomainLimits domain = None,
                  int jump_tolerance=1):
 
         self.id = IntPoint_new(id.x, id.y, id.z)
@@ -255,7 +255,7 @@ cdef class Cell:
 
         self.arrays_to_bin = []
 
-        self.periodic_domain = periodic_domain
+        self.domain = domain
 
         self.set_cell_manager(cell_manager)
     
@@ -305,7 +305,7 @@ cdef class Cell:
         cdef Cell cell = Cell(id=id, cell_manager=self.cell_manager,
                               cell_size=self.cell_size,
                               jump_tolerance=self.jump_tolerance,
-                              periodic_domain=self.periodic_domain)
+                              domain=self.domain)
         return cell
 
     cpdef int update(self, dict data) except -1:
@@ -348,6 +348,7 @@ cdef class Cell:
         cdef LongArray to_remove = LongArray()
         cdef IntPoint id = IntPoint_new(0,0,0)
         cdef int num_arrays = self.num_arrays
+        cdef DomainLimits domain = self.domain
         
         for i in range(self.num_arrays):
             
@@ -380,32 +381,30 @@ cdef class Cell:
                     pnt.y = ya.data[particle_id]
                     pnt.z = za.data[particle_id]
 
-                    if self.periodic_domain:
+                    if domain.periodicity:
 
-                        if pnt.x >= self.periodic_domain.xmax:
-                            pnt.x -= self.periodic_domain.xtranslate
+                        if pnt.x >= domain.xmax:
+                            pnt.x -= domain.xtranslate
 
-                        if pnt.x <= self.periodic_domain.xmin:
-                            pnt.x += self.periodic_domain.xtranslate
+                        if pnt.x <= domain.xmin:
+                            pnt.x += domain.xtranslate
 
                     # find the cell containing this point
                     
                     id.data = find_cell_id(pnt, self.cell_size)
                     # check for jump tolerance if not periodic
 
-                    if not self.periodic_domain:
+                    if not domain.periodicity:
                         self.cell_manager.check_jump_tolerance(self.id.data,
                                                                id.data)
 
                     # do nothing if the particle is within this cell
-                    
                     if cIntPoint_is_equal(self.id.data, id.data):
                         continue
 
                     to_remove.append(j)
                     
                     # create new cell if id doesn't exist and add particles
-
                     if PyDict_Contains( data, id ):
                         cell = <Cell>PyDict_GetItem( data, id )
                     else:
@@ -416,7 +415,6 @@ cdef class Cell:
                     cell_index_array.append( particle_id )
 
             # now remove all escaped and invalid particles.
-
             index_array.remove(to_remove.get_npy_array())
 
         return 0
@@ -606,7 +604,7 @@ cdef class Cell:
         cdef IntPoint diff
 
         cdef int i, ncopies, start_index, end_index
-        cdef PeriodicDomain periodic_domain = self.periodic_domain 
+        cdef DomainLimits domain = self.domain
         
         cdef Cell copied_cell = self.get_new_sibling( cid )
 
@@ -624,19 +622,19 @@ cdef class Cell:
             z = pa_copy.get('z')
 
             if diff.data.x > 0:
-                x += periodic_domain.xtranslate
+                x += domain.xtranslate
             else:
-                x -= periodic_domain.xtranslate
+                x -= domain.xtranslate
 
             if diff.data.y > 0:
-                y += periodic_domain.ytranslate
+                y += domain.ytranslate
             else:
-                y -= periodic_domain.ytranslate
+                y -= domain.ytranslate
 
             if diff.data.z > 0:
-                z += periodic_domain.ztranslate
+                z += domain.ztranslate
             else:
-                z -= periodic_domain.ztranslate
+                z -= domain.ztranslate
 
             tag[:] = particle_tag
 
@@ -754,7 +752,7 @@ cdef class CellManager:
     #cdef public bint initialized    
     #cdef public int num_arrays
     #cdef public double radius_scale
-    #cdef public PeriodicDomain periodic_domain
+    #cdef public DomainLimits domain
 
     """Cell Manager class
 
@@ -802,8 +800,9 @@ cdef class CellManager:
     """
 
     def __init__(self, list arrays_to_bin=[], double min_cell_size=-1.0,
-                 double max_cell_size=0, PeriodicDomain periodic_domain=None,
-                 bint initialize=True, double radius_scale = 3.0, limits=None):
+                 double max_cell_size=0,
+                 bint initialize=True, double radius_scale = 3.0,
+                 domain=None):
         """ Constructor for the CellManager.
 
         Paramters:
@@ -820,10 +819,7 @@ cdef class CellManager:
             An optional argument suggesting the maximum cell size to use for
             binning.
 
-        periodic_domain : base.PeriodicDomain
-            Optional periodicity information
-
-        limits : DomainLimits
+        domain : DomainLimits
             Optional information about the domain
 
         max_radius_scale : double
@@ -856,9 +852,12 @@ cdef class CellManager:
         # set the cell size temporarily
         self.cell_size = 0
 
-        self.periodic_domain = periodic_domain
-        # domain limits
-        self.limits = limits
+        # domain limits and periodicity
+        self.domain = domain
+        self.periodicity = False
+
+        if domain is not None:
+            self.periodicity = domain.periodicity            
 
         # set the dirty bit to True
         self.is_dirty = True
@@ -964,7 +963,7 @@ cdef class CellManager:
             self.delete_empty_cells()
 
             # create ghost cells
-            if self.periodic_domain:
+            if self.periodicity:
                 self.create_ghost_cells()
 
             # reset the dirty bit of all particle arrays.
@@ -1107,7 +1106,7 @@ cdef class CellManager:
         # create a single cell at the origin
         cell = Cell(id=IntPoint(0, 0, 0), cell_manager=self,
                     cell_size=self.cell_size, jump_tolerance=INT_MAX,
-                    periodic_domain=self.periodic_domain)
+                    domain=self.domain)
         
         # add all particles of all arrays to this cell.
         for i in range(num_arrays):
@@ -1326,7 +1325,7 @@ cdef class CellManager:
         cdef list cells = PyDict_Values( self.cells_dict )
         cdef int ncells = PyList_Size( cells )
 
-        cdef PeriodicDomain domain = self.periodic_domain
+        cdef DomainLimits domain = self.domain
 
         cdef double dist = self.radius_scale  * self.max_h
         cdef double half_cell_size = 0.5 * self.cell_size
@@ -1656,7 +1655,7 @@ cdef class DomainLimits:
 
     """
     def __init__(self, int dim=1, double xmin=-1000, double xmax=1000, double ymin=0,
-                 double ymax=0, double zmin=0, double zmax=0, is_periodic=False):
+                 double ymax=0, double zmin=0, double zmax=0, periodicity=False):
         """Constructor"""
         self._check_limits(dim, xmin, xmax, ymin, ymax, zmin, zmax)
         
@@ -1665,7 +1664,7 @@ cdef class DomainLimits:
         self.zmin = zmin; self.zmax = zmax
 
         # Indicates if the domain is periodic
-        self.is_periodic = is_periodic
+        self.periodicity = periodicity
 
         # get the translates in each coordinate direction
         self.xtranslate = xmax - xmin
@@ -1675,7 +1674,7 @@ cdef class DomainLimits:
         # store the dimension
         self.dim = dim
 
-    def _check_limits(self, xmin, xmax, ymin, ymax, zmin, zmax):
+    def _check_limits(self, dim, xmin, xmax, ymin, ymax, zmin, zmax):
         """Sanity check on the limits"""
         if ( (xmax < xmin) or (ymax < ymin) or (zmax < zmin) ):
             raise ValueError("Invalid domain limits!")

@@ -334,13 +334,12 @@ class CellTestCase(unittest.TestCase):
         self.pa2 = pa2 = base.get_particle_array(name='test2',
                                                  x=x2, y=y2, z=z2, h=h2)
 
-        self.periodic_domain = periodic_domain = PeriodicDomain(xmin=-0.2,
-                                                                xmax=1.0)
+        self.domain = domain = DomainLimits(xmin=-0.2, xmax=1.0, periodicity=True)
 
     def test_constructor(self):
         
         cm = CellManager(arrays_to_bin=[self.pa1, self.pa2],
-                         periodic_domain=None,radius_scale=2)
+                         domain=None,radius_scale=2)
 
         self.assertAlmostEqual(cm.cell_size, 0.3, 10)
 
@@ -361,7 +360,7 @@ class CellTestCase(unittest.TestCase):
     def test_cell_copy(self):
 
         cm = CellManager(arrays_to_bin=[self.pa1, self.pa2],
-                         periodic_domain=None,radius_scale=2)
+                         domain=None,radius_scale=2)
 
         pa1 = cm.arrays_to_bin[0]
         pa2 = cm.arrays_to_bin[1]
@@ -400,14 +399,13 @@ class CellTestCase(unittest.TestCase):
 
     def test_create_ghost_cells(self):
         cm = CellManager(arrays_to_bin=[self.pa1, self.pa2],
-                         periodic_domain=self.periodic_domain,radius_scale=2)
+                         domain=self.domain,radius_scale=2)
 
         cells = cm.cells_dict
-
+        
         self.assertEqual(len(cells), 28)
 
         # test deletion of ghost particles
-
         cm.remove_ghost_particles()
 
         self.assertEqual(self.pa1.get_number_of_particles(), 25)
