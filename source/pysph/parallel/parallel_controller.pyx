@@ -19,14 +19,12 @@ cdef class ParallelController:
     
     # some message tags that will be used while communication appear as class
     # attributes here.
-    
 
     def __init__(self, *args, **kwargs):
         """
         Constructor.
         """
-        self.comm = MPI.COMM_WORLD
-        comm = self.comm
+        self.comm = comm = MPI.COMM_WORLD
         self.num_procs = comm.Get_size()
         self.rank = comm.Get_rank()
         
@@ -150,12 +148,22 @@ cdef class ParallelController:
                     result_max[prop] = proc_max_data[prop]
 
     def setup_control_tree(self):
-        """
-        Setup the processor ids of the parent and children.
+        """Setup the processor ids of the parent and children.
+
+        For example, a tree with 5 nodes is shown below:
+
+                             0
+                            / \
+                           /   \
+                          1     2
+                         / \   
+                        /   \
+                       3     4
+
+        The root (parent) node has rank 0.
 
         """
-        if self.setup_control_tree_done == True:
-            return
+        if self.setup_control_tree_done == True: return
 
         # find the child ids.
         l_child_rank = self.rank*2 + 1
@@ -173,16 +181,12 @@ cdef class ParallelController:
 
         # find the parent ids.
         if self.rank == 0:
-            # root node - no parent
             self.parent_rank = -1
         else:
             if self.rank % 2 == 0:
-                # right child
                 self.parent_rank = self.rank/2 - 1
             else:
-                # left child.
-                self.parent_rank = (self.rank-1)/2
-        
+                self.parent_rank = (self.rank-1)/2 
 
         if self.l_child_rank != -1:
             self.children_proc_ranks.append(self.l_child_rank)
