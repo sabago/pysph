@@ -68,9 +68,6 @@ class TestCell(unittest.TestCase):
         cell = Cell(IntPoint(0, 0, 0), cell_manager=None, cell_size=0.1)
         
         self.assertEqual(cell.id, IntPoint(0, 0, 0))
-        self.assertEqual(cell.coord_x=='x', True)
-        self.assertEqual(cell.coord_y=='y', True)
-        self.assertEqual(cell.coord_z=='z', True)
 
         self.assertEqual(cell.cell_size == 0.1, True)
         self.assertEqual(cell.cell_manager == None, True)
@@ -79,19 +76,16 @@ class TestCell(unittest.TestCase):
 
     def test_set_cell_manager(self):
         """Tests the set_cell_manager function."""
-        cell_manager = CellManager([],max_radius_scale=2)
+        cell_manager = CellManager([],radius_scale=2)
 
         cell = Cell(IntPoint(0, 0, 0), cell_manager=cell_manager, cell_size=0.1)
 
         self.assertEqual(cell.arrays_to_bin == [], True)
-        self.assertEqual(cell.coord_x, cell_manager.coord_x, True)
-        self.assertEqual(cell.coord_y, cell_manager.coord_y, True)
-        self.assertEqual(cell.coord_z, cell_manager.coord_z, True)
         
         cell = Cell(IntPoint(0, 0, 0), cell_manager=None, cell_size=0.1)
 
         p_arrs = generate_sample_dataset_1()
-        cm = CellManager(arrays_to_bin=p_arrs, initialize=False, max_radius_scale=2)
+        cm = CellManager(arrays_to_bin=p_arrs, initialize=False, radius_scale=2)
         cell.set_cell_manager(cm)
 
         self.assertEqual(len(cell.index_lists), 2)
@@ -118,7 +112,7 @@ class TestCell(unittest.TestCase):
         Tests the update function.
         """
         p_arrs = generate_sample_dataset_1()
-        cm = CellManager(arrays_to_bin=p_arrs, initialize=False, max_radius_scale=2)
+        cm = CellManager(arrays_to_bin=p_arrs, initialize=False, radius_scale=2)
         
         cell = Cell(IntPoint(0, 0, 0), cell_manager=cm, cell_size=1.0, jump_tolerance=1)
 
@@ -210,7 +204,7 @@ class TestCell(unittest.TestCase):
         Tests the get_particle_counts_ids function.
         """
         p_arrs = generate_sample_dataset_1()
-        cm = CellManager(arrays_to_bin=p_arrs, initialize=False,max_radius_scale=2)
+        cm = CellManager(arrays_to_bin=p_arrs, initialize=False,radius_scale=2)
         
         cell = Cell(IntPoint(0, 0, 0), cell_manager=cm, cell_size=1.0,
                         jump_tolerance=1)
@@ -241,7 +235,7 @@ class TestCell(unittest.TestCase):
         Tests the add_particles function.
         """
         p_arrs = generate_sample_dataset_1()
-        cm = CellManager(arrays_to_bin=p_arrs, initialize=False,max_radius_scale=2)
+        cm = CellManager(arrays_to_bin=p_arrs, initialize=False,radius_scale=2)
         
         cell1 = Cell(IntPoint(0, 0, 0), cell_manager=cm, cell_size=1.0, jump_tolerance=1)
         cell2 = Cell(IntPoint(0, 0, 0), cell_manager=cm, cell_size=1.0, jump_tolerance=1)
@@ -346,7 +340,7 @@ class CellTestCase(unittest.TestCase):
     def test_constructor(self):
         
         cm = CellManager(arrays_to_bin=[self.pa1, self.pa2],
-                         periodic_domain=None,max_radius_scale=2)
+                         periodic_domain=None,radius_scale=2)
 
         self.assertAlmostEqual(cm.cell_size, 0.3, 10)
 
@@ -367,7 +361,7 @@ class CellTestCase(unittest.TestCase):
     def test_cell_copy(self):
 
         cm = CellManager(arrays_to_bin=[self.pa1, self.pa2],
-                         periodic_domain=None,max_radius_scale=2)
+                         periodic_domain=None,radius_scale=2)
 
         pa1 = cm.arrays_to_bin[0]
         pa2 = cm.arrays_to_bin[1]
@@ -406,7 +400,7 @@ class CellTestCase(unittest.TestCase):
 
     def test_create_ghost_cells(self):
         cm = CellManager(arrays_to_bin=[self.pa1, self.pa2],
-                         periodic_domain=self.periodic_domain,max_radius_scale=2)
+                         periodic_domain=self.periodic_domain,radius_scale=2)
 
         cells = cm.cells_dict
 
@@ -443,7 +437,7 @@ class TestCellManager(unittest.TestCase):
 
     def test_constructor(self):
         """Tests the constructor."""
-        cm = CellManager(initialize=False,max_radius_scale=2)
+        cm = CellManager(initialize=False,radius_scale=2.0)
         
         # Some checks that should hold prior to cell_manager initialization.
         self.assertEqual(len(cm.array_indices), 0)
@@ -451,9 +445,6 @@ class TestCellManager(unittest.TestCase):
         self.assertEqual(cm.min_cell_size, -1.0)
         self.assertEqual(cm.max_cell_size, 0)
         self.assertEqual(cm.jump_tolerance, 1)
-        self.assertEqual(cm.coord_x, 'x')
-        self.assertEqual(cm.coord_y, 'y')
-        self.assertEqual(cm.coord_z, 'z')
         self.assertEqual(len(cm.cells_dict), 0)
         
         # now call initialize
@@ -466,18 +457,17 @@ class TestCellManager(unittest.TestCase):
         """ Test that cell_size is set properly """
         pas = generate_sample_dataset_1() # h==1
         
-        # times of the h that cell_size is set to
-        fac = 2.0
-        cm = CellManager(arrays_to_bin=pas, initialize=False,max_radius_scale=2)
+        fac = 2.0 # radius_scale
+        cm = CellManager(arrays_to_bin=pas, initialize=False,radius_scale=fac)
         self.assertEqual(cm.cell_size, 0.0)
         cm.initialize()
-        self.assertAlmostEqual(cm.cell_size, 2.0, 10)
+        self.assertAlmostEqual(cm.cell_size, fac, 10)
         
-        cm = CellManager(arrays_to_bin=pas, min_cell_size=3.0,max_radius_scale=2)
-        self.assertEqual(cm.cell_size, 3.0)
+        cm = CellManager(arrays_to_bin=pas, min_cell_size=3.0,radius_scale=fac)
+        self.assertAlmostEqual(cm.cell_size, 3.0, 10)
         
         pas[0].h = numpy.linspace(0.2, 2, len(pas[0].h))
-        cm = CellManager(arrays_to_bin=pas, min_cell_size=-0.1,max_radius_scale=2)
+        cm = CellManager(arrays_to_bin=pas, min_cell_size=-0.1,radius_scale=2)
 
         val = max(pas[0].h)
         self.assertEqual(cm.cell_size, fac*val)
@@ -485,7 +475,7 @@ class TestCellManager(unittest.TestCase):
     def test_rebuild_array_indices(self):
         """Tests the _rebuild_array_indices function."""
         p_arrs = self.generate_random_particle_data(3, 10)
-        cm = CellManager(arrays_to_bin=p_arrs, initialize=False,max_radius_scale=2)
+        cm = CellManager(arrays_to_bin=p_arrs, initialize=False,radius_scale=2)
 
         cm.py_rebuild_array_indices()
 
@@ -499,7 +489,7 @@ class TestCellManager(unittest.TestCase):
         
     def test_compute_cell_size(self):
         """Tests the compute_cell_sizes function."""
-        cm = CellManager(initialize=False,max_radius_scale=2)
+        cm = CellManager(initialize=False,radius_scale=2)
         
         cm.py_compute_cell_size(100, cm.max_cell_size) 
 
@@ -533,7 +523,7 @@ class TestCellManager(unittest.TestCase):
         self.assertEqual(cell.jump_tolerance, INT_INF())
 
         p_arrs = self.generate_random_particle_data(3, 10)
-        cm = CellManager(arrays_to_bin=p_arrs, initialize=False,max_radius_scale=2)
+        cm = CellManager(arrays_to_bin=p_arrs, initialize=False,radius_scale=2)
 
         cm.py_rebuild_array_indices()
         cm.py_setup_cells_dict()
@@ -545,13 +535,13 @@ class TestCellManager(unittest.TestCase):
         """Test initialize with data from generate_sample_dataset_1."""
         p_arrs = generate_sample_dataset_1()
         cm = CellManager(arrays_to_bin=p_arrs, min_cell_size=2.,
-                         max_cell_size=2.,max_radius_scale=2)
+                         max_cell_size=2.,radius_scale=2)
         
         self.assertEqual(len(cm.cells_dict), 2)
         
         p_arrs = generate_sample_dataset_1()
         cm = CellManager(arrays_to_bin=p_arrs, min_cell_size=1.,
-                         max_cell_size=1.,max_radius_scale=2)
+                         max_cell_size=1.,radius_scale=2)
         
         self.assertEqual(len(cm.cells_dict), 7)
 
@@ -559,7 +549,7 @@ class TestCellManager(unittest.TestCase):
         """Test initialize with data from generate_sample_dataset_2"""
         p_arrs = generate_sample_dataset_2()
         cm = CellManager(arrays_to_bin=p_arrs, min_cell_size=1.,
-                         max_cell_size=1.,max_radius_scale=2)
+                         max_cell_size=1.,radius_scale=2)
 
         self.assertEqual(len(cm.cells_dict), 7)
         
@@ -572,13 +562,20 @@ class TestCellManager(unittest.TestCase):
     def test_update(self):
         """Tests the update function.
 
-        Use the dataset generated by generate_sample_dataset_2.
+        Use the dataset generated by generate_sample_dataset_2. This
+        function returns a single particle array with constant
+        smoothing length (h = 1)
 
-        We move three particles,  num 3, num 5 and num 7.
         """
         p_arrs = generate_sample_dataset_2()
         cm = CellManager(arrays_to_bin=p_arrs, min_cell_size=2.,
-                         max_cell_size=2.,max_radius_scale=2)
+                         max_cell_size=2.,radius_scale=2)
+
+        # cell size should be 2
+        self.assertAlmostEqual( cm.cell_size, 2.0, 10 )
+
+        # 5 cells are formed
+        self.assertEqual(len(cm.cells_dict), 5)
         
         # move particle 3 in +ve y direction by one unit.
         y = p_arrs[0].get_carray('y')
@@ -592,8 +589,6 @@ class TestCellManager(unittest.TestCase):
         curr_y_4 = y.get(4)
         y[4] = curr_y_4 - 1.0
 
-        # 5 cells are formed
-        self.assertEqual(len(cm.cells_dict), 5)
         # cell 0,0,0 has 3 particles since we have not updated
         self.assertEqual(cm.cells_dict[IntPoint()].py_get_number_of_particles(), 3)
         
@@ -602,9 +597,10 @@ class TestCellManager(unittest.TestCase):
         cm.py_update()
 
         # no change should occur, as we have NOT set the dirty bit of the
-        # parray.
+        # parray!
         self.assertEqual(len(cm.cells_dict), 5)
 
+        # These are the five original cells that are created
         self.assertEqual(cm.cells_dict.has_key(IntPoint(0, 0, 0)), True)
         self.assertEqual(cm.cells_dict.has_key(IntPoint(1, 0, 0)), True)
         self.assertEqual(cm.cells_dict.has_key(IntPoint(1, -1, 0)), True)
@@ -628,11 +624,10 @@ class TestCellManager(unittest.TestCase):
         cm.py_update_status(False)
         cm.py_update()
 
+        # new number of cells should be 6
         self.assertEqual(len(cm.cells_dict), 6)
 
         # make sure the proper cells have been created.
-        self.assertEqual(cm.cells_dict.has_key(IntPoint(0, 0, 0)), True)
-
         # cell 1,-1,0  should have been deleted.
         self.assertEqual(cm.cells_dict.has_key(IntPoint(1, -1, 0)), False)
 
@@ -662,9 +657,9 @@ class TestCellManager(unittest.TestCase):
         """
         p_arrs = generate_sample_dataset_2()
         cm = CellManager(arrays_to_bin=p_arrs, min_cell_size=1.,
-                         max_cell_size=1.,max_radius_scale=2)
+                         max_cell_size=1.,radius_scale=2)
         cm2 = CellManager(arrays_to_bin=p_arrs, min_cell_size=2.,
-                         max_cell_size=2.,max_radius_scale=2)
+                         max_cell_size=2.,radius_scale=2)
         
         # the cells would have been setup, we start issuing queries.
         cell_list = []
@@ -691,7 +686,7 @@ class TestCellManager(unittest.TestCase):
         """
         p_arrs = generate_sample_dataset_2()
         cm = CellManager(arrays_to_bin=p_arrs, min_cell_size=1.,
-                         max_cell_size=1.,max_radius_scale=2)
+                         max_cell_size=1.,radius_scale=2)
         
         # the hierarchy would have been setup, we start issuing queries.
         cell_list = []
@@ -720,7 +715,7 @@ class TestCellManager(unittest.TestCase):
         """
         p_arrs = generate_sample_dataset_2()
         cm = CellManager(arrays_to_bin=p_arrs, min_cell_size=1.,
-                         max_cell_size=1.,max_radius_scale=2)
+                         max_cell_size=1.,radius_scale=2)
         
         # the cells would have been setup, we start issuing queries.
         cell_list = []
@@ -763,7 +758,7 @@ class TestCellManager(unittest.TestCase):
         """
         p_arrs = generate_sample_dataset_2()
         cm = CellManager(arrays_to_bin=p_arrs, min_cell_size=2.,
-                         max_cell_size=2.,max_radius_scale=2)
+                         max_cell_size=2.,radius_scale=2)
         
         # the hierarchy would have been setup, we start issuing queries.
         cell_list = []
@@ -796,7 +791,7 @@ class TestCellManager(unittest.TestCase):
         """
         p_arrs = generate_sample_dataset_2()
         cm = CellManager(arrays_to_bin=p_arrs, min_cell_size=2.,
-                         max_cell_size=2.,max_radius_scale=2)
+                         max_cell_size=2.,radius_scale=2)
         
         # the cells would have been setup, we start issuing queries.
         cell_list = []
@@ -818,7 +813,7 @@ class TestCellManager(unittest.TestCase):
         """
         p_arrs = generate_sample_dataset_2()
         cm = CellManager(arrays_to_bin=p_arrs, min_cell_size=1.,
-                         max_cell_size=2.,max_radius_scale=2)
+                         max_cell_size=2.,radius_scale=2)
         
         # the cells would have been setup, we start issuing queries.
         cell_list = []
@@ -836,7 +831,7 @@ class TestCellManager(unittest.TestCase):
     def test_cells_update(self):
         """Tests the update function."""
         p_arrs = generate_sample_dataset_2()
-        cm = CellManager(arrays_to_bin=p_arrs, initialize=False,max_radius_scale=2)
+        cm = CellManager(arrays_to_bin=p_arrs, initialize=False,radius_scale=2)
         cm.cell_size = 2.0
 
         big_cell = Cell(IntPoint(0, 0, 0), cell_manager=cm,
